@@ -1,0 +1,19 @@
+# Core runtime dependencies.
+#
+# numpy is held below 2.0 on purpose: much of the ultralytics/pandas stack in
+# circulation is still compiled against the numpy 1.x C ABI, and mixing 2.x in
+# fails at import with "numpy.dtype size changed, may indicate binary
+# incompatibility". opencv is capped to match, since 5.x requires numpy 2.
+numpy>=1.24,<2.0
+opencv-python>=4.8.0,<5.0
+
+# Detection. 8.2+ reads YOLOv10 weights through the standard YOLO class;
+# the THU-MIG fork is also supported automatically if you already have it.
+ultralytics>=8.2.0
+
+# Offline OCR. Downloads its recognition models once, on first run.
+easyocr>=1.7.0
+
+# Imaging and desktop UI.
+Pillow>=10.0.0
+ttkbootstrap>=1.10.1

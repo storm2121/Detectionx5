@@ -1,0 +1,51 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Local secrets and settings
+.env
+.env.local
+
+# Pipeline output
+output/
+runs/
+crops/
+*.log
+
+# Model weights are large; only the committed detector in models/ is tracked.
+# Upstream YOLO checkpoints downloaded during training or export are not.
+yolov*.pt
+!models/best.pt
+
+# The upstream YOLOv10 source tree, if cloned here for training.
+yolov10/
+
+# PyInstaller
+*.spec
+*.manifest
+
+# Notebooks
+.ipynb_checkpoints/
+*-checkpoint.ipynb
+
+# Editors
+.vscode/
+.idea/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
