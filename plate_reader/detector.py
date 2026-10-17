@@ -82,8 +82,11 @@ class PlateDetector:
         if not image_path.exists():
             raise FileNotFoundError(f"Image not found: {image_path}")
 
+        # Newer Ultralytics defaults to the one-to-many head with external NMS.
+        # These YOLOv10 weights use the NMS-free one-to-one head; selecting it
+        # explicitly preserves the trained detector's boxes across versions.
         results = self._model.predict(
-            str(image_path), conf=self.confidence, verbose=False
+            str(image_path), conf=self.confidence, verbose=False, nms=False
         )
         if not results:
             return []

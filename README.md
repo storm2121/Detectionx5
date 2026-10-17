@@ -54,7 +54,8 @@ Two further details mattered more than expected:
 
 ## Install
 
-Python 3.10 or newer.
+Python 3.10–3.12. The current `numpy<2` requirement does not support Python 3.13
+or newer.
 
 ```bash
 git clone https://github.com/storm2121/Detectionx5.git
@@ -65,6 +66,9 @@ source .venv/bin/activate        # Windows: .venv\Scripts\activate
 
 pip install -r requirements.txt
 ```
+
+On Windows with several Python versions installed, create the environment with
+`py -3.11 -m venv .venv` to select a compatible interpreter.
 
 A virtual environment is strongly recommended. `requirements.txt` pins
 `numpy<2` because much of the ultralytics/pandas stack in circulation is still
@@ -111,6 +115,65 @@ print(result.plate.letter)      # 'ب'
 print(result.plate.region)      # '1'
 print(result.agreement)         # images that independently agreed
 ```
+
+## HTTP API
+
+Install `requirements.txt`, then start the FastAPI server from the project root:
+
+```bash
+uvicorn api:app --host 127.0.0.1 --port 8000
+```
+
+The detector and all three EasyOCR readers load once at startup and are reused
+across requests. Startup waits for them to be ready and fails if they cannot
+load. The first startup may download the OCR weights. Each server worker loads
+its own models; use one worker to keep a single copy in memory. The API uses
+the same `PLATE_MODEL`, `PLATE_CONF`, and `PLATE_GPU` settings as the CLI.
+
+`GET /health` returns `200` with `{"status":"ok"}` once startup completes.
+Interactive API documentation is available at <http://127.0.0.1:8000/docs>.
+
+`POST /read` accepts multipart uploads under the repeated `files` field. Send
+one to ten photos **of the same car** (JPEG, PNG, WebP, or BMP; up to 10 MiB
+each). For example, in a POSIX shell:
+
+```bash
+curl -X POST http://127.0.0.1:8000/read \
+  -F "files=@front.jpg" \
+  -F "files=@rear.jpg"
+```
+
+In Windows PowerShell:
+
+```powershell
+curl.exe -X POST http://127.0.0.1:8000/read -F "files=@front.jpg" -F "files=@rear.jpg"
+```
+
+Example response:
+
+```json
+{
+  "plate": "24830-ب-1",
+  "fields": {"digits": "24830", "letter": "ب", "region": "1"},
+  "confidence": 0.8,
+  "images_agreeing": 2,
+  "images_processed": 2
+}
+```
+
+`confidence` is the winning plate's fraction of all OCR- and detector-weighted
+votes, between 0 and 1. It measures relative vote support, not a calibrated
+probability of correctness. `images_agreeing` counts photos whose best reading
+matches the winning plate; each photo counts at most once. Temporary `WW`
+plates have `null` letter and region fields. If no valid plate can be read,
+the response is still `200`, with `plate` and `fields` set to `null`, confidence
+`0`, and `images_agreeing` `0`.
+
+Missing uploads return `422`; empty or corrupt images return `400`; unsupported
+image formats return `415`; exceeding the count or size limit returns `413`.
+Uploads use temporary files that are removed after each request, including
+failed requests. Model inference is serialized within a worker, while health
+checks can run independently.
 
 ## How it works
 
@@ -179,6 +242,7 @@ overridden by environment variable:
 config.py               paths and thresholds, all overridable
 cli.py                  command-line entry point
 gui.py                  ttkbootstrap desktop app
+api.py                  FastAPI upload and health endpoints
 plate_reader/
     detector.py         YOLO wrapper, IoU de-duplication, padded crops
     segment.py          plate isolation, separator detection, field cutting
@@ -201,6 +265,30 @@ pytest tests -q
 The text tests need nothing beyond pytest. The segmentation tests use the
 bundled sample and the committed weights, and skip automatically if those are
 unavailable.
+
+The API tests use FastAPI's `TestClient` with fake detector/OCR models and the
+real multi-photo voting pipeline, so they need no model downloads. They cover
+startup and model reuse, agreement and confidence, temporary and unreadable
+plates, upload validation, and temporary-file cleanup. Run them on their own
+with `pytest tests/test_api.py -q`.
+
+To include the real-model API regression test, which reads `samples/car.jpg`
+and checks for `24830-ب-1`, enable it explicitly. The OCR weights must be
+cached or downloadable on the first run:
+
+```bash
+PLATE_TEST_MODELS=1 pytest tests -q
+```
+
+In Windows PowerShell:
+
+```powershell
+$env:PLATE_TEST_MODELS = "1"
+.\.venv\Scripts\python.exe -m pytest tests -q
+```
+
+This checks single and multi-file requests using repeated copies of the sample;
+distinct photos of the same car are still needed to assess real-world agreement.
 
 ## Limitations
 

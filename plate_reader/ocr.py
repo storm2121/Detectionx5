@@ -99,6 +99,11 @@ class EasyOCRBackend:
             self._mixed_reader = self._reader(list(config.OCR_LANGUAGES))
         return self._mixed_reader
 
+    def load_models(self) -> None:
+        """Eagerly load every reader, reusing any that were already initialized."""
+        for reader_name in ("digit_reader", "letter_reader", "mixed_reader"):
+            getattr(self, reader_name)
+
     # --- reading -----------------------------------------------------------
     @staticmethod
     def _collect(reader, image: np.ndarray, allowlist: str | None) -> list[Reading]:
