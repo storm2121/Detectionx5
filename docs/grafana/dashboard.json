@@ -1,0 +1,98 @@
+{
+  "uid": "detectionx5-service",
+  "title": "DetectionX5 plate service",
+  "description": "Latency, calibrated confidence, prediction-set size, review queue and jobs of the plate service. Metrics come from GET /metrics and from span metrics produced by the OpenTelemetry collector.",
+  "schemaVersion": 39,
+  "version": 1,
+  "editable": true,
+  "time": {"from": "now-1h", "to": "now"},
+  "refresh": "10s",
+  "tags": ["detectionx5"],
+  "templating": {"list": []},
+  "panels": [
+    {
+      "id": 1,
+      "type": "timeseries",
+      "title": "Request latency p50 / p95 by route",
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "fieldConfig": {"defaults": {"unit": "s"}, "overrides": []},
+      "targets": [
+        {"refId": "A", "expr": "histogram_quantile(0.5, sum by (le, route) (rate(plate_request_seconds_bucket[5m])))", "legendFormat": "p50 {{route}}"},
+        {"refId": "B", "expr": "histogram_quantile(0.95, sum by (le, route) (rate(plate_request_seconds_bucket[5m])))", "legendFormat": "p95 {{route}}"}
+      ]
+    },
+    {
+      "id": 2,
+      "type": "timeseries",
+      "title": "Pipeline stage latency p95",
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "fieldConfig": {"defaults": {"unit": "s"}, "overrides": []},
+      "targets": [
+        {"refId": "A", "expr": "histogram_quantile(0.95, sum by (le, stage) (rate(plate_stage_seconds_bucket[5m])))", "legendFormat": "{{stage}}"}
+      ]
+    },
+    {
+      "id": 3,
+      "type": "bargauge",
+      "title": "Calibrated confidence of fused reads",
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 8},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "options": {"displayMode": "gradient", "orientation": "vertical"},
+      "targets": [
+        {"refId": "A", "expr": "sum by (le) (increase(plate_read_confidence_bucket[1h]))", "legendFormat": "le {{le}}", "format": "heatmap"}
+      ]
+    },
+    {
+      "id": 4,
+      "type": "timeseries",
+      "title": "Reads per second by outcome",
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 8},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "fieldConfig": {"defaults": {"unit": "reqps"}, "overrides": []},
+      "targets": [
+        {"refId": "A", "expr": "sum by (status) (rate(plate_reads_total[5m]))", "legendFormat": "{{status}}"}
+      ]
+    },
+    {
+      "id": 5,
+      "type": "stat",
+      "title": "Review queue",
+      "gridPos": {"h": 6, "w": 6, "x": 0, "y": 16},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"refId": "A", "expr": "plate_review_queue_size", "legendFormat": "pending"}]
+    },
+    {
+      "id": 6,
+      "type": "bargauge",
+      "title": "Conformal set size",
+      "gridPos": {"h": 6, "w": 6, "x": 6, "y": 16},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "options": {"displayMode": "basic", "orientation": "vertical"},
+      "targets": [
+        {"refId": "A", "expr": "sum by (le) (increase(plate_prediction_set_size_bucket[1h]))", "legendFormat": "le {{le}}", "format": "heatmap"}
+      ]
+    },
+    {
+      "id": 7,
+      "type": "timeseries",
+      "title": "Jobs finished by kind and status",
+      "gridPos": {"h": 6, "w": 12, "x": 12, "y": 16},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {"refId": "A", "expr": "sum by (kind, status) (increase(plate_jobs_total[1h]))", "legendFormat": "{{kind}} {{status}}"}
+      ]
+    },
+    {
+      "id": 8,
+      "type": "timeseries",
+      "title": "Spans per second by name (from traces)",
+      "gridPos": {"h": 8, "w": 24, "x": 0, "y": 22},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {"refId": "A", "expr": "sum by (span_name) (rate(traces_span_metrics_calls_total[5m]))", "legendFormat": "{{span_name}}"}
+      ]
+    }
+  ]
+}

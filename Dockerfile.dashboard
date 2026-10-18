@@ -1,0 +1,3 @@
+# Placeholder until the Vue dashboard lands in milestone M5.
+FROM nginx:1.27-alpine
+COPY docker/dashboard/index.html /usr/share/nginx/html/index.html

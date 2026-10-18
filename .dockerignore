@@ -1,0 +1,15 @@
+.git
+.venv
+.cache
+.pytest-tmp
+.mypy_cache
+.ruff_cache
+**/__pycache__
+data
+output
+runs
+storage
+synthetic
+results/*.html
+models/checkpoints
+apps/dashboard/node_modules

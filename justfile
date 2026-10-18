@@ -57,6 +57,36 @@ eval *args:
     uv run plate eval --set synthetic {{args}}
     uv run plate docs render
 
+# Train the CRNN on synthetic crops (CUDA when available), export ONNX, calibrate.
+train-crnn *args:
+    uv run plate train crnn {{args}}
+
+# Export the CRNN and the detector to ONNX and rewrite the parity fixtures.
+export:
+    uv run plate export onnx
+    uv run plate export detector
+    uv run plate export fixtures
+
+# The platform service on host port 8100 (SQLite under storage/ unless PLATE_DB_URL is set).
+api:
+    uv run uvicorn services.api.main:app --host 127.0.0.1 --port {{PLATE_API_PORT}}
+
+# A job worker (needs Redis; Compose maps it to host port 6380).
+worker:
+    uv run python -m services.api.worker
+
+# The Vue dashboard arrives in milestone M5; Compose serves a placeholder on port 5174.
+dashboard:
+    @echo "The dashboard arrives in milestone M5 (apps/dashboard)."
+    @exit 1
+
+# Synthetic data, a small evaluation, then the whole stack in Compose and a synthetic read.
+demo:
+    uv run plate synth crops --n 200 --seed 0
+    uv run plate eval --set synthetic --n 50 --views 20 -r crnn-greedy -r crnn-beam --out .cache/demo-results --quiet
+    docker compose up --build -d
+    uv run python tools/demo_read.py
+
 # The gate every milestone must pass.
 check: lint type guards
     uv run pytest -q --cov=plate_reader --cov-report=term --cov-fail-under=85

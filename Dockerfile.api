@@ -1,0 +1,32 @@
+# The plate service: torch-free (ONNX Runtime), see ADR 0007.
+FROM python:3.12-slim
+
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONUTF8=1 \
+    UV_LINK_MODE=copy \
+    UV_COMPILE_BYTECODE=1 \
+    UV_PROJECT_ENVIRONMENT=/opt/venv \
+    PATH="/opt/venv/bin:$PATH"
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends libglib2.0-0 libgomp1 \
+    && rm -rf /var/lib/apt/lists/* \
+    && pip install --no-cache-dir uv==0.13.1
+
+WORKDIR /app
+COPY pyproject.toml uv.lock README.md LICENSE ./
+# Dependencies first, in their own layer; no dependency group, so no PyTorch.
+RUN uv sync --frozen --no-default-groups --no-install-project
+COPY plate_reader ./plate_reader
+COPY services ./services
+COPY config.py ./
+RUN uv sync --frozen --no-default-groups
+COPY models/crnn.onnx models/crnn.json models/detector.onnx ./models/
+
+ENV PLATE_STORAGE_DIR=/app/storage \
+    PLATE_JOBS_ROOT=/app/storage/jobs \
+    PLATE_EXPORT_DIR=/app/storage/export/ocr/train
+EXPOSE 8000
+HEALTHCHECK --interval=10s --timeout=3s --start-period=20s --retries=12 \
+    CMD python -c "import urllib.request, sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=2).status == 200 else 1)"
+CMD ["uvicorn", "services.api.main:app", "--host", "0.0.0.0", "--port", "8000"]

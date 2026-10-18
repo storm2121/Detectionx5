@@ -1,0 +1,27 @@
+# Spans arrive over OTLP; the spanmetrics connector turns them into request-rate and
+# duration metrics that Prometheus scrapes, and the debug exporter logs them.
+receivers:
+  otlp:
+    protocols:
+      grpc: {endpoint: 0.0.0.0:4317}
+      http: {endpoint: 0.0.0.0:4318}
+
+processors:
+  batch: {}
+
+connectors:
+  spanmetrics: {}
+
+exporters:
+  debug: {verbosity: basic}
+  prometheus: {endpoint: 0.0.0.0:8889}
+
+service:
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [debug, spanmetrics]
+    metrics:
+      receivers: [spanmetrics]
+      exporters: [prometheus]

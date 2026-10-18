@@ -91,3 +91,13 @@ jobs:
       - name: Results carry the synthetic label and bootstrap intervals
         run: |
           uv run python -c "import json; d = json.load(open('/tmp/results/eval_synthetic.json', encoding='utf-8')); assert d['label'] == 'synthetic results are not real-world accuracy'; m = d['recognizers']['easyocr']['metrics']['exact_match']; assert m['ci_low'] <= m['value'] <= m['ci_high']; print(m)"
+
+  docker:
+    name: container images and compose file
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compose file is valid
+        run: docker compose config --quiet
+      - name: Build the torch-free API and worker images and the dashboard placeholder
+        run: docker compose build api worker dashboard

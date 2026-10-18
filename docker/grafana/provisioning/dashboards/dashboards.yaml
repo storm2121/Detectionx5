@@ -1,0 +1,7 @@
+apiVersion: 1
+providers:
+  - name: detectionx5
+    folder: DetectionX5
+    type: file
+    options:
+      path: /var/lib/grafana/dashboards
