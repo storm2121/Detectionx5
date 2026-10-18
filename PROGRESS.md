@@ -168,3 +168,43 @@ Never record the name of the original dataset host.
   review? (M4 makes it a setting, off by default, as ARCHITECTURE §11 specifies "more than
   one string".)
 - Next: M3.
+
+### M3: multi-view probabilistic fusion — done (one deviation, ADR 0009) — 2026-10-18
+
+- Built: `plate_reader/fusion.py`: `probabilistic_fusion` (union of grammar-valid candidates,
+  per-view renormalisation with a floor, weighted log-probability sum, softmax posterior),
+  per-position character posteriors from Levenshtein alignment to the winner, optional
+  quality weights, fused conformal sets (the single-view threshold on the fused posterior),
+  and the legacy vote behind the same interface. `plate_reader.pipeline.PlatePipeline`
+  (detect, one view per photo, fuse, conformal set; probabilistic by default, the vote
+  selectable; optional tracing hook). `read_images`, `plate read` and `cli.py` take
+  `--fusion auto|probabilistic|vote`. The harness fuses the first 1, 3 and 5 views with three
+  methods and reports exact match, ECE and fused-set coverage with intervals over sets.
+  `docs/methods/fusion.md` (equations, the Bayes argument, the properties);
+  `results/eval_views.json` (200 synthetic five-view sets); README, model card and methods
+  page render the comparison.
+- Commands run and results:
+  - `uv run pytest tests/test_fusion.py tests/test_platform_pipeline.py`: all passed
+    (hypothesis: exact permutation invariance, single-view consistency, monotonicity in
+    weights, posteriors are distributions over valid plates, abstaining views change
+    nothing; fixed examples include one where the vote and the product disagree).
+  - `plate eval --set synthetic ...` (EasyOCR from the read cache) and
+    `plate eval --set views --views 200 --k 5 -r easyocr -r crnn-greedy -r crnn-beam`: exit 0.
+  - `just check`: green, 178 passed, 1 skipped, coverage 94.1% on `plate_reader`.
+- Decisions: ADR 0009. The measurements showed that the product of per-view posteriors is
+  right for calibrated views (CRNN: equal accuracy, best-calibrated fused confidence, fused
+  sets keep their level at one view) and wrong for EasyOCR's uncalibrated vote shares, where
+  the original vote is more accurate at three and five views. So `PlatePipeline`, which the
+  service builds on, fuses probabilistically by default, while `read_images` (the EasyOCR
+  path) defaults to `auto`, which falls back to the vote for uncalibrated views. Quality
+  weights act as exponents and break single-view calibration (the fused set's coverage at
+  one view collapses), so unit weights are the default everywhere. ADR 0004 updated.
+- Stubbed or skipped, and why: nothing stubbed. Process note: scratch copies of this
+  milestone's files were deleted from the scratchpad, which another process shares, while
+  M2 and M3 were being separated; the files were recreated from the edits recorded in the
+  session and every test above ran on the recreated code. Scratch work now lives in a
+  uniquely named directory.
+- Open questions for the architect: (1) ADR 0009 deviates from the letter of the M3 DoD for
+  the EasyOCR path; confirm or overrule. (2) Should fused prediction sets get their own
+  conformal threshold per number of views once real multi-photo sets exist?
+- Next: M4.
