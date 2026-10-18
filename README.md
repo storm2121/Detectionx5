@@ -238,7 +238,17 @@ The platform measures itself on deterministic synthetic plates until real labell
 data exists. These numbers are rendered from `results/eval_synthetic.json`.
 
 <!-- BEGIN RENDER synthetic-baseline -->
-Not measured yet: run `uv run plate eval --set synthetic`. Synthetic results are not real-world accuracy.
+**Synthetic results are not real-world accuracy.** Set: synthetic (`synthetic`), n = 300, generator seed 1005; values with 95% bootstrap intervals over images (1000 resamples).
+
+| Recogniser | Version | Exact match | Digits | Letter | Region | CER | ECE |
+|---|---|---|---|---|---|---|---|
+| easyocr | `easyocr-1.7.2+segmentation` | 0.353 [0.297, 0.407] | 0.417 [0.357, 0.473] | 0.639 [0.581, 0.696] | 0.522 [0.460, 0.585] | 0.579 [0.525, 0.639] | 0.192 [0.151, 0.235] |
+
+Multi-view sets (exact match of the fused read; n = 100 sets, bootstrap over sets):
+
+| Recogniser | Fusion | 1 view(s) | 3 view(s) | 5 view(s) |
+|---|---|---|---|---|
+| easyocr | legacy_vote | 0.380 [0.290, 0.470] | 0.650 [0.550, 0.740] | 0.650 [0.550, 0.740] |
 <!-- END RENDER synthetic-baseline -->
 
 ## Configuration

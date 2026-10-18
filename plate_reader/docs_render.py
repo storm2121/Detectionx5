@@ -186,27 +186,55 @@ def _ocr_benchmark_status(ctx: RenderContext) -> str:
 
 def _recognizer_table(payload: Mapping[str, Any]) -> list[str]:
     lines = [
-        "| Recogniser | Exact match | Digits | Letter | Region | CER |",
-        "|---|---|---|---|---|---|",
+        "| Recogniser | Version | Exact match | Digits | Letter | Region | CER | ECE |",
+        "|---|---|---|---|---|---|---|---|",
     ]
     for name, entry in payload.get("recognizers", {}).items():
         metrics = entry.get("metrics", {})
         lines.append(
-            f"| {name} | {fmt_ci(metrics.get('exact_match', {}))} | "
+            f"| {name} | `{entry.get('model_version', '?')}` | "
+            f"{fmt_ci(metrics.get('exact_match', {}))} | "
             f"{fmt_ci(metrics.get('digits_accuracy', {}))} | "
             f"{fmt_ci(metrics.get('letter_accuracy', {}))} | "
             f"{fmt_ci(metrics.get('region_accuracy', {}))} | "
-            f"{fmt_ci(metrics.get('cer', {}))} |"
+            f"{fmt_ci(metrics.get('cer', {}))} | "
+            f"{fmt_ci(metrics.get('ece', {}))} |"
         )
+    return lines
+
+
+def _fusion_table(payload: Mapping[str, Any]) -> list[str]:
+    fusion = payload.get("fusion")
+    if not fusion:
+        return []
+    ks = fusion.get("k", [])
+    header = "| Recogniser | Fusion | " + " | ".join(f"{k} view(s)" for k in ks) + " |"
+    lines = [
+        "",
+        f"Multi-view sets (exact match of the fused read; n = {fusion.get('n_sets', '?')} sets, "
+        "bootstrap over sets):",
+        "",
+        header,
+        "|---|---|" + "---|" * len(ks),
+    ]
+    for name, entry in fusion.get("recognizers", {}).items():
+        for method, by_k in entry.get("methods", {}).items():
+            cells = [
+                fmt_ci(by_k.get(f"k={k}", {}).get("metrics", {}).get("exact_match", {})) for k in ks
+            ]
+            lines.append(f"| {name} | {method} | " + " | ".join(cells) + " |")
     return lines
 
 
 def _set_line(payload: Mapping[str, Any]) -> str:
     info = payload.get("set", {})
+    boot = payload.get("bootstrap", {})
+    level = boot.get("confidence")
+    level_text = f"{round(float(level) * 100)}%" if level is not None else "?"
     return (
         f"Set: {info.get('kind', '?')} (`{info.get('name', '?')}`), n = {info.get('n', '?')}, "
-        f"generator seed {info.get('seed', '?')}; intervals are 95% bootstrap CIs "
-        f"over images ({payload.get('bootstrap', {}).get('resamples', '?')} resamples)."
+        f"generator seed {info.get('seed', '?')}; values with {level_text} bootstrap intervals "
+        f"over {boot.get('unit', 'image')}s ({boot.get('resamples', '?')} resamples)."
     )
 
 
@@ -216,6 +244,7 @@ def _synthetic_block(ctx: RenderContext, result_name: str, command: str) -> str:
         return f"Not measured yet: run `{command}`. {SYNTHETIC_LABEL.capitalize()}."
     lines = [f"**{SYNTHETIC_LABEL.capitalize()}.** {_set_line(payload)}", ""]
     lines += _recognizer_table(payload)
+    lines += _fusion_table(payload)
     return "\n".join(lines)
 
 
