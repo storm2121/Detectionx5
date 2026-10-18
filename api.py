@@ -2,6 +2,7 @@
 
 Run with ``uvicorn api:app`` from the project root.
 """
+
 from __future__ import annotations
 
 from contextlib import asynccontextmanager
@@ -32,7 +33,8 @@ class PlateResponse(BaseModel):
     plate: str | None
     fields: PlateFields | None
     confidence: float = Field(
-        ge=0.0, le=1.0,
+        ge=0.0,
+        le=1.0,
         description="Winning plate's share of weighted votes; not a probability of correctness.",
     )
     images_agreeing: int = Field(ge=0)
@@ -120,7 +122,9 @@ def create_app() -> FastAPI:
                 digits=result.plate.digits,
                 letter=result.plate.letter,
                 region=result.plate.region,
-            ) if result.plate else None,
+            )
+            if result.plate
+            else None,
             confidence=confidence,
             images_agreeing=result.agreement,
             images_processed=len(result.images),

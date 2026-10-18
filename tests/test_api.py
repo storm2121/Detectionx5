@@ -1,4 +1,5 @@
 """Exercise HTTP handling and real multi-image voting without model downloads."""
+
 from __future__ import annotations
 
 import sys
@@ -15,8 +16,7 @@ from PIL import Image
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 import api
-from plate_reader import Detection, PlateReading, parse_plate
-from plate_reader import pipeline
+from plate_reader import Detection, PlateReading, parse_plate, pipeline
 from plate_reader.ocr import EasyOCRBackend
 
 
@@ -44,8 +44,11 @@ def service(monkeypatch):
     backend_factory.assert_not_called()
     with TestClient(app) as client:
         yield SimpleNamespace(
-            client=client, detector=detector, backend=backend,
-            detector_factory=detector_factory, backend_factory=backend_factory,
+            client=client,
+            detector=detector,
+            backend=backend,
+            detector_factory=detector_factory,
+            backend_factory=backend_factory,
             read_images=read_images,
         )
     assert not hasattr(app.state, "detector")
@@ -104,7 +107,8 @@ def test_multiple_photos_vote_and_count_each_photo_once(service, photo, monkeypa
 
     service.read_images.side_effect = detect
     response = service.client.post(
-        "/read", files=[upload(photo, "../../car.png")] * 3,
+        "/read",
+        files=[upload(photo, "../../car.png")] * 3,
     )
 
     assert response.status_code == 200
@@ -139,8 +143,11 @@ def test_no_readable_plate(service, photo):
     response = service.client.post("/read", files=[upload(photo), upload(photo)])
     assert response.status_code == 200
     assert response.json() == {
-        "plate": None, "fields": None, "confidence": 0.0,
-        "images_agreeing": 0, "images_processed": 2,
+        "plate": None,
+        "fields": None,
+        "confidence": 0.0,
+        "images_agreeing": 0,
+        "images_processed": 2,
     }
 
 
@@ -184,9 +191,8 @@ def test_temp_photos_removed_after_inference_error(service, photo):
 
 def test_startup_fails_if_ocr_models_cannot_load(service):
     service.backend.load_models.side_effect = RuntimeError("missing OCR weights")
-    with pytest.raises(RuntimeError, match="missing OCR weights"):
-        with TestClient(api.create_app()):
-            pytest.fail("The server must not become ready without OCR models.")
+    with pytest.raises(RuntimeError, match="missing OCR weights"), TestClient(api.create_app()):
+        pytest.fail("The server must not become ready without OCR models.")
 
 
 def test_ocr_warmup_reuses_all_readers(monkeypatch):

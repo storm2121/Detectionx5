@@ -1,33 +1,39 @@
 """Detect plates, read them field by field, and vote on the answer.
 
-The preferred path splits a plate into its three printed fields and reads each
-with an alphabet restricted to what that field can contain — digits for the
-number and region code, the six legal letters for the middle glyph. Every
-field is read from several thresholdings of the same pixels and the results
-are pooled, because different treatments fail on different plates.
+The preferred path splits a plate into its three printed fields and reads each with an
+alphabet restricted to what that field can contain: digits for the number and region
+code, the six legal letters for the middle glyph. Every field is read from several
+thresholdings of the same pixels and the results are pooled, because different
+treatments fail on different plates.
 
-If the printed separator bars cannot be located the plate is read whole, which
-is less accurate but still often correct.
+If the printed separator bars cannot be located the plate is read whole, which is less
+accurate but still often correct.
 
-Passing several photographs of one vehicle strengthens the result: agreement
-between independent images is much better evidence than one confident read.
+Passing several photographs of one vehicle strengthens the result: agreement between
+independent images is much better evidence than one confident read.
 """
+
 from __future__ import annotations
 
 from collections import defaultdict
-from dataclasses import dataclass, field as dataclass_field
+from collections.abc import Callable, Iterable
+from dataclasses import dataclass
+from dataclasses import field as dataclass_field
 from pathlib import Path
 
-import numpy as np
-
 from .detector import Detection, PlateDetector
-from .normalize import VALID_LETTERS, Plate, normalize_text, parse_plate
+from .grammar import LETTERS, STANDARD, Plate
+from .imaging import Image
+from .normalize import normalize_text, parse_plate
 from .ocr import OCRBackend, Reading, get_backend
 from .preprocess import build_field_variants, build_variants
 from .segment import prepare_for_ocr, segment_fields
 
-MAX_MAIN_DIGITS = 5
-MAX_REGION_DIGITS = 2
+# Field lengths come from the grammar, the single definition of plate formats.
+MAX_MAIN_DIGITS = STANDARD.field("digits").max_len
+MAX_REGION_DIGITS = STANDARD.field("region").max_len
+
+Progress = Callable[[str], object]
 
 
 @dataclass
@@ -79,13 +85,17 @@ class RunResult:
         """How many images independently produced the winning plate."""
         if not self.plate:
             return 0
+        winner = self.plate.text
         return sum(
             1
             for image in self.images
-            if image.best
-            and image.best.plate
-            and image.best.plate.text == self.plate.text
+            if image.best and image.best.plate and image.best.plate.text == winner
         )
+
+
+def _argmax(tally: dict[str, float]) -> str:
+    # ``max`` keeps the first of equal keys in insertion order, as the vote always has.
+    return max(tally, key=lambda key: tally[key])
 
 
 # --- voting helpers --------------------------------------------------------
@@ -98,7 +108,7 @@ def _vote_digits(readings: list[Reading], max_length: int) -> tuple[str | None, 
             tally[text] += max(reading.confidence, 0.01)
     if not tally:
         return None, 0.0
-    winner = max(tally, key=tally.get)
+    winner = _argmax(tally)
     return winner, tally[winner]
 
 
@@ -107,18 +117,18 @@ def _vote_letter(readings: list[Reading]) -> tuple[str | None, float]:
     tally: dict[str, float] = defaultdict(float)
     for reading in readings:
         for char in normalize_text(reading.text):
-            if char in VALID_LETTERS:
+            if char in LETTERS:
                 tally[char] += max(reading.confidence, 0.01)
     if not tally:
         return None, 0.0
-    winner = max(tally, key=tally.get)
+    winner = _argmax(tally)
     return winner, tally[winner]
 
 
 # --- reading strategies ----------------------------------------------------
-def _read_segmented(backend: OCRBackend, crop: np.ndarray) -> PlateReading | None:
+def _read_segmented(backend: OCRBackend, detection: Detection) -> PlateReading | None:
     """Read a plate by its three fields. Returns ``None`` if not segmentable."""
-    fields = segment_fields(crop)
+    fields = segment_fields(detection.crop)
     if fields is None or not fields.is_complete:
         return None
 
@@ -126,12 +136,13 @@ def _read_segmented(backend: OCRBackend, crop: np.ndarray) -> PlateReading | Non
     letter_readings: list[Reading] = []
     region_readings: list[Reading] = []
 
-    # Only the letter field is cropped to its ink; see prepare_for_ocr.
-    for source, sink, reader, tighten_first in (
+    readers: list[tuple[Image | None, list[Reading], Callable[[Image], list[Reading]], bool]] = [
         (fields.digits, digit_readings, backend.read_digits, False),
         (fields.letter, letter_readings, backend.read_letters, True),
         (fields.region, region_readings, backend.read_digits, False),
-    ):
+    ]
+    # Only the letter field is cropped to its ink; see prepare_for_ocr.
+    for source, sink, reader, tighten_first in readers:
         prepared = prepare_for_ocr(source, tighten_first=tighten_first)
         if prepared is None:
             continue
@@ -148,38 +159,33 @@ def _read_segmented(backend: OCRBackend, crop: np.ndarray) -> PlateReading | Non
         "region": region or "?",
     }
     if not (digits and letter and region):
-        return PlateReading(
-            plate=None,
-            detection=None,  # filled in by the caller
-            components=components,
-            segmented=True,
-        )
+        return PlateReading(plate=None, detection=detection, components=components, segmented=True)
 
-    plate = parse_plate(f"{digits}-{letter}-{region}")
+    plate = Plate.from_tokens(f"{digits}-{letter}-{region}")
     score = digit_score + letter_score + region_score
     return PlateReading(
         plate=plate,
-        detection=None,
+        detection=detection,
         votes={plate.text: score} if plate else {},
         components=components,
         segmented=True,
     )
 
 
-def _read_whole(backend: OCRBackend, crop: np.ndarray) -> PlateReading:
-    """Read the plate as a single line — the fallback path."""
+def _read_whole(backend: OCRBackend, detection: Detection) -> PlateReading:
+    """Read the plate as a single line: the fallback path."""
     tally: dict[str, float] = defaultdict(float)
-    for _, variant in build_variants(crop):
+    for _, variant in build_variants(detection.crop):
         for restrict in (True, False):
             for reading in backend.read(variant, restrict=restrict):
                 parsed = parse_plate(reading.text)
                 if parsed is not None:
                     tally[parsed.text] += max(reading.confidence, 0.01)
 
-    winner = max(tally, key=tally.get) if tally else None
+    winner = _argmax(tally) if tally else None
     return PlateReading(
         plate=parse_plate(winner) if winner else None,
-        detection=None,
+        detection=detection,
         votes=dict(tally),
         segmented=False,
     )
@@ -187,33 +193,30 @@ def _read_whole(backend: OCRBackend, crop: np.ndarray) -> PlateReading:
 
 def read_detection(backend: OCRBackend, detection: Detection) -> PlateReading:
     """Read one detected plate, preferring the segmented path."""
-    reading = _read_segmented(backend, detection.crop)
+    reading = _read_segmented(backend, detection)
     if reading is None or reading.plate is None:
-        fallback = _read_whole(backend, detection.crop)
+        fallback = _read_whole(backend, detection)
         if fallback.plate is not None or reading is None:
             # Keep any field breakdown we managed to obtain, for diagnostics.
             if reading is not None:
                 fallback.components = reading.components
             reading = fallback
 
-    reading.detection = detection
     # Weight the plate's support by how sure the detector was about the box.
-    reading.votes = {
-        text: weight * detection.confidence for text, weight in reading.votes.items()
-    }
+    reading.votes = {text: weight * detection.confidence for text, weight in reading.votes.items()}
     return reading
 
 
 def read_images(
-    paths,
+    paths: Iterable[str | Path],
     detector: PlateDetector | None = None,
     backend: OCRBackend | None = None,
-    progress=None,
+    progress: Progress | None = None,
 ) -> RunResult:
     """Run the full pipeline over one or more images and vote across them.
 
-    ``progress`` is an optional ``callable(str)`` used to report activity; the
-    CLI prints it and the GUI appends it to its log.
+    ``progress`` is an optional ``callable(str)`` used to report activity; the CLI
+    prints it and the GUI appends it to its log.
     """
     detector = detector or PlateDetector()
     backend = backend or get_backend()
@@ -225,8 +228,8 @@ def read_images(
     result = RunResult()
     combined: dict[str, float] = defaultdict(float)
 
-    for path in paths:
-        path = Path(path)
+    for raw_path in paths:
+        path = Path(raw_path)
         report(f"Detecting plates in {path.name}...")
 
         image_result = ImageResult(path=path)
@@ -241,10 +244,7 @@ def read_images(
             image_result.readings.append(reading)
 
             how = "fields" if reading.segmented else "whole plate"
-            report(
-                f"  plate {index}: {reading.text} "
-                f"[{how}, detector {detection.confidence:.2f}]"
-            )
+            report(f"  plate {index}: {reading.text} [{how}, detector {detection.confidence:.2f}]")
             for text, weight in reading.votes.items():
                 combined[text] += weight
 
@@ -252,7 +252,15 @@ def read_images(
 
     result.votes = dict(combined)
     if combined:
-        winner = max(combined, key=combined.get)
-        result.plate = parse_plate(winner)
+        result.plate = parse_plate(_argmax(combined))
 
     return result
+
+
+__all__ = [
+    "ImageResult",
+    "PlateReading",
+    "RunResult",
+    "read_detection",
+    "read_images",
+]

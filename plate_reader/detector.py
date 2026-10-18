@@ -1,38 +1,41 @@
 """Plate detection with the fine-tuned YOLOv10 model."""
+
 from __future__ import annotations
 
+import importlib
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 
-import numpy as np
+from .imaging import Image, as_u8
+from .settings import CROP_PADDING, DUPLICATE_IOU, get_settings
 
-import config
+Box = tuple[int, int, int, int]
 
 
 @dataclass
 class Detection:
     """One detected plate and the pixels it covers."""
 
-    box: tuple[int, int, int, int]
+    box: Box
     confidence: float
-    crop: np.ndarray
+    crop: Image
 
 
-def _load_model(model_path: Path):
+def _load_model(model_path: Path) -> Any:
     """Load the weights under either ultralytics distribution.
 
-    The THU-MIG YOLOv10 fork exposes a dedicated ``YOLOv10`` class and its
-    ``YOLO`` class cannot post-process these weights. Stock ultralytics 8.2+
-    reads them through ``YOLO`` and has no ``YOLOv10``. Try the fork first.
+    The THU-MIG YOLOv10 fork exposes a dedicated ``YOLOv10`` class and its ``YOLO``
+    class cannot post-process these weights. Stock ultralytics 8.2+ reads them through
+    ``YOLO`` and has no ``YOLOv10``. Try the fork first.
     """
-    try:
-        from ultralytics import YOLOv10 as model_class
-    except ImportError:
-        from ultralytics import YOLO as model_class
+    module = importlib.import_module("ultralytics")
+    model_class = getattr(module, "YOLOv10", None) or module.YOLO
     return model_class(str(model_path))
 
 
-def _iou(a: tuple[int, ...], b: tuple[int, ...]) -> float:
+def iou(a: Box, b: Box) -> float:
+    """Intersection over union of two ``(x1, y1, x2, y2)`` boxes."""
     ax1, ay1, ax2, ay2 = a
     bx1, by1, bx2, by2 = b
 
@@ -48,13 +51,51 @@ def _iou(a: tuple[int, ...], b: tuple[int, ...]) -> float:
     return inter / union if union else 0.0
 
 
-def _deduplicate(detections: list[Detection]) -> list[Detection]:
+# Kept under its historical private name for callers that imported it.
+_iou = iou
+
+
+def deduplicate(detections: list[Detection]) -> list[Detection]:
     """Drop near-identical boxes, keeping the most confident of each cluster."""
     kept: list[Detection] = []
     for candidate in sorted(detections, key=lambda d: d.confidence, reverse=True):
-        if all(_iou(candidate.box, k.box) < config.DUPLICATE_IOU for k in kept):
+        if all(iou(candidate.box, k.box) < DUPLICATE_IOU for k in kept):
             kept.append(candidate)
     return kept
+
+
+_deduplicate = deduplicate
+
+
+def pad_box(box: list[float] | tuple[float, ...], width: int, height: int) -> Box:
+    """Grow a box by :data:`CROP_PADDING` on each side, clipped to the image."""
+    x1, y1, x2, y2 = box
+    pad_x = (x2 - x1) * CROP_PADDING
+    pad_y = (y2 - y1) * CROP_PADDING
+    return (
+        max(0, int(x1 - pad_x)),
+        max(0, int(y1 - pad_y)),
+        min(width, int(x2 + pad_x)),
+        min(height, int(y2 + pad_y)),
+    )
+
+
+def detections_from_boxes(
+    image: Image, boxes: list[list[float]], scores: list[float]
+) -> list[Detection]:
+    """Pad, crop and de-duplicate raw boxes; shared by the PyTorch and ONNX detectors."""
+    height, width = image.shape[:2]
+    detections: list[Detection] = []
+    for box, score in zip(boxes, scores, strict=True):
+        x1, y1, x2, y2 = pad_box(box, width, height)
+        if x2 <= x1 or y2 <= y1:
+            continue
+        detections.append(
+            Detection(
+                box=(x1, y1, x2, y2), confidence=float(score), crop=image[y1:y2, x1:x2].copy()
+            )
+        )
+    return deduplicate(detections)
 
 
 class PlateDetector:
@@ -65,15 +106,14 @@ class PlateDetector:
         model_path: Path | str | None = None,
         confidence: float | None = None,
     ) -> None:
-        self.model_path = Path(model_path or config.MODEL_PATH)
+        settings = get_settings()
+        self.model_path = Path(model_path or settings.model)
         if not self.model_path.exists():
             raise FileNotFoundError(
                 f"Model weights not found at {self.model_path}. "
                 "Set PLATE_MODEL to point at your .pt file."
             )
-        self.confidence = (
-            config.DETECTION_CONF if confidence is None else confidence
-        )
+        self.confidence = settings.conf if confidence is None else confidence
         self._model = _load_model(self.model_path)
 
     def detect(self, image_path: Path | str) -> list[Detection]:
@@ -82,9 +122,9 @@ class PlateDetector:
         if not image_path.exists():
             raise FileNotFoundError(f"Image not found: {image_path}")
 
-        # Newer Ultralytics defaults to the one-to-many head with external NMS.
-        # These YOLOv10 weights use the NMS-free one-to-one head; selecting it
-        # explicitly preserves the trained detector's boxes across versions.
+        # Newer Ultralytics defaults to the one-to-many head with external NMS. These
+        # YOLOv10 weights use the NMS-free one-to-one head; selecting it explicitly
+        # preserves the trained detector's boxes across versions.
         results = self._model.predict(
             str(image_path), conf=self.confidence, verbose=False, nms=False
         )
@@ -92,36 +132,18 @@ class PlateDetector:
             return []
 
         result = results[0]
-        original = result.orig_img
-        height, width = original.shape[:2]
+        original = as_u8(result.orig_img)
+        boxes: list[list[float]] = result.boxes.xyxy.tolist()
+        scores: list[float] = result.boxes.conf.tolist()
+        return detections_from_boxes(original, boxes, scores)
 
-        detections: list[Detection] = []
-        for box, score in zip(
-            result.boxes.xyxy.tolist(), result.boxes.conf.tolist()
-        ):
-            x1, y1, x2, y2 = self._pad(box, width, height)
-            if x2 <= x1 or y2 <= y1:
-                continue
-            detections.append(
-                Detection(
-                    box=(x1, y1, x2, y2),
-                    confidence=float(score),
-                    crop=original[y1:y2, x1:x2].copy(),
-                )
-            )
 
-        return _deduplicate(detections)
-
-    @staticmethod
-    def _pad(
-        box: list[float], width: int, height: int
-    ) -> tuple[int, int, int, int]:
-        x1, y1, x2, y2 = box
-        pad_x = (x2 - x1) * config.CROP_PADDING
-        pad_y = (y2 - y1) * config.CROP_PADDING
-        return (
-            max(0, int(x1 - pad_x)),
-            max(0, int(y1 - pad_y)),
-            min(width, int(x2 + pad_x)),
-            min(height, int(y2 + pad_y)),
-        )
+__all__ = [
+    "Box",
+    "Detection",
+    "PlateDetector",
+    "deduplicate",
+    "detections_from_boxes",
+    "iou",
+    "pad_box",
+]

@@ -6,6 +6,7 @@
 Detection and OCR both run on a worker thread so the window stays responsive;
 progress messages are marshalled back to the Tk thread with ``after``.
 """
+
 from __future__ import annotations
 
 import queue
@@ -130,9 +131,7 @@ class PlateApp(tb.Window):
                 self.messages.put(("log", "Loading detection model..."))
                 self._detector = PlateDetector()
             if self._backend is None:
-                self.messages.put(
-                    ("log", "Loading OCR model (first run downloads it)...")
-                )
+                self.messages.put(("log", "Loading OCR model (first run downloads it)..."))
                 self._backend = get_backend()
 
             result = read_images(
@@ -167,9 +166,7 @@ class PlateApp(tb.Window):
     def _show_result(self, result) -> None:
         self.set_busy(False)
 
-        best = next(
-            (image.best for image in result.images if image.best is not None), None
-        )
+        best = next((image.best for image in result.images if image.best is not None), None)
         if best is not None:
             self._show_crop(best.detection.crop)
 
@@ -177,9 +174,7 @@ class PlateApp(tb.Window):
             self.result.config(text=result.plate.text, bootstyle="success")
             self.log_line(f"==> {result.plate.text}")
             if len(result.images) > 1:
-                self.log_line(
-                    f"    agreement: {result.agreement}/{len(result.images)} images"
-                )
+                self.log_line(f"    agreement: {result.agreement}/{len(result.images)} images")
         else:
             self.result.config(text="unreadable", bootstyle="danger")
             self.log_line("==> no valid plate could be read")

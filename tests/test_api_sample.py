@@ -1,4 +1,5 @@
 """Opt-in API regression test with the real detector, OCR, and sample photo."""
+
 from __future__ import annotations
 
 import os

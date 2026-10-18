@@ -5,6 +5,7 @@ need ultralytics and opencv but not an OCR engine, so they stay reasonably
 quick; they skip rather than fail when the model or its dependencies are
 missing, so the fast text tests can still run on a bare checkout.
 """
+
 from __future__ import annotations
 
 import sys
@@ -15,7 +16,7 @@ import pytest
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-import config  # noqa: E402
+import config
 
 SAMPLE = ROOT / "samples" / "car.jpg"
 
