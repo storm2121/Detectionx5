@@ -145,15 +145,20 @@ def evaluate_fusion(
         for method, (fuse, weighting) in fusers.items():
             by_k: dict[str, Any] = {}
             for k in ks:
-                threshold = threshold_for(k) if callable(threshold_for) else single
-                fused = [
-                    fuse(
-                        [per_view[p] for p in groups[g][:k]],
-                        [quality[p] for p in groups[g][:k]] if weighting == "quality" else None,
-                        threshold,
+                fused = []
+                for g in order:
+                    members = groups[g][:k]
+                    # As in the service: the threshold for the number of views that proposed
+                    # a plate (a view proposing nothing contributes nothing to the fusion).
+                    proposing = sum(1 for p in members if per_view[p].hypotheses)
+                    threshold = threshold_for(proposing) if callable(threshold_for) else single
+                    fused.append(
+                        fuse(
+                            [per_view[p] for p in members],
+                            [quality[p] for p in members] if weighting == "quality" else None,
+                            threshold,
+                        )
                     )
-                    for g in order
-                ]
                 as_reads = [
                     ViewRead(
                         prediction=f.prediction,

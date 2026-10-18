@@ -410,9 +410,12 @@ class PlatePipeline:
         tick = time.perf_counter()
         # Fused sets use the threshold calibrated for this number of views when the
         # recogniser has one (per-view-count calibration), else the single-view threshold.
+        # A view that proposed no plate contributes nothing to the fused posterior, so only
+        # the views that did are counted.
+        proposing = sum(1 for v in readable if v.read is not None and v.read.hypotheses)
         threshold_for = getattr(self.recognizer, "conformal_threshold_for", None)
         threshold = (
-            threshold_for(len(readable))
+            threshold_for(proposing)
             if callable(threshold_for)
             else self.recognizer.conformal_threshold
         )

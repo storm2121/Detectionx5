@@ -81,7 +81,8 @@ character heatmap.
 A conformal threshold is only valid for the kind of read it was calibrated on, so each
 number of views $K$ has its own threshold $\hat q_K$, fitted on separate synthetic multi-view
 calibration sets by fusing the first $K$ views exactly as the service does; the service picks
-the largest calibrated $K$ not above the number of photos it fused. An empty set is a signal,
+the largest calibrated $K$ not above the number of photos that proposed a plate (a photo that
+proposes nothing contributes nothing to the fusion). An empty set is a signal,
 not a bug: it means no plate can be certified at the stated level, so the service sends such
 reads to human review by default.
 

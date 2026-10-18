@@ -101,3 +101,28 @@ def test_quality_weighting_and_tracing() -> None:
     assert names == ["detect", "recognise", "fuse"]
     with pytest.raises(ValueError):
         PlatePipeline(Recognizer(), weighting="loud")
+
+
+class CountingRecognizer(Recognizer):
+    """Dark crops are read; light ones propose nothing. Records the view count asked for."""
+
+    def __init__(self) -> None:
+        self.asked: list[int] = []
+
+    def conformal_threshold_for(self, views: int) -> float:
+        self.asked.append(views)
+        return 0.6
+
+    def read(self, image: np.ndarray) -> ViewRead:
+        if float(image.mean()) < 100:
+            return super().read(image)
+        return ViewRead(hypotheses=(), prediction=None, confidence=None, calibrated=True)
+
+
+def test_views_that_propose_nothing_do_not_count_towards_the_threshold() -> None:
+    recognizer = CountingRecognizer()
+    pipeline = PlatePipeline(recognizer, detector=None)
+    result = pipeline.read([photo(50), photo(200), photo(50)])
+    assert recognizer.asked == [2]
+    assert result.plate is not None
+    assert result.plate.text == "12 WW"

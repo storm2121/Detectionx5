@@ -67,7 +67,9 @@ to send it for review.
 - Fused sets get their own thresholds per number of views (K = 1, 3, 5), fitted on separate
   synthetic multi-view calibration sets (`plate train calibrate-fused`, stored in
   `models/crnn.json` under `conformal_fused`, reported in `results/calibration_fused.json`);
-  the pipeline uses the largest calibrated K not above the number of fused views. Real
+  the pipeline uses the largest calibrated K not above the number of views that proposed a
+  plate (a view proposing nothing contributes nothing to the fused posterior; no view of the
+  synthetic calibration or test sets abstains, so the two counts coincide there). Real
   multi-photo data will have to refit them.
 
 ## Consequences
