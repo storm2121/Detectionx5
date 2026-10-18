@@ -1,10 +1,25 @@
 # Normalise line endings in the repository, check out native on each platform.
 * text=auto
 
-# Never munge binary assets.
+# Shell scripts must keep LF even on Windows checkouts (they run inside containers).
+*.sh text eol=lf
+
+# Never munge binary assets. Models stay under 15 MB each (AGENT_RULES §4.4).
 *.pt binary
 *.pth binary
+*.onnx binary
 *.jpg binary
 *.jpeg binary
 *.png binary
+*.webp binary
+*.bmp binary
 *.mp4 binary
+*.ttf binary
+*.otf binary
+*.woff binary
+*.woff2 binary
+
+# Generated files: collapse them in diffs.
+uv.lock linguist-generated=true -diff
+requirements.txt linguist-generated=true
+requirements-dev.txt linguist-generated=true
