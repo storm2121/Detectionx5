@@ -51,6 +51,16 @@ All notable changes to this project are recorded here. The format follows
   `results/eval_views.json` compares the legacy vote with probabilistic fusion at 1, 3 and 5
   views.
 
+- M4: `services/api`, the platform service: `POST /read` with calibrated confidence,
+  conformal set, per-view hypotheses and per-character posteriors; the read log; the review
+  queue with export of corrections to `data/ocr/train`; folder and video jobs on RQ with
+  IoU tracking, per-track fusion and Server-Sent Events progress; `GET /models`, `/health`,
+  `/metrics`. PostgreSQL through SQLAlchemy and Alembic, SQLite fallback.
+- M4: `plate_reader/telemetry.py` (OpenTelemetry spans, Prometheus metrics), the ONNX
+  detector (`models/detector.onnx`, `plate export detector`) with a parity test against the
+  PyTorch detector, `plate registry promote|list`, Dockerfiles, `docker-compose.yml` with
+  the collector, Prometheus and a Grafana dashboard (`docs/grafana/dashboard.json`).
+
 ### Changed
 
 - M3: `plate_reader.pipeline.PlatePipeline` (detect, read, fuse, conformal set) fuses

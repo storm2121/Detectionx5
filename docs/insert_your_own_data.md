@@ -44,7 +44,12 @@ crops/0002.png,72173 WW,temporary
 
 `plate_text` uses the display spelling: digits, hyphen, one of the six letters `أ ب د ه و
 ط`, hyphen, region for standard plates; digits, a space and `WW` for temporary plates.
-The review queue (milestone M4) exports corrected reads in exactly this layout.
+The review queue exports corrected reads in exactly this layout: reads whose conformal
+set holds more than one plate (or whose calibrated confidence is under
+`PLATE_REVIEW_THRESHOLD`) wait at `GET /review/queue`; `POST /review/{id}` records the
+corrected plate; `POST /review/export` copies every reviewed read's crops into
+`PLATE_EXPORT_DIR` (default `data/ocr/train`, in Compose a volume) and appends the rows to its
+`labels.csv`. Validate, then fine-tune: `uv run plate data validate`, `uv run plate train crnn`.
 
 ### Evaluation photos (`data/eval/`)
 

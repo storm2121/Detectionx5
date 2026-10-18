@@ -175,6 +175,41 @@ Uploads use temporary files that are removed after each request, including
 failed requests. Model inference is serialized within a worker, while health
 checks can run independently.
 
+## Run the platform: service, worker and observability
+
+The platform service (`services/api`) is separate from the legacy `api.py` above and is
+torch-free: the CRNN and the detector run through ONNX Runtime. Everything starts with
+Docker Compose:
+
+```bash
+docker compose up --build -d          # api, worker, redis, postgres, otel-collector,
+                                      # prometheus, grafana, dashboard (placeholder)
+uv run python tools/demo_read.py      # sends a synthetic photo and prints the read
+```
+
+Host ports are chosen so the stack does not clash with other projects on the same machine:
+
+| Service | Host port |
+|---|---|
+| API (`services.api.main:app`) | 8100 |
+| PostgreSQL | 5433 |
+| Redis | 6380 |
+| Prometheus | 9100 |
+| Grafana (dashboard "DetectionX5 plate service") | 3100 |
+| OpenTelemetry collector | 4319 (gRPC), 4320 (HTTP) |
+| Dashboard (placeholder until M5) | 5174 |
+
+Without Docker, `just api` serves the API on port 8100 with SQLite under `storage/`, and
+`just worker` runs a job worker against Redis on port 6380.
+
+| Endpoint | Purpose |
+|---|---|
+| `POST /read` | one to ten photos of one car: plate, fields, calibrated confidence, conformal set, per-view hypotheses, per-character posteriors, model version; `detect=false` reads photos as crops |
+| `GET /reads`, `GET /reads/{id}` | the read log |
+| `GET /review/queue`, `POST /review/{id}`, `POST /review/export` | reads whose conformal set holds more than one plate or whose confidence is under `PLATE_REVIEW_THRESHOLD`; corrections export to `data/ocr/train` |
+| `POST /jobs`, `POST /jobs/upload`, `GET /jobs/{id}`, `GET /jobs/{id}/events` | folders and videos in the background (RQ on Redis), IoU tracking and per-track fusion, progress as Server-Sent Events |
+| `GET /models`, `GET /health`, `GET /metrics` | registry and loaded models, health, Prometheus metrics |
+
 ## How it works
 
 ```
