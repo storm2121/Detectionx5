@@ -36,21 +36,33 @@ def fixtures(
     onnx_path: Annotated[
         Path | None, typer.Option("--onnx", help="default models/crnn.onnx")
     ] = None,
+    detector_path: Annotated[
+        Path | None, typer.Option("--detector", help="default models/detector.onnx")
+    ] = None,
 ) -> None:
-    """Write parity fixtures (PNG crops and the Python pipeline's outputs on them)."""
+    """Write parity fixtures: PNG crops and scenes, and the Python pipeline's outputs on them."""
     from ..crnn.parity import write_fixtures
     from ..crnn.runtime import CRNNRuntime
+    from ..parity import write_scene_fixtures
     from ..settings import PROJECT_ROOT
 
-    runtime = CRNNRuntime(onnx_path or PROJECT_ROOT / "models" / "crnn.onnx")
+    crnn = onnx_path or PROJECT_ROOT / "models" / "crnn.onnx"
+    detector = detector_path or PROJECT_ROOT / "models" / "detector.onnx"
+    image_dir = PROJECT_ROOT / "tests" / "fixtures" / "parity"
+    scenes = (
+        write_scene_fixtures(crnn, detector, image_dir, PROJECT_ROOT) if detector.exists() else None
+    )
     payload = write_fixtures(
-        runtime,
-        PROJECT_ROOT / "tests" / "fixtures" / "parity",
+        CRNNRuntime(crnn),
+        image_dir,
         PROJECT_ROOT / "results" / "parity_fixtures.json",
         PROJECT_ROOT,
+        scenes=scenes,
     )
+    count = len(scenes["views"]) if scenes else 0
     typer.echo(
-        f"wrote {len(payload['fixtures'])} parity fixtures for model {payload['model_version']}"
+        f"wrote {len(payload['fixtures'])} crop fixtures and a {count}-photo scene set "
+        f"for model {payload['model_version']}"
     )
 
 

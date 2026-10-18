@@ -2,9 +2,9 @@
 
 ``results/parity_fixtures.json`` records, for each fixture PNG under
 ``tests/fixtures/parity/``, the CRNN logits, the greedy string, the constrained beam with
-calibrated probabilities and the conformal set. The PyTorch-versus-ONNX test checks the
-committed model against it, and the browser runtime (milestone M6) must reproduce it within
-the stated tolerances.
+calibrated probabilities and the conformal set, and under ``scenes`` the end-to-end
+fixtures of :mod:`plate_reader.parity`. The PyTorch-versus-ONNX test checks the committed
+model against it, and the browser runtime must reproduce it within the stated tolerances.
 """
 
 from __future__ import annotations
@@ -28,8 +28,14 @@ TOLERANCE: Final = {"logits": 1e-3, "probability": 1e-4}
 
 
 def write_fixtures(
-    runtime: CRNNRuntime, image_dir: Path, json_path: Path, root: Path, count: int = FIXTURE_COUNT
+    runtime: CRNNRuntime,
+    image_dir: Path,
+    json_path: Path,
+    root: Path,
+    count: int = FIXTURE_COUNT,
+    scenes: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
+    """Write the crop fixtures, plus the end-to-end ``scenes`` of :mod:`plate_reader.parity`."""
     image_dir.mkdir(parents=True, exist_ok=True)
     fixtures = []
     for index in range(count):
@@ -66,6 +72,8 @@ def write_fixtures(
         "tolerance": TOLERANCE,
         "fixtures": fixtures,
     }
+    if scenes is not None:
+        payload["scenes"] = scenes
     json_path.parent.mkdir(parents=True, exist_ok=True)
     json_path.write_text(json.dumps(payload, ensure_ascii=False, indent=1) + "\n", encoding="utf-8")
     return payload

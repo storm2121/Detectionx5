@@ -85,7 +85,8 @@ class OnnxPlateDetector:
         tensor = (rgb.astype(np.float32) / np.float32(255.0)).transpose(2, 0, 1)[None]
         return np.ascontiguousarray(tensor), scale, offset
 
-    def detect_image(self, image: Image) -> list[Detection]:
+    def raw_boxes(self, image: Image) -> tuple[list[list[float]], list[float]]:
+        """Boxes over the confidence threshold in image coordinates, before padding."""
         tensor, scale, (left, top) = self._tensor(image)
         output = np.asarray(self.session.run(None, {self.input_name: tensor})[0], dtype=np.float64)[
             0
@@ -96,7 +97,11 @@ class OnnxPlateDetector:
         boxes = rows[:, :4].copy()
         boxes[:, [0, 2]] = ((boxes[:, [0, 2]] - left) / scale).clip(0, w)
         boxes[:, [1, 3]] = ((boxes[:, [1, 3]] - top) / scale).clip(0, h)
-        return detections_from_boxes(image, boxes.tolist(), rows[:, 4].tolist())
+        return boxes.tolist(), rows[:, 4].tolist()
+
+    def detect_image(self, image: Image) -> list[Detection]:
+        boxes, scores = self.raw_boxes(image)
+        return detections_from_boxes(image, boxes, scores)
 
     def detect(self, image_path: Path | str) -> list[Detection]:
         image = cv2.imread(str(image_path), cv2.IMREAD_COLOR)
