@@ -5,6 +5,10 @@ set windows-shell := ["powershell.exe", "-NoLogo", "-NoProfile", "-Command"]
 
 export UV_LINK_MODE := "copy"
 export PYTHONUTF8 := "1"
+export COREPACK_ENABLE_DOWNLOAD_PROMPT := "0"
+
+# The dashboard's package manager, run through Node's corepack (no global install).
+pnpm := "corepack pnpm@9.15.9 --dir apps/dashboard"
 
 # Host ports, chosen to avoid clashes with other projects on the same machine.
 export PLATE_API_PORT := "8100"
@@ -75,10 +79,23 @@ api:
 worker:
     uv run python -m services.api.worker
 
-# The Vue dashboard arrives in milestone M5; Compose serves a placeholder on port 5174.
+# The Vue console on http://localhost:5174 (Vite; /api is proxied to the service on 8100).
 dashboard:
-    @echo "The dashboard arrives in milestone M5 (apps/dashboard)."
-    @exit 1
+    {{pnpm}} install --frozen-lockfile
+    {{pnpm}} dev
+
+# Dashboard lint, type check and build, unit tests and the Storybook build.
+dashboard-check:
+    {{pnpm}} install --frozen-lockfile
+    {{pnpm}} lint
+    {{pnpm}} build
+    {{pnpm}} test
+    {{pnpm}} storybook:build
+
+# Playwright smoke and axe checks against the running stack (`docker compose up` first).
+dashboard-e2e:
+    {{pnpm}} exec playwright install chromium
+    {{pnpm}} e2e
 
 # Synthetic data, a small evaluation, then the whole stack in Compose and a synthetic read.
 demo:
@@ -88,7 +105,7 @@ demo:
     uv run python tools/demo_read.py
 
 # The gate every milestone must pass.
-check: lint type guards
+check: lint type guards dashboard-check
     uv run pytest -q --cov=plate_reader --cov-report=term --cov-fail-under=85
     uv run plate docs check
     uv run plate data validate

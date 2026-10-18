@@ -92,6 +92,54 @@ jobs:
         run: |
           uv run python -c "import json; d = json.load(open('/tmp/results/eval_synthetic.json', encoding='utf-8')); assert d['label'] == 'synthetic results are not real-world accuracy'; m = d['recognizers']['easyocr']['metrics']['exact_match']; assert m['ci_low'] <= m['value'] <= m['ci_high']; print(m)"
 
+  dashboard:
+    name: dashboard (lint, types, build, unit tests, Storybook)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/dashboard
+    env:
+      COREPACK_ENABLE_DOWNLOAD_PROMPT: "0"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - run: corepack enable && corepack prepare pnpm@9.15.9 --activate
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm lint
+      - run: pnpm build
+      - run: pnpm test
+      - run: pnpm storybook:build
+
+  dashboard-e2e:
+    name: dashboard smoke and accessibility against Compose
+    runs-on: ubuntu-latest
+    needs: [dashboard]
+    env:
+      COREPACK_ENABLE_DOWNLOAD_PROMPT: "0"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - run: corepack enable && corepack prepare pnpm@9.15.9 --activate
+      - name: Start the stack (with the Tempo trace store)
+        run: docker compose --profile tracing up --build -d --wait api worker dashboard tempo
+      - name: Install Playwright
+        working-directory: apps/dashboard
+        run: pnpm install --frozen-lockfile && pnpm exec playwright install --with-deps chromium
+      - name: Smoke, read, review and axe checks (desktop and phone)
+        working-directory: apps/dashboard
+        run: pnpm e2e
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-report
+          path: apps/dashboard/playwright-report
+      - if: always()
+        run: docker compose --profile tracing down -v
+
   docker:
     name: container images and compose file
     runs-on: ubuntu-latest
@@ -99,5 +147,5 @@ jobs:
       - uses: actions/checkout@v4
       - name: Compose file is valid
         run: docker compose config --quiet
-      - name: Build the torch-free API and worker images and the dashboard placeholder
+      - name: Build the torch-free API and worker images and the dashboard
         run: docker compose build api worker dashboard

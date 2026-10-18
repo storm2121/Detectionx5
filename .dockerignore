@@ -13,3 +13,9 @@ synthetic
 results/*.html
 models/checkpoints
 apps/dashboard/node_modules
+apps/dashboard/dist
+apps/dashboard/storybook-static
+apps/dashboard/test-results
+apps/dashboard/playwright-report
+apps/dashboard/public/samples
+apps/dashboard/public/models

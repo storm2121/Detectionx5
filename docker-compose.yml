@@ -78,6 +78,7 @@ services:
   dashboard:
     build: {context: ., dockerfile: Dockerfile.dashboard}
     ports: ["5174:80"]
+    depends_on: [api]
 
   tempo:
     image: grafana/tempo:2.8.1
