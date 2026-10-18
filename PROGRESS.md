@@ -269,3 +269,30 @@ Never record the name of the original dataset host.
 - Open questions for the architect: add a trace store to Compose? Default `PLATE_ALPHA` for
   the service given the empty-set behaviour (ADR 0004)?
 - Next: M5 (stop here per AGENT_RULES §5.4).
+
+### Review follow-ups after M4 (architect review of M0 to M4) — done — 2026-10-18
+
+- Built: (1) ADR 0009 marked accepted; a note under M3 in `MILESTONES.md` records that the DoD
+  is met in spirit. (2) The service serves conformal sets at alpha 0.05 (`PLATE_ALPHA`), and
+  empty sets go to review by default (`PLATE_REVIEW_SKIP_EMPTY_SETS` opts out);
+  `docs/methods/fusion.md` explains empty sets in two sentences. (3) `docs/data_card.md`
+  (first version) and the model card state the assumption that temporary plates carry one to
+  six digits. (4) The model card carries the architect's attribution sentence for the
+  detector's training data. (5) Grafana Tempo under the Compose `tracing` profile with a
+  provisioned data source; conformal thresholds per number of fused views (K = 1, 3, 5) from
+  `plate train calibrate-fused` on a new synthetic multi-view calibration split (seed 1008),
+  stored in `models/crnn.json`, with measured fused-set coverage per K in
+  `results/calibration_fused.json`, rendered in `docs/methods/fusion.md`. The evaluations were
+  re-run with the new thresholds (EasyOCR from the read cache).
+- Commands run and results: `plate train calibrate-fused`: exit 0 (fused-set coverage per K
+  lands on its level within the interval at both alphas; numbers rendered from results).
+  `just check`: green, 200 passed, 1 skipped, coverage 92.4%; after adding a smoke test for
+  the fused calibration, `tests/test_training.py`: 6 passed. `docker compose config` with and
+  without `--profile tracing`: 8 and 9 services.
+- Decisions: the pipeline uses the threshold of the largest calibrated view count not above
+  the number of fused views; thresholds are now reported at full precision (they reach about
+  1e-16 at five views). The collector's Tempo exporter has retries and queueing disabled so
+  the default stack is unaffected.
+- Stubbed or skipped: Tempo has not been run yet; it is exercised with the M5 Compose smoke.
+- Open questions: none new.
+- Next: M5.
