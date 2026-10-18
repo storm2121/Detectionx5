@@ -183,9 +183,18 @@ Docker Compose:
 
 ```bash
 docker compose up --build -d          # api, worker, redis, postgres, otel-collector,
-                                      # prometheus, grafana, dashboard (placeholder)
+                                      # prometheus, grafana, dashboard
+docker compose --profile tracing up --build -d   # the same, plus Tempo as the trace store
 uv run python tools/demo_read.py      # sends a synthetic photo and prints the read
 ```
+
+The console (Vue 3, `apps/dashboard`) is at http://localhost:5174: read photos and see the
+boxes, fields, per-view hypotheses, the fusion table, the conformal set and the character
+heatmap; follow jobs; work the review queue; browse the evaluation (metrics with intervals,
+reliability diagrams, letter confusions, conformal coverage), the models and the methods.
+`just dashboard` runs it with Vite against `just api`; `just dashboard-check` lints, builds
+and tests it and builds its Storybook; `just dashboard-e2e` runs the Playwright smoke and
+accessibility checks against the running stack.
 
 Host ports are chosen so the stack does not clash with other projects on the same machine:
 
@@ -197,7 +206,7 @@ Host ports are chosen so the stack does not clash with other projects on the sam
 | Prometheus | 9100 |
 | Grafana (dashboard "DetectionX5 plate service") | 3100 |
 | OpenTelemetry collector | 4319 (gRPC), 4320 (HTTP) |
-| Dashboard (placeholder until M5) | 5174 |
+| Dashboard (the console; nginx forwards `/api` to the API) | 5174 |
 
 Without Docker, `just api` serves the API on port 8100 with SQLite under `storage/`, and
 `just worker` runs a job worker against Redis on port 6380.
@@ -207,7 +216,8 @@ Without Docker, `just api` serves the API on port 8100 with SQLite under `storag
 | `POST /read` | one to ten photos of one car: plate, fields, calibrated confidence, conformal set, per-view hypotheses, per-character posteriors, model version; `detect=false` reads photos as crops |
 | `GET /reads`, `GET /reads/{id}` | the read log |
 | `GET /review/queue`, `POST /review/{id}`, `POST /review/export` | reads whose conformal set holds more than one plate or whose confidence is under `PLATE_REVIEW_THRESHOLD`; corrections export to `data/ocr/train` |
-| `POST /jobs`, `POST /jobs/upload`, `GET /jobs/{id}`, `GET /jobs/{id}/events` | folders and videos in the background (RQ on Redis), IoU tracking and per-track fusion, progress as Server-Sent Events |
+| `POST /jobs`, `POST /jobs/upload`, `GET /jobs`, `GET /jobs/{id}`, `GET /jobs/{id}/events` | folders and videos in the background (RQ on Redis), IoU tracking and per-track fusion, progress as Server-Sent Events |
+| `GET /results`, `GET /results/{name}` | the committed evaluation results the console renders (all synthetic) |
 | `GET /models`, `GET /health`, `GET /metrics` | registry and loaded models, health, Prometheus metrics |
 
 ## How it works
@@ -439,7 +449,8 @@ plate_reader/
     pipeline.py         orchestration and voting
 models/best.pt          fine-tuned detector
 models/crnn.onnx        CRNN recogniser (with crnn.json metadata and crnn.pt weights)
-results/                metrics JSON the docs render from
+results/                metrics JSON the docs and the console render from
+apps/dashboard/         the Vue 3 console (Vite, Pinia, PrimeVue, D3, KaTeX, Storybook)
 data/                   placeholder for real data (README, layout, detector.yaml)
 docs/                   ADRs, training log, insert-your-own-data guide
 tools/repo_guards.py    pre-commit and CI guards

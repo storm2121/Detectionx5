@@ -65,7 +65,31 @@ All notable changes to this project are recorded here. The format follows
   calibrate-fused`, `results/calibration_fused.json`); `docs/data_card.md`; Tempo as the trace
   store under the Compose `tracing` profile.
 
+- M5: `apps/dashboard`, the Vue 3 and TypeScript console (Vite, Pinia, Vue Router, PrimeVue
+  with a custom preset on the console's design tokens, D3, KaTeX): Read (photos with detected
+  boxes, plate fields, calibrated confidence, conformal set, per-view hypotheses, fusion
+  table, character heatmap, stored reads), Jobs (live progress over Server-Sent Events),
+  Review queue (confirm or correct, export), Evaluation (metrics with bootstrap intervals,
+  reliability diagrams, letter confusions, fusion by number of views, temperature scaling,
+  conformal coverage), Models (active models, thresholds per number of views, registry,
+  training curve), Methods (the equations); light and dark themes, phone width; Vitest unit
+  and page tests, Storybook stories, Playwright smoke and axe checks against Compose.
+- M5: `GET /jobs` and `GET /results`, `GET /results/{name}` in the service; the dashboard
+  image (Node build, nginx with `/api` forwarded to the service); `just dashboard`,
+  `dashboard-check` and `dashboard-e2e`; CI jobs for the dashboard and for its smoke test
+  against Compose.
+- M5: `make_scene_views` (several street photos of one car) and end-to-end parity fixtures:
+  three synthetic photos of one car with the Python pipeline's boxes, per-view reads and
+  fused read in `results/parity_fixtures.json` (the console's samples).
+
 ### Changed
+
+- M5: the fused conformal threshold is chosen by the number of views that proposed a plate,
+  not the number of photos (a photo proposing nothing contributes nothing to the fusion; no
+  synthetic calibration view abstains, so the committed thresholds and results are
+  unchanged).
+- M5: the service creates the folder of its SQLite database before migrating (a first
+  `just api` failed on a fresh clone).
 
 - Review follow-up: the service serves conformal sets at alpha 0.05 and queues empty sets for
   review by default (`PLATE_REVIEW_SKIP_EMPTY_SETS` opts out).

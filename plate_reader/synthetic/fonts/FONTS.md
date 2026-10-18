@@ -1,8 +1,9 @@
 # Bundled fonts
 
 Only fonts under the SIL Open Font License 1.1 are bundled (AGENT_RULES §1, ADR 0002).
-Each family's licence text sits next to its files as `OFL.txt`. The fonts are used only to
-render synthetic plates; they are not redistributed as a font product.
+Each family's licence text sits next to its files as `OFL.txt`. The fonts render synthetic
+plates, and the console (`apps/dashboard`) shows plate text in Barlow Condensed Bold and Noto
+Kufi Arabic; they are not redistributed as a font product.
 
 | Folder | Family | Files | Licence | Source |
 |---|---|---|---|---|

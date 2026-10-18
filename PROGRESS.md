@@ -296,3 +296,62 @@ Never record the name of the original dataset host.
 - Stubbed or skipped: Tempo has not been run yet; it is exercised with the M5 Compose smoke.
 - Open questions: none new.
 - Next: M5.
+
+### M5: Vue dashboard — done — 2026-10-18
+
+- Built: `apps/dashboard`, the console in Vue 3.5 and TypeScript strict (Vite 6, Pinia, Vue
+  Router, PrimeVue 4 with a custom Aura preset on the console's design tokens, D3 7, KaTeX),
+  server mode. Pages: Read (drop one to ten photos or try three synthetic photos of one car;
+  the detected box drawn on each photo; plate fields; calibrated confidence against the
+  review threshold; the conformal set with its empty and several-plate states; one card per
+  view with its crop, detector confidence, weight and constrained-beam hypotheses; the fusion
+  table; the D3 character heatmap with an accessible table; stored reads at `/reads/<id>`;
+  recent reads), Jobs (queue a folder or a video, upload a video, live progress over
+  Server-Sent Events, per-photo and per-track results), Review queue (crops, set and reason,
+  confirm or correct with the grammar's validation message, export to `data/ocr/train`),
+  Evaluation (every recogniser on each committed set with bootstrap intervals, reliability
+  diagram, letter confusion matrix, fusion by number of views, paired differences,
+  temperature scaling before and after, conformal coverage for one view and per number of
+  fused views), Models (active recogniser, detector and service settings, thresholds per
+  number of views, the registry, the training curve), Methods (the equations in KaTeX, with
+  the measured coverage). Light and dark themes (system preference until the viewer picks),
+  phone width, a skip link, and the synthetic label on every page. Vitest unit, component
+  and page tests (42), Storybook stories for the parts and charts, Playwright smoke and axe
+  checks against Compose (34). Service additions: `GET /jobs`, `GET /results`,
+  `GET /results/{name}`; the API image carries `results/*.json` and the registry. The
+  dashboard image is a Node build stage and nginx forwarding `/api` to the service.
+  `make_scene_views` (several street photos of one car) and end-to-end parity fixtures (one
+  three-photo set with the Python pipeline's boxes, per-view reads and fused read), which are
+  the console's samples, its e2e input and M6's reference.
+- Commands run and results:
+  - `pnpm build`: vue-tsc (app, node, tests and stories) and Vite build pass.
+  - `pnpm test`: 6 files, 42 passed.
+  - `pnpm storybook:build`: built; stories render in light and dark (checked by screenshot).
+  - `pnpm lint` (ESLint and Prettier): clean.
+  - `docker compose --profile tracing up -d` after `docker compose build api worker
+    dashboard`, then `pnpm e2e` (Playwright, Chromium, desktop 1440x900 and phone 390x844):
+    34 passed: every page in light and dark loads, shows the synthetic label, does not
+    scroll sideways and has no axe WCAG 2.1 A/AA violation; three synthetic photos read
+    through nginx, the service and the ONNX models give the Python pipeline's fused plate
+    and set, with three boxes, three view cards, the fusion table and one outlined heatmap
+    cell per character; a queued read is corrected in the review queue, exported, and then
+    shows as reviewed; a refused job shows the service's message; the Evaluation page
+    switches sets and recognisers; the Models page shows the served model version.
+  - Tempo: a `POST /read` trace found through Grafana's Tempo data source with its
+    `read`, `detect`, `recognise`, `fuse` and `store` spans (the `tracing` profile works).
+  - `just check` (now including `dashboard-check`): green, pytest 207 passed and 1 skipped, coverage 93.7% on `plate_reader`; `plate docs check` and `plate data validate` clean.
+- Decisions: the console reads results through the API so it shows the results of the
+  models the service loaded; versions are pinned to the majors the code was verified against
+  (ADR 0006 implementation notes); plate text uses `unicode-bidi: isolate-override` because
+  plain bidi reorders `24830-ب-1`; the fused conformal threshold is chosen by the number of
+  views that proposed a plate rather than the number of photos (a photo whose crop yields no
+  grammar-valid string contributes nothing to the fusion; no view of the synthetic
+  calibration or test sets abstains, so the committed thresholds and results are unchanged;
+  ADR 0004 updated). Found and fixed while testing: a first `just api` on a fresh clone failed
+  because SQLite cannot create the database folder (the service now creates it), and
+  absolutely positioned screen-reader text inside a scrolling table widened the page.
+- Stubbed or skipped, and why: the in-browser mode toggle and its parity indicator are M6.
+  The Docker engine stopped answering once more (shared machine); Docker Desktop was
+  restarted and the builds and checks then succeeded.
+- Open questions for the architect: none.
+- Next: M6.
