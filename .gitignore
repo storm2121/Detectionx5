@@ -38,8 +38,11 @@ data/**
 !data/detector.yaml
 !data/**/.gitkeep
 
+# Evaluation read cache (content-addressed, safe to delete).
+.cache/
+
 # Synthetic sets are regenerated deterministically from a seed, never committed.
-synthetic/
+/synthetic/
 
 # HTML reports are regenerated; the JSON next to them is the committed source of truth.
 results/*.html
