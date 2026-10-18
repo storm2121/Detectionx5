@@ -131,6 +131,15 @@ class PlateDetector:
         if not results:
             return []
 
+        return self._detections(results)
+
+    def detect_image(self, image: Image) -> list[Detection]:
+        """Detect plates in an in-memory BGR image (the service and video jobs use this)."""
+        results = self._model.predict(image, conf=self.confidence, verbose=False, nms=False)
+        return self._detections(results) if results else []
+
+    @staticmethod
+    def _detections(results: Any) -> list[Detection]:
         result = results[0]
         original = as_u8(result.orig_img)
         boxes: list[list[float]] = result.boxes.xyxy.tolist()

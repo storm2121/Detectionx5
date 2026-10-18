@@ -1,4 +1,4 @@
-"""``plate export``: ONNX export of the CRNN (and, later, the detector)."""
+"""``plate export``: ONNX export of the CRNN and the detector, and parity fixtures."""
 
 from __future__ import annotations
 
@@ -52,6 +52,24 @@ def fixtures(
     typer.echo(
         f"wrote {len(payload['fixtures'])} parity fixtures for model {payload['model_version']}"
     )
+
+
+@app.command("detector")
+def detector(
+    weights: Annotated[Path | None, typer.Option(help="default models/best.pt")] = None,
+    out: Annotated[Path | None, typer.Option(help="default models/detector.onnx")] = None,
+    imgsz: Annotated[int, typer.Option(min=64)] = 640,
+) -> None:
+    """Export the YOLOv10 detector to ONNX (opset 17, the NMS-free one-to-one head)."""
+    from ..settings import PROJECT_ROOT
+    from ..training.export_detector import export_detector
+
+    target = export_detector(
+        weights or PROJECT_ROOT / "models" / "best.pt",
+        out or PROJECT_ROOT / "models" / "detector.onnx",
+        imgsz=imgsz,
+    )
+    typer.echo(f"exported {target} ({target.stat().st_size} bytes)")
 
 
 __all__ = ["HELP", "app"]
