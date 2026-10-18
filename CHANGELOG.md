@@ -44,7 +44,19 @@ All notable changes to this project are recorded here. The format follows
 - M2: the harness compares the EasyOCR path with CRNN greedy, constrained beam and
   unconstrained beam on the synthetic and pseudo-real sets; model card v1.
 
+- M3: probabilistic multi-view fusion (`plate_reader/fusion.py`) with per-position
+  character posteriors from Levenshtein alignment, optional quality weights and fused
+  conformal sets; hypothesis property tests (permutation invariance, single-view
+  consistency, monotonicity in weights); `docs/methods/fusion.md` with the equations;
+  `results/eval_views.json` compares the legacy vote with probabilistic fusion at 1, 3 and 5
+  views.
+
 ### Changed
+
+- M3: `plate_reader.pipeline.PlatePipeline` (detect, read, fuse, conformal set) fuses
+  probabilistically by default; `read_images`, `plate read` and `cli.py` take
+  `--fusion auto|probabilistic|vote`, where `auto` uses the product only for calibrated views
+  and otherwise the original vote (ADR 0009).
 
 - M0: the README detector table now shows the shipped checkpoint (epoch 90) instead of
   the final epoch; it is rendered, not typed.
