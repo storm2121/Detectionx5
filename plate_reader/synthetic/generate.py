@@ -1,4 +1,5 @@
-"""Sample-level generation: crops, scenes, multi-view sets and the pseudo-real set.
+"""Sample-level generation: crops, scenes, multi-view sets (crops or whole street photos)
+and the pseudo-real set.
 
 Determinism: every sample owns a generator seeded from ``(seed, kind, index, view)``
 through ``numpy.random.SeedSequence``, so sample ``i`` is the same whether it is generated
@@ -18,14 +19,20 @@ import numpy as np
 from ..grammar import GRAMMAR, STANDARD, TEMPORARY, to_display
 from ..imaging import Image, as_u8
 from . import augment as aug
-from .backgrounds import bodywork, scene
+from .backgrounds import PAINTS, bodywork, scene
 from .render import PlateStyle, render_plate, sample_style
 
 #: Bump when the output for a given seed changes; recorded in every manifest and result.
 GENERATOR_VERSION: Final = "1"
 
-Kind = Literal["crop", "scene", "views", "pseudo_real"]
-KIND_CODES: Final[dict[str, int]] = {"crop": 1, "scene": 2, "views": 3, "pseudo_real": 4}
+Kind = Literal["crop", "scene", "views", "pseudo_real", "scene_views"]
+KIND_CODES: Final[dict[str, int]] = {
+    "crop": 1,
+    "scene": 2,
+    "views": 3,
+    "pseudo_real": 4,
+    "scene_views": 5,
+}
 
 #: Fraction of temporary (WW) plates; they are rarer on the road than standard plates.
 TEMPORARY_FRACTION: Final = 0.25
@@ -195,17 +202,28 @@ def make_scene(
     strength_range: tuple[float, float] = (0.0, 0.6),
     config: aug.AugmentConfig = aug.DEFAULT,
     empty_fraction: float = 0.1,
+    tokens: str | None = None,
+    style: PlateStyle | None = None,
+    paint: int | None = None,
+    kind: Kind = "scene",
+    view: int = 0,
 ) -> SceneSample:
-    """A procedural street scene with zero or one plate and its YOLO box."""
-    rng = sample_rng(seed, "scene", index)
+    """A procedural street scene with zero or one plate and its YOLO box.
+
+    With ``tokens`` (and ``style`` and ``paint``) the scene always shows that plate on a car
+    of that colour: one photo of a car that :func:`make_scene_views` photographs again.
+    """
+    rng = sample_rng(seed, kind, index, view)
     h, w = size
-    layout = scene(rng, h, w)
+    layout = scene(rng, h, w, paint=paint)
     image = layout.image
     strength = float(rng.uniform(*strength_range))
     plates: list[tuple[str, tuple[int, int, int, int]]] = []
-    if rng.random() >= empty_fraction:
-        tokens = _choose_tokens(rng, TEMPORARY_FRACTION)
-        style = sample_style(rng)
+    if tokens is not None or rng.random() >= empty_fraction:
+        if tokens is None:
+            tokens = _choose_tokens(rng, TEMPORARY_FRACTION)
+        if style is None:
+            style = sample_style(rng)
         plate = _to_bgr(render_plate(tokens, style).image)
         pw = layout.plate_width
         ph = pw * plate.shape[0] / plate.shape[1]
@@ -226,8 +244,43 @@ def make_scene(
     meta.update(p)
     image, p = aug.jpeg(image, rng, strength, config)
     meta.update(p)
-    meta.update({"seed": seed, "index": index, "kind": "scene", "strength": strength})
+    meta.update({"seed": seed, "index": index, "kind": kind, "strength": strength})
+    if view:
+        meta["view"] = view
     return SceneSample(image=image, plates=tuple(plates), meta=meta)
+
+
+def make_scene_views(
+    seed: int,
+    index: int,
+    k: int,
+    *,
+    size: tuple[int, int] = (480, 640),
+    strength_range: tuple[float, float] = (0.0, 0.6),
+    config: aug.AugmentConfig = aug.DEFAULT,
+) -> list[SceneSample]:
+    """``k`` street photos of one car: the same plate, plate style and paint; every photo
+    has its own framing, background, light and degradations.
+    """
+    rng = sample_rng(seed, "scene_views", index, 0)
+    tokens = _choose_tokens(rng, TEMPORARY_FRACTION)
+    style = sample_style(rng)
+    paint = int(rng.integers(0, len(PAINTS)))
+    return [
+        make_scene(
+            seed,
+            index,
+            size=size,
+            strength_range=strength_range,
+            config=config,
+            tokens=tokens,
+            style=style,
+            paint=paint,
+            kind="scene_views",
+            view=view + 1,
+        )
+        for view in range(k)
+    ]
 
 
 __all__ = [
@@ -244,6 +297,7 @@ __all__ = [
     "make_crop",
     "make_pseudo_real",
     "make_scene",
+    "make_scene_views",
     "make_views",
     "sample_rng",
 ]

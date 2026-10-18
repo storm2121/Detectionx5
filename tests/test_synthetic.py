@@ -21,6 +21,7 @@ from plate_reader.synthetic import (
     make_crop,
     make_pseudo_real,
     make_scene,
+    make_scene_views,
     make_views,
     render_plate,
     sample_style,
@@ -99,6 +100,38 @@ def test_scene_boxes_lie_inside_the_image(seed: int, index: int) -> None:
         assert 0 <= x1 < x2 <= w
         assert 0 <= y1 < y2 <= h
     assert encode_png(sample.image) == encode_png(make_scene(seed, index).image)
+
+
+@settings(max_examples=6)
+@given(seeds, indices, st.integers(1, 4))
+def test_scene_views_photograph_one_car_several_times(seed: int, index: int, k: int) -> None:
+    views = make_scene_views(seed, index, k)
+    assert len(views) == k
+    # Every photo shows the plate, the same plate, inside the frame.
+    assert all(len(v.plates) == 1 for v in views)
+    assert len({v.plates[0][0] for v in views}) == 1
+    assert grammar.accepts(views[0].plates[0][0])
+    for view in views:
+        h, w = view.image.shape[:2]
+        x1, y1, x2, y2 = view.plates[0][1]
+        assert 0 <= x1 < x2 <= w
+        assert 0 <= y1 < y2 <= h
+    assert [v.meta["view"] for v in views] == list(range(1, k + 1))
+    assert {v.meta["kind"] for v in views} == {"scene_views"}
+    if k > 1:
+        assert len({encode_png(v.image) for v in views}) == k
+    again = make_scene_views(seed, index, k)
+    assert [encode_png(v.image) for v in views] == [encode_png(v.image) for v in again]
+
+
+def test_scene_views_do_not_change_single_scenes() -> None:
+    """The plate and paint arguments only apply when given: ``make_scene`` is unchanged."""
+    first = make_scene(SPLIT_SEEDS["test"], 3)
+    again = make_scene(SPLIT_SEEDS["test"], 3, tokens=None, style=None, paint=None)
+    assert encode_png(first.image) == encode_png(again.image)
+    assert first.plates == again.plates
+    assert first.meta["kind"] == "scene"
+    assert "view" not in first.meta
 
 
 def test_different_indices_and_seeds_give_different_crops() -> None:

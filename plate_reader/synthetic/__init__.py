@@ -15,6 +15,7 @@ from .generate import (
     make_crop,
     make_pseudo_real,
     make_scene,
+    make_scene_views,
     make_views,
     sample_rng,
 )
@@ -34,6 +35,7 @@ __all__ = [
     "make_crop",
     "make_pseudo_real",
     "make_scene",
+    "make_scene_views",
     "make_views",
     "render_plate",
     "sample_rng",

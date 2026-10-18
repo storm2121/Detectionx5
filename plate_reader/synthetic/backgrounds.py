@@ -68,8 +68,12 @@ class SceneLayout:
     plate_width: float  # the plate width the car's bumper suggests
 
 
-def scene(rng: np.random.Generator, h: int, w: int) -> SceneLayout:
-    """A road, a sky, buildings and a car seen from the front or back."""
+def scene(rng: np.random.Generator, h: int, w: int, paint: int | None = None) -> SceneLayout:
+    """A road, a sky, buildings and a car seen from the front or back.
+
+    ``paint`` fixes the car's colour (an index into :data:`PAINTS`), for several photos of
+    one car; the random draw is made either way, so the rest of the scene is unchanged.
+    """
     sky = np.array([rng.uniform(150, 240), rng.uniform(140, 220), rng.uniform(110, 200)])
     ground = np.array([rng.uniform(60, 120)] * 3) + rng.uniform(-10, 10, size=3)
     horizon = int(h * float(rng.uniform(0.35, 0.55)))
@@ -89,7 +93,8 @@ def scene(rng: np.random.Generator, h: int, w: int) -> SceneLayout:
     car_x = int(rng.integers(0, max(1, w - car_w)))
     car_y = min(h - car_h, int(horizon + rng.uniform(-0.25, 0.15) * car_h))
     car_y = max(0, car_y)
-    paint = np.array(PAINTS[int(rng.integers(0, len(PAINTS)))], dtype=np.float32)
+    drawn = int(rng.integers(0, len(PAINTS)))
+    colour_of_car = np.array(PAINTS[drawn if paint is None else paint], dtype=np.float32)
     body = np.zeros((h, w), dtype=np.uint8)
     cv2.rectangle(body, (car_x, car_y + car_h // 3), (car_x + car_w, car_y + car_h), 255, -1)
     roof = np.array(
@@ -104,7 +109,7 @@ def scene(rng: np.random.Generator, h: int, w: int) -> SceneLayout:
     cv2.fillPoly(body, [roof], 255)
     mask = (body > 0)[..., None]
     shade = rng.uniform(0.85, 1.1)
-    image = np.where(mask, paint * shade, image)
+    image = np.where(mask, colour_of_car * shade, image)
     glass = np.array(
         [
             [car_x + car_w // 5, car_y + car_h // 3 - 2],
