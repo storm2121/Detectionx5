@@ -20,8 +20,9 @@ import numpy as np
 
 from .. import __version__
 from ..docs_render import SYNTHETIC_LABEL
-from ..fusion import FusedRead, legacy_vote
+from ..fusion import Fuser, legacy_vote, probabilistic_fusion, quality_weight
 from ..hypotheses import ViewRead
+from ..synthetic.augment import sharpness
 from .bootstrap import Bootstrap
 from .cache import ReadCache
 from .metrics import score_reads, summarise
@@ -31,8 +32,13 @@ from .sets import EvalSet
 SCHEMA: Final = "detectionx5.eval/1"
 DEFAULT_KS: Final = (1, 3, 5)
 
-Fuser = Callable[[Sequence[ViewRead]], FusedRead]
-DEFAULT_FUSERS: Final[dict[str, Fuser]] = {"legacy_vote": legacy_vote}
+#: name -> (fuser, view weighting). "uniform" weights every view 1; "quality" weights a view
+#: by its image sharpness (crops have no detector confidence to multiply in).
+DEFAULT_FUSERS: Final[dict[str, tuple[Fuser, str]]] = {
+    "legacy_vote": (legacy_vote, "uniform"),
+    "probabilistic": (probabilistic_fusion, "uniform"),
+    "probabilistic_weighted": (probabilistic_fusion, "quality"),
+}
 Progress = Callable[[str], object]
 
 
@@ -114,7 +120,7 @@ def evaluate_fusion(
     confidence: float,
     seed: int,
     ks: Sequence[int] = DEFAULT_KS,
-    fusers: Mapping[str, Fuser] = DEFAULT_FUSERS,
+    fusers: Mapping[str, tuple[Fuser, str]] = DEFAULT_FUSERS,
     reads: Mapping[str, list[ViewRead]] | None = None,
     quiet: bool = False,
     cache: ReadCache | None = None,
@@ -128,17 +134,31 @@ def evaluate_fusion(
         groups[g].sort(key=lambda p: view_set.items[p].view)
     truths = [view_set.items[groups[g][0]].truth for g in order]
     reads = reads or read_all(view_set.items, recognizers, "views", quiet, cache)
+    quality = [quality_weight(sharpness(item.image)) for item in view_set.items]
     bootstrap = Bootstrap(len(order), resamples, confidence, seed)
     out: dict[str, Any] = {}
     for recognizer in recognizers:
         per_view = reads[recognizer.name]
+        threshold = getattr(recognizer, "conformal_threshold", None)
         methods: dict[str, Any] = {}
-        for method, fuse in fusers.items():
+        for method, (fuse, weighting) in fusers.items():
             by_k: dict[str, Any] = {}
             for k in ks:
-                fused = [fuse([per_view[p] for p in groups[g][:k]]) for g in order]
+                fused = [
+                    fuse(
+                        [per_view[p] for p in groups[g][:k]],
+                        [quality[p] for p in groups[g][:k]] if weighting == "quality" else None,
+                        threshold,
+                    )
+                    for g in order
+                ]
                 as_reads = [
-                    ViewRead(prediction=f.prediction, confidence=f.confidence) for f in fused
+                    ViewRead(
+                        prediction=f.prediction,
+                        confidence=f.confidence,
+                        prediction_set=f.prediction_set,
+                    )
+                    for f in fused
                 ]
                 summary = summarise(truths, as_reads, bootstrap)
                 by_k[f"k={k}"] = {
@@ -178,12 +198,30 @@ def build_payload(
         payload["label"] = SYNTHETIC_LABEL
     payload["set"] = set_header(eval_set)
     payload["bootstrap"] = bootstrap.describe("image")
-    payload.update(evaluate_recognizers(eval_set, recognizers, bootstrap, quiet=quiet, cache=cache))
+    # When the evaluated set is the multi-view set itself, read it once for both tables.
+    shared = (
+        read_all(eval_set.items, recognizers, eval_set.name, quiet, cache)
+        if views is eval_set
+        else None
+    )
+    payload.update(
+        evaluate_recognizers(
+            eval_set, recognizers, bootstrap, reads=shared, quiet=quiet, cache=cache
+        )
+    )
     if views is not None:
         payload["fusion"] = {
             "set": set_header(views),
             **evaluate_fusion(
-                views, recognizers, resamples, confidence, seed, ks, quiet=quiet, cache=cache
+                views,
+                recognizers,
+                resamples,
+                confidence,
+                seed,
+                ks,
+                reads=shared,
+                quiet=quiet,
+                cache=cache,
             ),
         }
     payload["environment"] = {"package_version": __version__, "device": device}

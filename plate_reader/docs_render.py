@@ -234,6 +234,46 @@ def _fusion_table(payload: Mapping[str, Any]) -> list[str]:
     return lines
 
 
+@block("fusion-comparison")
+def _fusion_comparison(ctx: RenderContext) -> str:
+    payload = ctx.result("eval_views")
+    if payload is None or not payload.get("fusion"):
+        return (
+            "Not measured yet: run `uv run plate eval --set views`. "
+            f"{SYNTHETIC_LABEL.capitalize()}."
+        )
+    fusion = payload["fusion"]
+    ks = fusion.get("k", [])
+    info = fusion.get("set", {})
+    lines = [
+        f"**{SYNTHETIC_LABEL.capitalize()}.** Multi-view synthetic sets: n = "
+        f"{fusion.get('n_sets', '?')} plates with up to {max(ks) if ks else '?'} views each "
+        f"(generator seed {info.get('seed', '?')}); the first k views of every set are fused; "
+        "values with bootstrap intervals over sets.",
+    ]
+    lines += _fusion_table(payload)
+    if ks:
+        lines += [
+            "",
+            "Calibration and conformal sets of the fused read (fused sets apply the single-view "
+            "threshold, so beyond one view their coverage is measured, not guaranteed):",
+            "",
+            "| Recogniser | Fusion | Views | ECE | Set coverage | Mean set size |",
+            "|---|---|---|---|---|---|",
+        ]
+        for name, entry in fusion.get("recognizers", {}).items():
+            for method, by_k in entry.get("methods", {}).items():
+                for k in sorted({min(ks), max(ks)}):
+                    metrics = by_k.get(f"k={k}", {}).get("metrics", {})
+                    coverage = fmt_ci(metrics["coverage"]) if "coverage" in metrics else "n/a"
+                    size = fmt_ci(metrics["set_size"]) if "set_size" in metrics else "n/a"
+                    lines.append(
+                        f"| {name} | {method} | {k} | {fmt_ci(metrics.get('ece', {}))} | "
+                        f"{coverage} | {size} |"
+                    )
+    return "\n".join(lines)
+
+
 def _set_line(payload: Mapping[str, Any]) -> str:
     info = payload.get("set", {})
     boot = payload.get("bootstrap", {})

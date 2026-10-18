@@ -254,9 +254,17 @@ Multi-view sets (exact match of the fused read; n = 100 sets, bootstrap over set
 | Recogniser | Fusion | 1 view(s) | 3 view(s) | 5 view(s) |
 |---|---|---|---|---|
 | easyocr | legacy_vote | 0.380 [0.290, 0.470] | 0.650 [0.550, 0.740] | 0.650 [0.550, 0.740] |
+| easyocr | probabilistic | 0.380 [0.290, 0.470] | 0.580 [0.480, 0.670] | 0.620 [0.530, 0.720] |
+| easyocr | probabilistic_weighted | 0.380 [0.290, 0.470] | 0.600 [0.500, 0.690] | 0.640 [0.540, 0.730] |
 | crnn-greedy | legacy_vote | 0.980 [0.950, 1.000] | 1.000 [1.000, 1.000] | 1.000 [1.000, 1.000] |
+| crnn-greedy | probabilistic | 0.980 [0.950, 1.000] | 1.000 [1.000, 1.000] | 1.000 [1.000, 1.000] |
+| crnn-greedy | probabilistic_weighted | 0.980 [0.950, 1.000] | 1.000 [1.000, 1.000] | 1.000 [1.000, 1.000] |
 | crnn-beam | legacy_vote | 0.980 [0.950, 1.000] | 1.000 [1.000, 1.000] | 1.000 [1.000, 1.000] |
+| crnn-beam | probabilistic | 0.980 [0.950, 1.000] | 1.000 [1.000, 1.000] | 1.000 [1.000, 1.000] |
+| crnn-beam | probabilistic_weighted | 0.980 [0.950, 1.000] | 1.000 [1.000, 1.000] | 1.000 [1.000, 1.000] |
 | crnn-beam-unconstrained | legacy_vote | 0.980 [0.950, 1.000] | 1.000 [1.000, 1.000] | 1.000 [1.000, 1.000] |
+| crnn-beam-unconstrained | probabilistic | 0.980 [0.950, 1.000] | 1.000 [1.000, 1.000] | 1.000 [1.000, 1.000] |
+| crnn-beam-unconstrained | probabilistic_weighted | 0.980 [0.950, 1.000] | 1.000 [1.000, 1.000] | 1.000 [1.000, 1.000] |
 <!-- END RENDER synthetic-baseline -->
 
 ## Recogniser: CRNN with grammar-constrained decoding
@@ -287,6 +295,56 @@ Conformal prediction sets (thresholds from the conformal split, n = 2000; covera
 | 90% | 0.901 [0.882, 0.918] | 0.901 [0.882, 0.918] | 0.901 |
 | 95% | 0.955 [0.935, 0.965] | 0.955 [0.935, 0.965] | 0.955 |
 <!-- END RENDER crnn-calibration -->
+
+### Multi-view fusion
+
+Several photos of one car are combined in probability space: each view's grammar-valid
+hypotheses are renormalised over the union of candidates and multiplied, which is Bayes'
+rule for independent views, and every character gets a posterior from aligning the
+hypotheses to the winner. The original vote stays selectable (`--fusion vote`). Equations
+and properties are in [`docs/methods/fusion.md`](docs/methods/fusion.md); rendered from
+`results/eval_views.json`:
+
+<!-- BEGIN RENDER fusion-comparison -->
+**Synthetic results are not real-world accuracy.** Multi-view synthetic sets: n = 200 plates with up to 5 views each (generator seed 1007); the first k views of every set are fused; values with bootstrap intervals over sets.
+
+Multi-view sets (exact match of the fused read; n = 200 sets, bootstrap over sets):
+
+| Recogniser | Fusion | 1 view(s) | 3 view(s) | 5 view(s) |
+|---|---|---|---|---|
+| easyocr | legacy_vote | 0.295 [0.235, 0.360] | 0.545 [0.475, 0.615] | 0.585 [0.515, 0.650] |
+| easyocr | probabilistic | 0.295 [0.235, 0.360] | 0.465 [0.395, 0.530] | 0.520 [0.445, 0.590] |
+| easyocr | probabilistic_weighted | 0.295 [0.235, 0.360] | 0.475 [0.405, 0.540] | 0.520 [0.445, 0.585] |
+| crnn-greedy | legacy_vote | 0.990 [0.975, 1.000] | 1.000 [1.000, 1.000] | 1.000 [1.000, 1.000] |
+| crnn-greedy | probabilistic | 0.990 [0.975, 1.000] | 1.000 [1.000, 1.000] | 1.000 [1.000, 1.000] |
+| crnn-greedy | probabilistic_weighted | 0.990 [0.975, 1.000] | 1.000 [1.000, 1.000] | 1.000 [1.000, 1.000] |
+| crnn-beam | legacy_vote | 0.990 [0.975, 1.000] | 1.000 [1.000, 1.000] | 1.000 [1.000, 1.000] |
+| crnn-beam | probabilistic | 0.990 [0.975, 1.000] | 1.000 [1.000, 1.000] | 1.000 [1.000, 1.000] |
+| crnn-beam | probabilistic_weighted | 0.990 [0.975, 1.000] | 1.000 [1.000, 1.000] | 1.000 [1.000, 1.000] |
+
+Calibration and conformal sets of the fused read (fused sets apply the single-view threshold, so beyond one view their coverage is measured, not guaranteed):
+
+| Recogniser | Fusion | Views | ECE | Set coverage | Mean set size |
+|---|---|---|---|---|---|
+| easyocr | legacy_vote | 1 | 0.166 [0.120, 0.217] | n/a | n/a |
+| easyocr | legacy_vote | 5 | 0.102 [0.072, 0.153] | n/a | n/a |
+| easyocr | probabilistic | 1 | 0.166 [0.120, 0.217] | n/a | n/a |
+| easyocr | probabilistic | 5 | 0.187 [0.139, 0.242] | n/a | n/a |
+| easyocr | probabilistic_weighted | 1 | 0.160 [0.116, 0.211] | n/a | n/a |
+| easyocr | probabilistic_weighted | 5 | 0.202 [0.153, 0.259] | n/a | n/a |
+| crnn-greedy | legacy_vote | 1 | 0.010 [0.000, 0.025] | n/a | n/a |
+| crnn-greedy | legacy_vote | 5 | 0.003 [0.001, 0.006] | n/a | n/a |
+| crnn-greedy | probabilistic | 1 | 0.010 [0.000, 0.025] | n/a | n/a |
+| crnn-greedy | probabilistic | 5 | 0.000 [0.000, 0.000] | n/a | n/a |
+| crnn-greedy | probabilistic_weighted | 1 | 0.010 [0.000, 0.025] | n/a | n/a |
+| crnn-greedy | probabilistic_weighted | 5 | 0.000 [0.000, 0.000] | n/a | n/a |
+| crnn-beam | legacy_vote | 1 | 0.010 [0.000, 0.025] | n/a | n/a |
+| crnn-beam | legacy_vote | 5 | 0.004 [0.001, 0.007] | n/a | n/a |
+| crnn-beam | probabilistic | 1 | 0.010 [0.003, 0.018] | 0.900 [0.855, 0.940] | 0.900 [0.855, 0.940] |
+| crnn-beam | probabilistic | 5 | 0.000 [0.000, 0.000] | 1.000 [1.000, 1.000] | 1.000 [1.000, 1.000] |
+| crnn-beam | probabilistic_weighted | 1 | 0.033 [0.024, 0.051] | 0.280 [0.220, 0.345] | 0.280 [0.220, 0.345] |
+| crnn-beam | probabilistic_weighted | 5 | 0.000 [0.000, 0.000] | 1.000 [1.000, 1.000] | 1.000 [1.000, 1.000] |
+<!-- END RENDER fusion-comparison -->
 
 ### Pseudo-real stand-in
 

@@ -224,7 +224,10 @@ def test_harness_payload_with_fake_recognisers(small_set: sets.EvalSet, tmp_path
     )
     diff = payload["comparisons"]["noisy - table"]["exact_match_difference"]
     assert diff["value"] == pytest.approx(-4 / 12)
-    fusion = payload["fusion"]["recognizers"]["table"]["methods"]["legacy_vote"]
+    methods = payload["fusion"]["recognizers"]["table"]["methods"]
+    assert set(methods) == {"legacy_vote", "probabilistic", "probabilistic_weighted"}
+    assert methods["probabilistic"]["k=3"]["metrics"]["exact_match"]["value"] == 1.0
+    fusion = methods["legacy_vote"]
     assert fusion["k=3"]["metrics"]["exact_match"]["value"] == 1.0
     assert payload["fusion"]["n_sets"] == 4
 
