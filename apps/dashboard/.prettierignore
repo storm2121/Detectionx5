@@ -1,0 +1,10 @@
+dist
+storybook-static
+node_modules
+public/samples
+public/models
+playwright-report
+test-results
+pnpm-lock.yaml
+# local tool caches
+.impeccable

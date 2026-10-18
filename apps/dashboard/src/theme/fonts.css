@@ -1,0 +1,23 @@
+/*
+ * The plate face: Barlow Condensed for digits and Latin letters, Noto Kufi Arabic for the
+ * Arabic letter. Both are SIL OFL 1.1 fonts bundled with the synthetic generator
+ * (plate_reader/synthetic/fonts/FONTS.md lists their licences); one family name with two
+ * unicode ranges lets the browser pick the right file per character.
+ */
+@font-face {
+  font-family: 'DX Plate';
+  src: url('@fonts/barlow-condensed/BarlowCondensed-Bold.ttf') format('truetype');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+  unicode-range: U+0020-007E;
+}
+
+@font-face {
+  font-family: 'DX Plate';
+  src: url('@fonts/noto-kufi-arabic/NotoKufiArabic-VF.ttf') format('truetype');
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+  unicode-range: U+0600-06FF;
+}

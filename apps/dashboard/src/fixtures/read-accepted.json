@@ -1,0 +1,138 @@
+{
+  "id": "6796e64679bf454c8172ba80c037434b",
+  "created_at": "2026-10-18T21:49:38.037029",
+  "plate": "27-د-9",
+  "tokens": "27-د-9",
+  "format": "standard",
+  "fields": { "digits": "27", "letter": "د", "region": "9" },
+  "confidence": 0.999999971591551,
+  "calibrated": true,
+  "prediction_set": ["27-د-9"],
+  "level": 0.95,
+  "fusion": "probabilistic",
+  "model_version": "crnn-5348143705d4-T0.888664",
+  "review": { "queued": false, "reason": null, "item_id": null },
+  "views": [
+    {
+      "index": 0,
+      "box": [160, 329, 229, 363],
+      "detector_confidence": 0.6582818031311035,
+      "weight": 1.0,
+      "prediction": null,
+      "confidence": null,
+      "hypotheses": [],
+      "prediction_set": null
+    },
+    {
+      "index": 1,
+      "box": [143, 397, 241, 425],
+      "detector_confidence": 0.40244361758232117,
+      "weight": 1.0,
+      "prediction": "27-د-9",
+      "confidence": 0.9990984210220659,
+      "hypotheses": [
+        { "plate": "27-د-9", "tokens": "27-د-9", "probability": 0.999098421 },
+        { "plate": "22-د-9", "tokens": "22-د-9", "probability": 0.0007617752 },
+        { "plate": "27-ط-9", "tokens": "27-ط-9", "probability": 0.0000421327 },
+        { "plate": "37-د-9", "tokens": "37-د-9", "probability": 0.0000279897 },
+        { "plate": "27-ب-9", "tokens": "27-ب-9", "probability": 0.0000214881 },
+        { "plate": "27-و-9", "tokens": "27-و-9", "probability": 0.0000192218 },
+        { "plate": "23-د-9", "tokens": "23-د-9", "probability": 0.0000190537 },
+        { "plate": "27-د-8", "tokens": "27-د-8", "probability": 6.4752e-6 },
+        { "plate": "27-د-5", "tokens": "27-د-5", "probability": 3.4424e-6 }
+      ],
+      "prediction_set": ["27-د-9"]
+    },
+    {
+      "index": 2,
+      "box": [310, 319, 462, 351],
+      "detector_confidence": 0.7945584058761597,
+      "weight": 1.0,
+      "prediction": "27-د-9",
+      "confidence": 0.9987458208048456,
+      "hypotheses": [
+        { "plate": "27-د-9", "tokens": "27-د-9", "probability": 0.9987458208 },
+        { "plate": "227-د-9", "tokens": "227-د-9", "probability": 0.0011521065 },
+        { "plate": "22-د-9", "tokens": "22-د-9", "probability": 0.0000344711 },
+        { "plate": "37-د-9", "tokens": "37-د-9", "probability": 0.0000278937 },
+        { "plate": "87-د-9", "tokens": "87-د-9", "probability": 0.0000173983 },
+        { "plate": "77-د-9", "tokens": "77-د-9", "probability": 0.000014555 },
+        { "plate": "27-د-69", "tokens": "27-د-69", "probability": 4.177e-6 },
+        { "plate": "27-د-5", "tokens": "27-د-5", "probability": 1.994e-6 },
+        { "plate": "27-د-8", "tokens": "27-د-8", "probability": 1.5835e-6 }
+      ],
+      "prediction_set": ["27-د-9"]
+    }
+  ],
+  "posterior": [
+    { "plate": "27-د-9", "tokens": "27-د-9", "probability": 0.9999999716 },
+    { "plate": "22-د-9", "tokens": "22-د-9", "probability": 2.63e-8 },
+    { "plate": "227-د-9", "tokens": "227-د-9", "probability": 1.2e-9 },
+    { "plate": "37-د-9", "tokens": "37-د-9", "probability": 8e-10 },
+    { "plate": "27-ط-9", "tokens": "27-ط-9", "probability": 0.0 },
+    { "plate": "27-ب-9", "tokens": "27-ب-9", "probability": 0.0 },
+    { "plate": "27-و-9", "tokens": "27-و-9", "probability": 0.0 },
+    { "plate": "23-د-9", "tokens": "23-د-9", "probability": 0.0 },
+    { "plate": "87-د-9", "tokens": "87-د-9", "probability": 0.0 },
+    { "plate": "77-د-9", "tokens": "77-د-9", "probability": 0.0 }
+  ],
+  "positions": [
+    {
+      "index": 0,
+      "symbol": "2",
+      "confidence": 0.9999550818,
+      "distribution": [
+        { "symbol": "2", "probability": 0.9999550818 },
+        { "symbol": "3", "probability": 0.0000279416 },
+        { "symbol": "8", "probability": 9.1991e-6 },
+        { "symbol": "7", "probability": 7.7775e-6 }
+      ]
+    },
+    {
+      "index": 1,
+      "symbol": "7",
+      "confidence": 0.9995918516,
+      "distribution": [
+        { "symbol": "7", "probability": 0.9995918516 },
+        { "symbol": "2", "probability": 0.0003981216 },
+        { "symbol": "3", "probability": 0.0000100268 }
+      ]
+    },
+    {
+      "index": 2,
+      "symbol": "-",
+      "confidence": 1.0,
+      "distribution": [{ "symbol": "-", "probability": 1.0 }]
+    },
+    {
+      "index": 3,
+      "symbol": "د",
+      "confidence": 0.9999570788,
+      "distribution": [
+        { "symbol": "د", "probability": 0.9999570788 },
+        { "symbol": "ط", "probability": 0.0000215663 },
+        { "symbol": "ب", "probability": 0.000011244 },
+        { "symbol": "و", "probability": 0.0000101109 }
+      ]
+    },
+    {
+      "index": 4,
+      "symbol": "-",
+      "confidence": 1.0,
+      "distribution": [{ "symbol": "-", "probability": 1.0 }]
+    },
+    {
+      "index": 5,
+      "symbol": "9",
+      "confidence": 0.9999932524,
+      "distribution": [
+        { "symbol": "9", "probability": 0.9999932524 },
+        { "symbol": "8", "probability": 4.0294e-6 },
+        { "symbol": "5", "probability": 2.7182e-6 }
+      ]
+    }
+  ],
+  "latency_ms": 620.177,
+  "status": "accepted",
+  "source": "api"
+}

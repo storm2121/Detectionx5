@@ -75,6 +75,9 @@ apps/dashboard/dist/
 apps/dashboard/storybook-static/
 apps/dashboard/test-results/
 apps/dashboard/playwright-report/
+# Copied from tests/fixtures and models/ by scripts/sync-assets.mjs
+apps/dashboard/public/samples/
+apps/dashboard/public/models/
 
 # Editors
 .vscode/
