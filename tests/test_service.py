@@ -113,7 +113,7 @@ def test_health_models_and_metrics(service: Any) -> None:
     models = service.client.get("/models").json()
     assert models["recognizer"]["name"] == "fake-crnn"
     assert models["registry"]["active"] == {"crnn": "v1"}
-    assert models["alpha"] == pytest.approx(0.1)
+    assert models["alpha"] == pytest.approx(0.05)
     service.client.post("/read", files=files(png(CONFIDENT)))
     metrics = service.client.get("/metrics").text
     for name in (
@@ -135,7 +135,7 @@ def test_confident_read_is_accepted_with_a_singleton_set(service: Any) -> None:
     assert body["calibrated"] is True
     assert body["confidence"] > 0.99
     assert body["prediction_set"] == ["24830-ب-1"]
-    assert body["level"] == pytest.approx(0.9)
+    assert body["level"] == pytest.approx(0.95)
     assert body["review"] == {"queued": False, "reason": None, "item_id": None}
     assert len(body["views"]) == 2
     assert body["views"][0]["box"] == [0, 0, 120, 40]
@@ -327,3 +327,32 @@ def test_no_queue_means_503(tmp_path: Path) -> None:
     with TestClient(app) as client:
         assert client.post("/jobs", json={"kind": "folder", "path": "batch"}).status_code == 503
         assert client.get("/health").json()["queue"] == "not configured"
+
+
+class UncertainRecognizer(FakeRecognizer):
+    """A read whose best candidate is too unusual to certify: the set comes back empty."""
+
+    conformal_threshold = 0.001
+
+    def read(self, image: np.ndarray) -> ViewRead:
+        hyps = (Hypothesis("24830-ب-1", math.log(0.97)), Hypothesis("24830-د-1", math.log(0.03)))
+        return ViewRead(
+            hypotheses=hyps, prediction=hyps[0].tokens, confidence=0.97, calibrated=True
+        )
+
+
+@pytest.mark.parametrize(("skip", "queued"), [(False, True), (True, False)])
+def test_empty_sets_go_to_review_unless_skipped(tmp_path: Path, skip: bool, queued: bool) -> None:
+    settings = ServiceSettings(
+        db_url=f"sqlite:///{(tmp_path / 'e.db').as_posix()}",
+        storage_dir=tmp_path / "s",
+        review_threshold=0.9,
+        review_skip_empty_sets=skip,
+    )
+    engine = Engine(UncertainRecognizer(), FakeDetector(), review_empty_sets=not skip)
+    app = create_app(settings, engine_factory=lambda _: engine, queue_factory=lambda _: None)
+    with TestClient(app) as client:
+        body = client.post("/read", files=files(png(CONFIDENT))).json()
+    assert body["prediction_set"] == []
+    assert body["review"]["queued"] is queued
+    assert body["review"]["reason"] == ("empty_set" if queued else None)

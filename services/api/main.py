@@ -60,7 +60,7 @@ def build_engine(settings: ServiceSettings) -> Engine:
         recognizer,
         detector,
         review_threshold=settings.review_threshold,
-        review_empty_sets=settings.review_empty_sets,
+        review_empty_sets=not settings.review_skip_empty_sets,
     )
 
 

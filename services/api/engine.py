@@ -33,13 +33,12 @@ class EngineResult(PipelineResult):
 
 
 def review_reason(
-    fused: FusedRead, threshold: float, any_view: bool, review_empty_sets: bool = False
+    fused: FusedRead, threshold: float, any_view: bool, review_empty_sets: bool = True
 ) -> ReviewReason | None:
-    """Queue a read when its conformal set holds more than one plate or confidence is low.
+    """Queue a read whose conformal set is not a single plate, or whose confidence is low.
 
-    An empty set means even the best candidate is less conforming than the calibration
-    quantile; for a model far more accurate than 1 - alpha this happens to about alpha of
-    all reads, so queueing them is a setting rather than the default (ADR 0004).
+    An empty set means no string can be certified at the served level: a signal, not a
+    bug, so it goes to review unless ``PLATE_REVIEW_SKIP_EMPTY_SETS`` opts out (ADR 0004).
     """
     if fused.prediction is None:
         return "unreadable" if any_view else None
@@ -61,7 +60,7 @@ class Engine(PlatePipeline):
         fusion: str = "probabilistic",
         weighting: str = "uniform",
         review_threshold: float = 0.9,
-        review_empty_sets: bool = False,
+        review_empty_sets: bool = True,
     ) -> None:
         super().__init__(recognizer, detector, fusion, weighting, tracer=stage)
         self.review_threshold = review_threshold

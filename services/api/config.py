@@ -38,10 +38,13 @@ class ServiceSettings(BaseSettings):
     )
     registry_path: Path = Field(default=PROJECT_ROOT / "models" / "registry.json")
     review_threshold: float = Field(default=0.9, ge=0.0, le=1.0)
-    review_empty_sets: bool = Field(
-        default=False, description="also queue reads whose conformal set is empty (ADR 0004)"
+    review_skip_empty_sets: bool = Field(
+        default=False,
+        description="do not queue reads whose conformal set is empty (they are queued by default)",
     )
-    alpha: float = Field(default=0.1, gt=0.0, lt=1.0, description="conformal miscoverage")
+    alpha: float = Field(
+        default=0.05, gt=0.0, lt=1.0, description="conformal miscoverage of the served sets"
+    )
     max_photos: int = Field(default=10, ge=1)
     max_photo_bytes: int = Field(default=10 * 1024 * 1024, ge=1)
     frame_stride_seconds: float = Field(default=0.5, gt=0.0, description="video sampling")
