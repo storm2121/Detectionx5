@@ -62,6 +62,7 @@ def run(
     write_crops: bool,
     as_json: bool,
     quiet: bool,
+    fusion: str = "auto",
 ) -> int:
     """Exit status 0 when a plate was read, 1 when none could be, 2 on bad input."""
     from ..detector import PlateDetector
@@ -83,7 +84,11 @@ def run(
         return 2
 
     result = read_images(
-        images, detector=detector, backend=get_backend(backend_name), progress=progress
+        images,
+        detector=detector,
+        backend=get_backend(backend_name),
+        progress=progress,
+        fusion=fusion,
     )
 
     if write_crops:
@@ -115,6 +120,12 @@ def command(
     ] = False,
     json_: Annotated[bool, typer.Option("--json", help="emit machine-readable JSON")] = False,
     quiet: Annotated[bool, typer.Option(help="suppress progress output")] = False,
+    fusion: Annotated[
+        str,
+        typer.Option(
+            help="auto (probabilistic for calibrated views, else the vote), probabilistic or vote"
+        ),
+    ] = "auto",
 ) -> None:
     settings = get_settings()
     code = run(
@@ -125,6 +136,7 @@ def command(
         save_crops_,
         json_,
         quiet,
+        fusion,
     )
     raise typer.Exit(code)
 

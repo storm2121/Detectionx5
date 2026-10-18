@@ -48,13 +48,26 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--json", action="store_true", help="emit machine-readable JSON")
     parser.add_argument("--quiet", action="store_true", help="suppress progress output")
+    parser.add_argument(
+        "--fusion",
+        default="auto",
+        choices=["auto", "probabilistic", "vote"],
+        help="how several photos are combined (default: auto, see ADR 0009)",
+    )
     return parser
 
 
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     return run(
-        args.images, args.model, args.conf, args.backend, args.save_crops, args.json, args.quiet
+        args.images,
+        args.model,
+        args.conf,
+        args.backend,
+        args.save_crops,
+        args.json,
+        args.quiet,
+        args.fusion,
     )
 
 

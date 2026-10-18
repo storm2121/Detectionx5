@@ -15,14 +15,19 @@ independent images is much better evidence than one confident read.
 
 from __future__ import annotations
 
+import time
 from collections import defaultdict
-from collections.abc import Callable, Iterable
+from collections.abc import Callable, Iterable, Sequence
+from contextlib import AbstractContextManager, nullcontext
 from dataclasses import dataclass
 from dataclasses import field as dataclass_field
 from pathlib import Path
+from typing import Protocol
 
 from .detector import Detection, PlateDetector
+from .fusion import FusedRead, fuse, probabilistic_fusion, quality_weight
 from .grammar import LETTERS, STANDARD, Plate
+from .hypotheses import ViewRead, normalised
 from .imaging import Image
 from .normalize import normalize_text, parse_plate
 from .ocr import OCRBackend, Reading, get_backend
@@ -70,11 +75,17 @@ class ImageResult:
 
 @dataclass
 class RunResult:
-    """The outcome of reading one or more images."""
+    """The outcome of reading one or more images.
+
+    ``votes`` always holds the legacy tally (the old API's confidence is computed from it);
+    ``fused`` holds the result of the selected fusion method.
+    """
 
     images: list[ImageResult] = dataclass_field(default_factory=list)
     plate: Plate | None = None
     votes: dict[str, float] = dataclass_field(default_factory=dict)
+    fusion: str = "probabilistic"
+    fused: FusedRead | None = None
 
     @property
     def text(self) -> str:
@@ -207,17 +218,38 @@ def read_detection(backend: OCRBackend, detection: Detection) -> PlateReading:
     return reading
 
 
+def reading_view(reading: PlateReading) -> ViewRead:
+    """One detection's EasyOCR reading as a fusion view: normalised vote shares."""
+    scores: dict[str, float] = {}
+    for text, weight in reading.votes.items():
+        plate = parse_plate(text)
+        if plate is not None:
+            scores[plate.tokens] = scores.get(plate.tokens, 0.0) + weight
+    return ViewRead(
+        hypotheses=normalised(scores),
+        prediction=reading.plate.tokens if reading.plate else None,
+        votes=tuple(reading.votes.items()),
+    )
+
+
 def read_images(
     paths: Iterable[str | Path],
     detector: PlateDetector | None = None,
     backend: OCRBackend | None = None,
     progress: Progress | None = None,
+    fusion: str = "auto",
 ) -> RunResult:
-    """Run the full pipeline over one or more images and vote across them.
+    """Run the full pipeline over one or more images and combine the reads across them.
 
-    ``progress`` is an optional ``callable(str)`` used to report activity; the CLI
-    prints it and the GUI appends it to its log.
+    ``fusion`` is ``"probabilistic"`` (every detection's reading is a view weighted by
+    detector confidence, see :mod:`plate_reader.fusion`), ``"vote"`` (the original weighted
+    vote) or ``"auto"`` (the default: probabilistic when every view is calibrated, otherwise
+    the vote, which for EasyOCR's uncalibrated vote shares measures better; ADR 0009).
+    ``progress`` is an optional ``callable(str)`` used to report activity; the CLI prints
+    it and the GUI appends it to its log.
     """
+    if fusion not in ("auto", "probabilistic", "vote"):
+        raise ValueError(f"unknown fusion {fusion!r}; use 'auto', 'probabilistic' or 'vote'")
     detector = detector or PlateDetector()
     backend = backend or get_backend()
 
@@ -225,8 +257,10 @@ def read_images(
         if progress:
             progress(message)
 
-    result = RunResult()
+    result = RunResult(fusion=fusion)
     combined: dict[str, float] = defaultdict(float)
+    views: list[ViewRead] = []
+    weights: list[float] = []
 
     for raw_path in paths:
         path = Path(raw_path)
@@ -247,20 +281,186 @@ def read_images(
             report(f"  plate {index}: {reading.text} [{how}, detector {detection.confidence:.2f}]")
             for text, weight in reading.votes.items():
                 combined[text] += weight
+            views.append(reading_view(reading))
+            weights.append(detection.confidence)
 
         result.images.append(image_result)
 
     result.votes = dict(combined)
-    if combined:
-        result.plate = parse_plate(_argmax(combined))
+    if fusion == "auto":
+        calibrated = bool(views) and all(v.calibrated for v in views if v.hypotheses)
+        fusion = "probabilistic" if calibrated else "vote"
+        result.fusion = fusion
+    if fusion == "vote":
+        if combined:
+            result.plate = parse_plate(_argmax(combined))
+    else:
+        result.fused = probabilistic_fusion(views, weights)
+        if result.fused.prediction is not None:
+            result.plate = Plate.from_tokens(result.fused.prediction)
 
     return result
 
 
+# --- the platform pipeline ------------------------------------------------------------
+class ViewRecognizer(Protocol):
+    """What :class:`PlatePipeline` needs from a recogniser (the CRNN runtime, or a fake)."""
+
+    name: str
+
+    @property
+    def version(self) -> str: ...
+
+    @property
+    def conformal_threshold(self) -> float | None: ...
+
+    def read(self, image: Image) -> ViewRead: ...
+
+
+class ImageDetector(Protocol):
+    def detect_image(self, image: Image) -> list[Detection]: ...
+
+
+Tracer = Callable[[str], AbstractContextManager[object]]
+
+
+def _no_trace(_: str) -> AbstractContextManager[object]:
+    return nullcontext()
+
+
+@dataclass
+class ViewOutcome:
+    index: int
+    detection: Detection | None
+    read: ViewRead | None
+    weight: float
+    other_detections: int = 0
+
+
+@dataclass
+class PipelineResult:
+    views: list[ViewOutcome]
+    fused: FusedRead
+    plate: Plate | None
+    model_version: str
+    latency_ms: float
+    stage_ms: dict[str, float] = dataclass_field(default_factory=dict)
+
+
+class PlatePipeline:
+    """Detect, read every view, fuse, and attach the conformal set (ARCHITECTURE §4).
+
+    One photo contributes one view: its most confident detection (a second plate in a
+    photo is usually another car, so it is reported, not fused). Without a detector, or
+    with ``detect=False``, each photo is read as a plate crop. Views are fused
+    probabilistically with unit weights by default (``fusion="legacy_vote"`` selects the
+    original vote); unit weights keep a single view's calibrated posterior intact, while
+    ``weighting="quality"`` tempers each view by sharpness and detector confidence.
+    """
+
+    def __init__(
+        self,
+        recognizer: ViewRecognizer,
+        detector: ImageDetector | None = None,
+        fusion: str = "probabilistic",
+        weighting: str = "uniform",
+        tracer: Tracer = _no_trace,
+    ) -> None:
+        if weighting not in ("uniform", "quality"):
+            raise ValueError("weighting must be 'uniform' or 'quality'")
+        self.recognizer = recognizer
+        self.detector = detector
+        self.fusion = fusion
+        self.weighting = weighting
+        self.tracer = tracer
+
+    @property
+    def model_version(self) -> str:
+        return self.recognizer.version
+
+    def _weight(self, detection: Detection) -> float:
+        if self.weighting == "quality":
+            from .synthetic.augment import sharpness
+
+            return quality_weight(sharpness(detection.crop), detection.confidence)
+        return 1.0
+
+    def _read_view(
+        self, index: int, detections: list[Detection], timings: dict[str, float]
+    ) -> ViewOutcome:
+        if not detections:
+            return ViewOutcome(index=index, detection=None, read=None, weight=0.0)
+        best = max(detections, key=lambda d: d.confidence)
+        start = time.perf_counter()
+        with self.tracer("recognise"):
+            read = self.recognizer.read(best.crop)
+        timings["recognise"] = timings.get("recognise", 0.0) + (time.perf_counter() - start) * 1000
+        return ViewOutcome(
+            index=index,
+            detection=best,
+            read=read,
+            weight=self._weight(best),
+            other_detections=len(detections) - 1,
+        )
+
+    def _finish(
+        self, views: list[ViewOutcome], timings: dict[str, float], start: float
+    ) -> PipelineResult:
+        readable = [v for v in views if v.read is not None]
+        tick = time.perf_counter()
+        with self.tracer("fuse"):
+            fused = fuse(
+                [v.read for v in readable if v.read is not None],
+                self.fusion,
+                [v.weight for v in readable],
+                self.recognizer.conformal_threshold,
+            )
+        timings["fuse"] = (time.perf_counter() - tick) * 1000
+        return PipelineResult(
+            views=views,
+            fused=fused,
+            plate=Plate.from_tokens(fused.prediction) if fused.prediction else None,
+            model_version=self.model_version,
+            latency_ms=(time.perf_counter() - start) * 1000,
+            stage_ms={k: round(v, 3) for k, v in timings.items()},
+        )
+
+    def read(self, images: Sequence[Image], detect: bool = True) -> PipelineResult:
+        """Read one plate from several photos of one car."""
+        start = time.perf_counter()
+        timings: dict[str, float] = {}
+        views = []
+        for index, image in enumerate(images):
+            tick = time.perf_counter()
+            with self.tracer("detect"):
+                if detect and self.detector is not None:
+                    detections = self.detector.detect_image(image)
+                else:
+                    h, w = image.shape[:2]
+                    detections = [Detection((0, 0, w, h), 1.0, image)]
+            timings["detect"] = timings.get("detect", 0.0) + (time.perf_counter() - tick) * 1000
+            views.append(self._read_view(index, detections, timings))
+        return self._finish(views, timings, start)
+
+    def read_detections(self, detections: Sequence[Detection]) -> PipelineResult:
+        """Fuse already-detected crops, one view each (a video track)."""
+        start = time.perf_counter()
+        timings: dict[str, float] = {}
+        views = [self._read_view(i, [d], timings) for i, d in enumerate(detections)]
+        return self._finish(views, timings, start)
+
+
 __all__ = [
+    "ImageDetector",
     "ImageResult",
+    "PipelineResult",
+    "PlatePipeline",
     "PlateReading",
     "RunResult",
+    "Tracer",
+    "ViewOutcome",
+    "ViewRecognizer",
     "read_detection",
     "read_images",
+    "reading_view",
 ]
