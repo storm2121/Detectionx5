@@ -86,7 +86,7 @@ class CoverageReport:
         return {
             "alpha": self.alpha,
             "level": round(1.0 - self.alpha, 6),
-            "threshold": round(self.threshold, 12),
+            "threshold": float(self.threshold),
             "coverage": self.coverage.as_dict(),
             "set_size": self.set_size.as_dict(),
             "singleton_rate": round(self.singleton_rate, 6),

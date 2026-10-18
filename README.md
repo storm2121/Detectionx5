@@ -357,7 +357,7 @@ Multi-view sets (exact match of the fused read; n = 200 sets, bootstrap over set
 | crnn-beam | probabilistic | 0.990 [0.975, 1.000] | 1.000 [1.000, 1.000] | 1.000 [1.000, 1.000] |
 | crnn-beam | probabilistic_weighted | 0.990 [0.975, 1.000] | 1.000 [1.000, 1.000] | 1.000 [1.000, 1.000] |
 
-Calibration and conformal sets of the fused read (fused sets apply the single-view threshold, so beyond one view their coverage is measured, not guaranteed):
+Calibration and conformal sets of the fused read (each number of views has its own threshold, fitted on separate synthetic multi-view sets; see `results/calibration_fused.json`):
 
 | Recogniser | Fusion | Views | ECE | Set coverage | Mean set size |
 |---|---|---|---|---|---|
@@ -375,10 +375,10 @@ Calibration and conformal sets of the fused read (fused sets apply the single-vi
 | crnn-greedy | probabilistic_weighted | 5 | 0.000 [0.000, 0.000] | n/a | n/a |
 | crnn-beam | legacy_vote | 1 | 0.010 [0.000, 0.025] | n/a | n/a |
 | crnn-beam | legacy_vote | 5 | 0.004 [0.001, 0.007] | n/a | n/a |
-| crnn-beam | probabilistic | 1 | 0.010 [0.003, 0.018] | 0.900 [0.855, 0.940] | 0.900 [0.855, 0.940] |
-| crnn-beam | probabilistic | 5 | 0.000 [0.000, 0.000] | 1.000 [1.000, 1.000] | 1.000 [1.000, 1.000] |
-| crnn-beam | probabilistic_weighted | 1 | 0.033 [0.024, 0.051] | 0.280 [0.220, 0.345] | 0.280 [0.220, 0.345] |
-| crnn-beam | probabilistic_weighted | 5 | 0.000 [0.000, 0.000] | 1.000 [1.000, 1.000] | 1.000 [1.000, 1.000] |
+| crnn-beam | probabilistic | 1 | 0.010 [0.003, 0.018] | 0.930 [0.895, 0.960] | 0.930 [0.895, 0.960] |
+| crnn-beam | probabilistic | 5 | 0.000 [0.000, 0.000] | 0.900 [0.855, 0.940] | 0.900 [0.855, 0.940] |
+| crnn-beam | probabilistic_weighted | 1 | 0.033 [0.024, 0.051] | 0.335 [0.270, 0.400] | 0.335 [0.270, 0.400] |
+| crnn-beam | probabilistic_weighted | 5 | 0.000 [0.000, 0.000] | 0.250 [0.190, 0.305] | 0.250 [0.190, 0.305] |
 <!-- END RENDER fusion-comparison -->
 
 ### Pseudo-real stand-in

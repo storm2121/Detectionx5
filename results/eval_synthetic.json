@@ -437,10 +437,10 @@
         ]
       },
       "latency_ms": {
-        "p50": 17.012,
-        "p90": 26.495,
-        "p99": 39.568,
-        "mean": 18.425
+        "p50": 9.487,
+        "p90": 25.796,
+        "p99": 54.278,
+        "mean": 13.395
       },
       "model_version": "crnn-5348143705d4-T0.888664",
       "calibrated": false
@@ -663,10 +663,10 @@
         ]
       },
       "latency_ms": {
-        "p50": 22.881,
-        "p90": 34.215,
-        "p99": 53.829,
-        "mean": 24.686
+        "p50": 13.896,
+        "p90": 28.834,
+        "p99": 58.411,
+        "mean": 17.238
       },
       "model_version": "crnn-5348143705d4-T0.888664",
       "calibrated": true
@@ -877,10 +877,10 @@
         ]
       },
       "latency_ms": {
-        "p50": 24.17,
-        "p90": 35.889,
-        "p99": 54.991,
-        "mean": 26.061
+        "p50": 14.76,
+        "p90": 28.668,
+        "p99": 51.761,
+        "mean": 16.99
       },
       "model_version": "crnn-5348143705d4-T0.888664",
       "calibrated": false
@@ -3751,15 +3751,15 @@
                   "n": 100
                 },
                 "coverage": {
-                  "value": 0.9,
-                  "ci_low": 0.84,
-                  "ci_high": 0.95,
+                  "value": 0.93,
+                  "ci_low": 0.87,
+                  "ci_high": 0.97,
                   "n": 100
                 },
                 "set_size": {
-                  "value": 0.9,
-                  "ci_low": 0.84,
-                  "ci_high": 0.95,
+                  "value": 0.93,
+                  "ci_low": 0.87,
+                  "ci_high": 0.97,
                   "n": 100
                 }
               },
@@ -3893,15 +3893,15 @@
                   "n": 100
                 },
                 "coverage": {
-                  "value": 1.0,
-                  "ci_low": 1.0,
-                  "ci_high": 1.0,
+                  "value": 0.87,
+                  "ci_low": 0.8,
+                  "ci_high": 0.93,
                   "n": 100
                 },
                 "set_size": {
-                  "value": 1.0,
-                  "ci_low": 1.0,
-                  "ci_high": 1.0,
+                  "value": 0.87,
+                  "ci_low": 0.8,
+                  "ci_high": 0.93,
                   "n": 100
                 }
               },
@@ -4035,15 +4035,15 @@
                   "n": 100
                 },
                 "coverage": {
-                  "value": 1.0,
-                  "ci_low": 1.0,
-                  "ci_high": 1.0,
+                  "value": 0.89,
+                  "ci_low": 0.82,
+                  "ci_high": 0.95,
                   "n": 100
                 },
                 "set_size": {
-                  "value": 1.0,
-                  "ci_low": 1.0,
-                  "ci_high": 1.0,
+                  "value": 0.89,
+                  "ci_low": 0.82,
+                  "ci_high": 0.95,
                   "n": 100
                 }
               },
@@ -4179,15 +4179,15 @@
                   "n": 100
                 },
                 "coverage": {
-                  "value": 0.24,
-                  "ci_low": 0.16,
-                  "ci_high": 0.33,
+                  "value": 0.28,
+                  "ci_low": 0.2,
+                  "ci_high": 0.37,
                   "n": 100
                 },
                 "set_size": {
-                  "value": 0.24,
-                  "ci_low": 0.16,
-                  "ci_high": 0.33,
+                  "value": 0.28,
+                  "ci_low": 0.2,
+                  "ci_high": 0.37,
                   "n": 100
                 }
               },
@@ -4321,15 +4321,15 @@
                   "n": 100
                 },
                 "coverage": {
-                  "value": 1.0,
-                  "ci_low": 1.0,
-                  "ci_high": 1.0,
+                  "value": 0.24,
+                  "ci_low": 0.16,
+                  "ci_high": 0.33,
                   "n": 100
                 },
                 "set_size": {
-                  "value": 1.0,
-                  "ci_low": 1.0,
-                  "ci_high": 1.0,
+                  "value": 0.24,
+                  "ci_low": 0.16,
+                  "ci_high": 0.33,
                   "n": 100
                 }
               },
@@ -4463,15 +4463,15 @@
                   "n": 100
                 },
                 "coverage": {
-                  "value": 1.0,
-                  "ci_low": 1.0,
-                  "ci_high": 1.0,
+                  "value": 0.26,
+                  "ci_low": 0.17,
+                  "ci_high": 0.35,
                   "n": 100
                 },
                 "set_size": {
-                  "value": 1.0,
-                  "ci_low": 1.0,
-                  "ci_high": 1.0,
+                  "value": 0.26,
+                  "ci_low": 0.17,
+                  "ci_high": 0.35,
                   "n": 100
                 }
               },

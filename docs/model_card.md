@@ -31,6 +31,13 @@ real-world accuracy.
 `models/crnn.onnx` (version `5348143705d4`, 5.8 MB, 1440051 parameters): trained on synthetic crops only, 24 epochs of 20000 freshly generated crops each on `cuda`, in 1139.4 s. The kept epoch is 18, chosen by greedy exact match on the synthetic validation split (0.995). Fine-tuned on real data: no. Synthetic results are not real-world accuracy.
 <!-- END RENDER crnn-training -->
 
+## The detector
+
+The detector (`models/best.pt`, exported as `models/detector.onnx`) is the YOLOv10n model
+the platform inherited. The detector was trained on a publicly available plate dataset
+released under CC BY 4.0, plus photographs from the firm's experts; the dataset is not named
+here at the owner's request and full attribution is available from the author.
+
 ## Intended use
 
 Reading Moroccan civilian plates (standard and temporary `WW`) from detector crops inside
@@ -123,6 +130,8 @@ Set coverage is the share of truths inside the conformal set at the level fixed 
 - The fonts are open-licensed approximations of plate lettering; in the Kufi face the
   letter `و` resembles the digit `9`, which only the grammar (a letter must sit between the
   separators) resolves.
+- Temporary (`WW`) plates are assumed to carry one to six digits, as the architecture
+  specifies, until the range is confirmed with the firm (see `docs/data_card.md`).
 - Only the six letters and the two formats of the grammar exist for the model; any other
   plate is read as the closest valid one, and the prediction set is the signal that
   something is off.

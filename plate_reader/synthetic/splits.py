@@ -11,7 +11,9 @@ from __future__ import annotations
 
 from typing import Final, Literal
 
-Split = Literal["train", "val", "calibration", "conformal", "test", "pseudo_real", "views"]
+Split = Literal[
+    "train", "val", "calibration", "conformal", "test", "pseudo_real", "views", "views_calibration"
+]
 
 SPLIT_SEEDS: Final[dict[str, int]] = {
     "train": 1001,
@@ -21,6 +23,7 @@ SPLIT_SEEDS: Final[dict[str, int]] = {
     "test": 1005,  # the `synthetic` evaluation set
     "pseudo_real": 1006,  # the `pseudo_real` evaluation set
     "views": 1007,  # multi-view sets for fusion
+    "views_calibration": 1008,  # multi-view sets for per-view-count conformal thresholds
 }
 
 

@@ -139,11 +139,13 @@ def evaluate_fusion(
     out: dict[str, Any] = {}
     for recognizer in recognizers:
         per_view = reads[recognizer.name]
-        threshold = getattr(recognizer, "conformal_threshold", None)
+        single = getattr(recognizer, "conformal_threshold", None)
+        threshold_for = getattr(recognizer, "conformal_threshold_for", None)
         methods: dict[str, Any] = {}
         for method, (fuse, weighting) in fusers.items():
             by_k: dict[str, Any] = {}
             for k in ks:
+                threshold = threshold_for(k) if callable(threshold_for) else single
                 fused = [
                     fuse(
                         [per_view[p] for p in groups[g][:k]],

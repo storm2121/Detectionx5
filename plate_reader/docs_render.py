@@ -255,8 +255,8 @@ def _fusion_comparison(ctx: RenderContext) -> str:
     if ks:
         lines += [
             "",
-            "Calibration and conformal sets of the fused read (fused sets apply the single-view "
-            "threshold, so beyond one view their coverage is measured, not guaranteed):",
+            "Calibration and conformal sets of the fused read (each number of views has its own "
+            "threshold, fitted on separate synthetic multi-view sets; see `results/calibration_fused.json`):",
             "",
             "| Recogniser | Fusion | Views | ECE | Set coverage | Mean set size |",
             "|---|---|---|---|---|---|",
@@ -328,6 +328,33 @@ def _crnn_training(ctx: RenderContext) -> str:
             f"{SYNTHETIC_LABEL.capitalize()}.",
         ]
     )
+
+
+@block("fused-calibration")
+def _fused_calibration(ctx: RenderContext) -> str:
+    payload = ctx.result("calibration_fused")
+    if payload is None:
+        return f"Not calibrated yet: run `uv run plate train calibrate-fused`. {SYNTHETIC_LABEL.capitalize()}."
+    splits = payload.get("splits", {})
+    lines = [
+        f"**{SYNTHETIC_LABEL.capitalize()}.** Model `{payload.get('model_version', '?')}`; "
+        f"thresholds fitted on {splits.get('calibration', {}).get('n_sets', '?')} synthetic "
+        f"multi-view calibration sets (seed {splits.get('calibration', {}).get('seed', '?')}), "
+        f"coverage measured on {splits.get('test', {}).get('n_sets', '?')} separate sets with a "
+        "joint bootstrap; real multi-photo data must refit them.",
+        "",
+        "| Views | Level | Threshold | Coverage | Mean set size | Empty sets |",
+        "|---|---|---|---|---|---|",
+    ]
+    for views, by_alpha in payload.get("coverage", {}).items():
+        for _, report in sorted(by_alpha.items(), reverse=True):
+            level = f"{round(float(report['level']) * 100)}%"
+            lines.append(
+                f"| {views} | {level} | `{float(report['threshold']):.2e}` | "
+                f"{fmt_ci(report['coverage'])} | {fmt_ci(report['set_size'])} | "
+                f"{fmt(float(report['empty_rate']))} |"
+            )
+    return "\n".join(lines)
 
 
 @block("crnn-calibration")

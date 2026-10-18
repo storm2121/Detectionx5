@@ -76,6 +76,28 @@ character heatmap.
   so giving a view more weight never lowers the posterior of what that view believes.
 - Abstaining views change nothing; a view repeated twice equals that view at weight two.
 
+## Prediction sets for fused reads
+
+A conformal threshold is only valid for the kind of read it was calibrated on, so each
+number of views $K$ has its own threshold $\hat q_K$, fitted on separate synthetic multi-view
+calibration sets by fusing the first $K$ views exactly as the service does; the service picks
+the largest calibrated $K$ not above the number of photos it fused. An empty set is a signal,
+not a bug: it means no plate can be certified at the stated level, so the service sends such
+reads to human review by default.
+
+<!-- BEGIN RENDER fused-calibration -->
+**Synthetic results are not real-world accuracy.** Model `5348143705d4`; thresholds fitted on 1000 synthetic multi-view calibration sets (seed 1008), coverage measured on 200 separate sets with a joint bootstrap; real multi-photo data must refit them.
+
+| Views | Level | Threshold | Coverage | Mean set size | Empty sets |
+|---|---|---|---|---|---|
+| 1 | 90% | `1.58e-03` | 0.930 [0.875, 0.965] | 0.930 [0.875, 0.965] | 0.070 |
+| 1 | 95% | `3.00e-03` | 0.945 [0.910, 0.975] | 0.945 [0.910, 0.975] | 0.055 |
+| 3 | 90% | `1.82e-10` | 0.895 [0.845, 0.940] | 0.895 [0.845, 0.940] | 0.105 |
+| 3 | 95% | `7.24e-10` | 0.945 [0.905, 0.975] | 0.945 [0.905, 0.975] | 0.055 |
+| 5 | 90% | `2.69e-17` | 0.900 [0.855, 0.940] | 0.900 [0.855, 0.940] | 0.100 |
+| 5 | 95% | `1.90e-16` | 0.940 [0.905, 0.970] | 0.940 [0.905, 0.970] | 0.060 |
+<!-- END RENDER fused-calibration -->
+
 ## Baseline: the legacy vote
 
 The original pipeline sums each reading's vote weights $u$ (EasyOCR confidences) times the
@@ -102,7 +124,7 @@ Multi-view sets (exact match of the fused read; n = 200 sets, bootstrap over set
 | crnn-beam | probabilistic | 0.990 [0.975, 1.000] | 1.000 [1.000, 1.000] | 1.000 [1.000, 1.000] |
 | crnn-beam | probabilistic_weighted | 0.990 [0.975, 1.000] | 1.000 [1.000, 1.000] | 1.000 [1.000, 1.000] |
 
-Calibration and conformal sets of the fused read (fused sets apply the single-view threshold, so beyond one view their coverage is measured, not guaranteed):
+Calibration and conformal sets of the fused read (each number of views has its own threshold, fitted on separate synthetic multi-view sets; see `results/calibration_fused.json`):
 
 | Recogniser | Fusion | Views | ECE | Set coverage | Mean set size |
 |---|---|---|---|---|---|
@@ -120,8 +142,8 @@ Calibration and conformal sets of the fused read (fused sets apply the single-vi
 | crnn-greedy | probabilistic_weighted | 5 | 0.000 [0.000, 0.000] | n/a | n/a |
 | crnn-beam | legacy_vote | 1 | 0.010 [0.000, 0.025] | n/a | n/a |
 | crnn-beam | legacy_vote | 5 | 0.004 [0.001, 0.007] | n/a | n/a |
-| crnn-beam | probabilistic | 1 | 0.010 [0.003, 0.018] | 0.900 [0.855, 0.940] | 0.900 [0.855, 0.940] |
-| crnn-beam | probabilistic | 5 | 0.000 [0.000, 0.000] | 1.000 [1.000, 1.000] | 1.000 [1.000, 1.000] |
-| crnn-beam | probabilistic_weighted | 1 | 0.033 [0.024, 0.051] | 0.280 [0.220, 0.345] | 0.280 [0.220, 0.345] |
-| crnn-beam | probabilistic_weighted | 5 | 0.000 [0.000, 0.000] | 1.000 [1.000, 1.000] | 1.000 [1.000, 1.000] |
+| crnn-beam | probabilistic | 1 | 0.010 [0.003, 0.018] | 0.930 [0.895, 0.960] | 0.930 [0.895, 0.960] |
+| crnn-beam | probabilistic | 5 | 0.000 [0.000, 0.000] | 0.900 [0.855, 0.940] | 0.900 [0.855, 0.940] |
+| crnn-beam | probabilistic_weighted | 1 | 0.033 [0.024, 0.051] | 0.335 [0.270, 0.400] | 0.335 [0.270, 0.400] |
+| crnn-beam | probabilistic_weighted | 5 | 0.000 [0.000, 0.000] | 0.250 [0.190, 0.305] | 0.250 [0.190, 0.305] |
 <!-- END RENDER fusion-comparison -->

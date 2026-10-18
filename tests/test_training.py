@@ -125,6 +125,19 @@ def test_tiny_training_export_runtime_and_calibration(tmp_path: Path) -> None:
     assert calibrated.calibrated
     assert set(calibrated.conformal) == {"0.1", "0.05"}
 
+    from plate_reader.eval.recognizers import CRNNRecognizer
+    from plate_reader.training.calibrate_fused import calibrate_fused
+
+    fused = calibrate_fused(onnx_path, 6, n_test=4, resamples=50, log=messages.append)
+    assert set(fused["thresholds"]) == {"1", "3", "5"}
+    assert fused["label"] == "synthetic results are not real-world accuracy"
+    recognizer = CRNNRecognizer("beam", onnx_path, alpha=0.1)
+    table = recognizer.runtime.metadata.conformal_fused
+    assert recognizer.conformal_threshold_for(4) == table["3"]["0.1"]
+    assert recognizer.conformal_threshold_for(9) == table["5"]["0.1"]
+    assert recognizer.conformal_threshold_for(1) == table["1"]["0.1"]
+    assert CRNNRecognizer("greedy", onnx_path).conformal_threshold_for(3) is None
+
     logits = predict_logits(
         reloaded, np.zeros((2, 1, 32, 160), dtype=np.float32), torch.device("cpu")
     )

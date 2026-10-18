@@ -408,12 +408,20 @@ class PlatePipeline:
     ) -> PipelineResult:
         readable = [v for v in views if v.read is not None]
         tick = time.perf_counter()
+        # Fused sets use the threshold calibrated for this number of views when the
+        # recogniser has one (per-view-count calibration), else the single-view threshold.
+        threshold_for = getattr(self.recognizer, "conformal_threshold_for", None)
+        threshold = (
+            threshold_for(len(readable))
+            if callable(threshold_for)
+            else self.recognizer.conformal_threshold
+        )
         with self.tracer("fuse"):
             fused = fuse(
                 [v.read for v in readable if v.read is not None],
                 self.fusion,
                 [v.weight for v in readable],
-                self.recognizer.conformal_threshold,
+                threshold,
             )
         timings["fuse"] = (time.perf_counter() - tick) * 1000
         return PipelineResult(

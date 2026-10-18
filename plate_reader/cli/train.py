@@ -90,6 +90,9 @@ def crnn(
         )
         _write_json(payload, results / "calibration_crnn.json")
         typer.echo(f"calibrated: temperature {payload['temperature']['temperature']}")
+        from ..training.calibrate_fused import calibrate_fused
+
+        _write_json(calibrate_fused(onnx_path, log=typer.echo), results / "calibration_fused.json")
 
 
 @app.command("calibrate")
@@ -109,6 +112,27 @@ def calibrate(
     payload = run_calibration(path, n, n, n, resamples=resamples, log=typer.echo)
     _write_json(payload, (results_dir or get_settings().results_dir) / "calibration_crnn.json")
     typer.echo(f"calibrated {path}: temperature {payload['temperature']['temperature']}")
+
+
+@app.command("calibrate-fused")
+def calibrate_fused_command(
+    onnx: Annotated[
+        Path | None, typer.Option(help="exported CRNN (default models/crnn.onnx)")
+    ] = None,
+    n_sets: Annotated[int, typer.Option(min=20, help="multi-view calibration sets")] = 1000,
+    resamples: Annotated[int, typer.Option(min=100)] = 1000,
+    results_dir: Annotated[Path | None, typer.Option()] = None,
+) -> None:
+    """Fit conformal thresholds for fused reads of 1, 3 and 5 views (synthetic sets)."""
+    from ..settings import PROJECT_ROOT, get_settings
+    from ..training.calibrate_fused import calibrate_fused
+
+    path = onnx or PROJECT_ROOT / "models" / "crnn.onnx"
+    payload = calibrate_fused(path, n_sets, resamples=resamples, log=typer.echo)
+    _write_json(payload, (results_dir or get_settings().results_dir) / "calibration_fused.json")
+    typer.echo(
+        f"fused thresholds for {payload['views']} views written to {path.with_suffix('.json')}"
+    )
 
 
 @app.command("detector")

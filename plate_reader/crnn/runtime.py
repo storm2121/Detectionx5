@@ -56,6 +56,8 @@ class CRNNMetadata:
     calibrated: bool = False
     beam_width: int = DEFAULT_BEAM
     conformal: dict[str, float] = field(default_factory=dict)  # str(alpha) -> threshold
+    #: str(views) -> str(alpha) -> threshold for fused posteriors (calibrated per view count).
+    conformal_fused: dict[str, dict[str, float]] = field(default_factory=dict)
     training: dict[str, Any] = field(default_factory=dict)
     set_kind: str = "synthetic"
 

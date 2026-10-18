@@ -141,6 +141,21 @@ class CRNNRecognizer:
             return None
         return self.runtime.metadata.conformal.get(str(self.alpha))
 
+    def conformal_threshold_for(self, views: int) -> float | None:
+        """The threshold calibrated on fused reads of the largest calibrated view count <= ``views``.
+
+        Falls back to the single-view threshold when no multi-view calibration exists.
+        """
+        if self.decoder != "beam" or self.alpha is None:
+            return None
+        table = self.runtime.metadata.conformal_fused
+        counts = sorted(int(k) for k in table if int(k) <= max(1, views))
+        if counts:
+            threshold = table[str(counts[-1])].get(str(self.alpha))
+            if threshold is not None:
+                return threshold
+        return self.conformal_threshold
+
     def read(self, image: Image) -> ViewRead:
         return self.runtime.read(image, self.decoder, self.alpha)
 
