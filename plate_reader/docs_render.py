@@ -186,11 +186,12 @@ def _ocr_benchmark_status(ctx: RenderContext) -> str:
 
 def _recognizer_table(payload: Mapping[str, Any]) -> list[str]:
     lines = [
-        "| Recogniser | Version | Exact match | Digits | Letter | Region | CER | ECE |",
-        "|---|---|---|---|---|---|---|---|",
+        "| Recogniser | Version | Exact match | Digits | Letter | Region | CER | ECE | Set coverage |",
+        "|---|---|---|---|---|---|---|---|---|",
     ]
     for name, entry in payload.get("recognizers", {}).items():
         metrics = entry.get("metrics", {})
+        coverage = fmt_ci(metrics["coverage"]) if "coverage" in metrics else "n/a"
         lines.append(
             f"| {name} | `{entry.get('model_version', '?')}` | "
             f"{fmt_ci(metrics.get('exact_match', {}))} | "
@@ -198,8 +199,15 @@ def _recognizer_table(payload: Mapping[str, Any]) -> list[str]:
             f"{fmt_ci(metrics.get('letter_accuracy', {}))} | "
             f"{fmt_ci(metrics.get('region_accuracy', {}))} | "
             f"{fmt_ci(metrics.get('cer', {}))} | "
-            f"{fmt_ci(metrics.get('ece', {}))} |"
+            f"{fmt_ci(metrics.get('ece', {}))} | {coverage} |"
         )
+    lines += [
+        "",
+        "Set coverage is the share of truths inside the conformal set at the level fixed on the "
+        "synthetic conformal split; it holds its level only when the evaluated images are "
+        "exchangeable with that split, so a drop on the pseudo-real set is the expected warning "
+        "sign of a distribution shift, not a bug.",
+    ]
     return lines
 
 
@@ -256,6 +264,73 @@ def _synthetic_baseline(ctx: RenderContext) -> str:
 @block("pseudo-real-baseline")
 def _pseudo_real_baseline(ctx: RenderContext) -> str:
     return _synthetic_block(ctx, "eval_pseudo_real", "uv run plate eval --set pseudo_real")
+
+
+@block("crnn-training")
+def _crnn_training(ctx: RenderContext) -> str:
+    summary = ctx.result("train_crnn")
+    if summary is None:
+        return "Not trained yet: run `uv run plate train crnn`."
+    config = summary.get("config", {})
+    onnx = ctx.root / "models" / "crnn.onnx"
+    size = f"{onnx.stat().st_size / 1e6:.1f} MB" if onnx.exists() else "missing"
+    epochs = config.get("epochs", "?")
+    per_epoch = config.get("epoch_size", "?")
+    return "\n".join(
+        [
+            f"`models/crnn.onnx` (version `{summary.get('model_version', '?')}`, {size}, "
+            f"{summary.get('parameters', '?')} parameters): trained on synthetic crops only, "
+            f"{epochs} epochs of {per_epoch} freshly generated crops each on `{summary.get('device', '?')}`, "
+            f"in {summary.get('seconds', '?')} s. The kept epoch is {summary.get('best_epoch', '?')}, "
+            "chosen by greedy exact match on the synthetic validation split "
+            f"({fmt(float(summary.get('best_val_exact_greedy', 0.0)))}). "
+            f"Fine-tuned on real data: {'yes' if summary.get('fine_tuned_on_real_data') else 'no'}. "
+            f"{SYNTHETIC_LABEL.capitalize()}.",
+        ]
+    )
+
+
+@block("crnn-calibration")
+def _crnn_calibration(ctx: RenderContext) -> str:
+    payload = ctx.result("calibration_crnn")
+    if payload is None:
+        return "Not calibrated yet: run `uv run plate train calibrate`."
+    temp = payload.get("temperature", {})
+    splits = payload.get("splits", {})
+    before = payload.get("calibration_split", {}).get("before", {})
+    after = payload.get("calibration_split", {}).get("after", {})
+    test = payload.get("test_split", {})
+    lines = [
+        f"**{SYNTHETIC_LABEL.capitalize()}.** Model `{payload.get('model_version', '?')}`; "
+        f"temperature fitted on the synthetic calibration split "
+        f"(n = {splits.get('calibration', {}).get('n', '?')}): "
+        f"T = {fmt(float(temp.get('temperature', float('nan'))))}, "
+        f"NLL of the true plate {fmt(float(temp.get('nll_before', float('nan'))))} at T = 1 "
+        f"and {fmt(float(temp.get('nll_after', float('nan'))))} after.",
+        "",
+        "| Split | Exact match | Mean confidence | ECE |",
+        "|---|---|---|---|",
+        f"| calibration, T = 1 | {fmt_ci(before.get('exact_match', {}))} | "
+        f"{fmt_ci(before.get('mean_confidence', {}))} | {fmt_ci(before.get('ece', {}))} |",
+        f"| calibration, fitted T | {fmt_ci(after.get('exact_match', {}))} | "
+        f"{fmt_ci(after.get('mean_confidence', {}))} | {fmt_ci(after.get('ece', {}))} |",
+        f"| test, fitted T | {fmt_ci(test.get('exact_match', {}))} | "
+        f"{fmt_ci(test.get('mean_confidence', {}))} | {fmt_ci(test.get('ece', {}))} |",
+        "",
+        "Conformal prediction sets (thresholds from the conformal split, "
+        f"n = {splits.get('conformal', {}).get('n', '?')}; coverage measured on the test split, "
+        f"n = {splits.get('test', {}).get('n', '?')}, with a joint bootstrap over both splits):",
+        "",
+        "| Level | Coverage | Mean set size | Singleton sets |",
+        "|---|---|---|---|",
+    ]
+    for _, report in sorted(payload.get("conformal", {}).get("coverage", {}).items(), reverse=True):
+        level = f"{round(float(report['level']) * 100)}%"
+        lines.append(
+            f"| {level} | {fmt_ci(report['coverage'])} | {fmt_ci(report['set_size'])} | "
+            f"{fmt(float(report['singleton_rate']))} |"
+        )
+    return "\n".join(lines)
 
 
 # --- render and check -------------------------------------------------------------

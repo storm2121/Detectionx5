@@ -10,13 +10,18 @@ from __future__ import annotations
 
 import time
 from collections.abc import Callable
-from typing import Protocol
+from pathlib import Path
+from typing import TYPE_CHECKING, Any, Final, Protocol
 
 from ..detector import Detection
 from ..hypotheses import ViewRead, normalised
 from ..imaging import Image
 from ..normalize import parse_plate
 from ..ocr import EasyOCRBackend, OCRBackend
+from ..settings import PROJECT_ROOT
+
+if TYPE_CHECKING:
+    from ..crnn.runtime import Decoder
 
 
 class Recognizer(Protocol):
@@ -92,8 +97,68 @@ class EasyOCRRecognizer:
         )
 
 
+class CRNNRecognizer:
+    """The exported CRNN through ONNX Runtime, with one of three decoders.
+
+    ``beam`` is the grammar-constrained prefix beam search with calibrated confidence and
+    conformal sets; ``greedy`` and ``unconstrained`` are the ablations the harness compares
+    it with (neither is calibrated, and either may return a string the grammar rejects).
+    """
+
+    cacheable = False
+    NAMES: Final = {
+        "greedy": "crnn-greedy",
+        "beam": "crnn-beam",
+        "unconstrained": "crnn-beam-unconstrained",
+    }
+
+    def __init__(
+        self,
+        decoder: Decoder = "beam",
+        onnx_path: Path | None = None,
+        alpha: float | None = 0.1,
+        **_: object,
+    ) -> None:
+        from ..crnn.runtime import CRNNRuntime
+
+        path = onnx_path or PROJECT_ROOT / "models" / "crnn.onnx"
+        if not path.exists():
+            raise FileNotFoundError(f"{path} not found; run `plate train crnn` first")
+        self.runtime = CRNNRuntime(path)
+        self.decoder: Decoder = decoder
+        self.alpha = alpha
+        self.name = self.NAMES[decoder]
+
+    @property
+    def version(self) -> str:
+        meta = self.runtime.metadata
+        return f"crnn-{meta.version}-T{meta.temperature:g}"
+
+    @property
+    def conformal_threshold(self) -> float | None:
+        """The single-view threshold at this recogniser's level (beam decoder only)."""
+        if self.decoder != "beam" or self.alpha is None:
+            return None
+        return self.runtime.metadata.conformal.get(str(self.alpha))
+
+    def read(self, image: Image) -> ViewRead:
+        return self.runtime.read(image, self.decoder, self.alpha)
+
+
+def _crnn(decoder: Decoder) -> Callable[..., Recognizer]:
+    def factory(**kwargs: Any) -> Recognizer:
+        return CRNNRecognizer(decoder, **kwargs)
+
+    return factory
+
+
 RecognizerFactory = Callable[..., Recognizer]
-REGISTRY: dict[str, RecognizerFactory] = {"easyocr": EasyOCRRecognizer}
+REGISTRY: dict[str, RecognizerFactory] = {
+    "easyocr": EasyOCRRecognizer,
+    "crnn-greedy": _crnn("greedy"),
+    "crnn-beam": _crnn("beam"),
+    "crnn-beam-unconstrained": _crnn("unconstrained"),
+}
 
 
 def register(name: str, factory: RecognizerFactory) -> None:
@@ -112,6 +177,7 @@ def build(name: str, **kwargs: object) -> Recognizer:
 
 __all__ = [
     "REGISTRY",
+    "CRNNRecognizer",
     "EasyOCRRecognizer",
     "Recognizer",
     "build",

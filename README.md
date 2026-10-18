@@ -240,16 +240,71 @@ data exists. These numbers are rendered from `results/eval_synthetic.json`.
 <!-- BEGIN RENDER synthetic-baseline -->
 **Synthetic results are not real-world accuracy.** Set: synthetic (`synthetic`), n = 300, generator seed 1005; values with 95% bootstrap intervals over images (1000 resamples).
 
-| Recogniser | Version | Exact match | Digits | Letter | Region | CER | ECE |
-|---|---|---|---|---|---|---|---|
-| easyocr | `easyocr-1.7.2+segmentation` | 0.353 [0.297, 0.407] | 0.417 [0.357, 0.473] | 0.639 [0.581, 0.696] | 0.522 [0.460, 0.585] | 0.579 [0.525, 0.639] | 0.192 [0.151, 0.235] |
+| Recogniser | Version | Exact match | Digits | Letter | Region | CER | ECE | Set coverage |
+|---|---|---|---|---|---|---|---|---|
+| easyocr | `easyocr-1.7.2+segmentation` | 0.353 [0.297, 0.407] | 0.417 [0.357, 0.473] | 0.639 [0.581, 0.696] | 0.522 [0.460, 0.585] | 0.579 [0.525, 0.639] | 0.192 [0.151, 0.235] | n/a |
+| crnn-greedy | `crnn-5348143705d4-T0.888664` | 0.990 [0.980, 1.000] | 0.993 [0.983, 1.000] | 0.996 [0.987, 1.000] | 0.996 [0.986, 1.000] | 0.002 [0.000, 0.006] | 0.288 [0.264, 0.310] | n/a |
+| crnn-beam | `crnn-5348143705d4-T0.888664` | 0.990 [0.980, 1.000] | 0.993 [0.983, 1.000] | 0.996 [0.987, 1.000] | 0.996 [0.986, 1.000] | 0.002 [0.000, 0.006] | 0.009 [0.002, 0.017] | 0.900 [0.867, 0.933] |
+| crnn-beam-unconstrained | `crnn-5348143705d4-T0.888664` | 0.990 [0.980, 1.000] | 0.993 [0.983, 1.000] | 0.996 [0.987, 1.000] | 0.996 [0.986, 1.000] | 0.002 [0.000, 0.006] | 0.009 [0.003, 0.018] | n/a |
+
+Set coverage is the share of truths inside the conformal set at the level fixed on the synthetic conformal split; it holds its level only when the evaluated images are exchangeable with that split, so a drop on the pseudo-real set is the expected warning sign of a distribution shift, not a bug.
 
 Multi-view sets (exact match of the fused read; n = 100 sets, bootstrap over sets):
 
 | Recogniser | Fusion | 1 view(s) | 3 view(s) | 5 view(s) |
 |---|---|---|---|---|
 | easyocr | legacy_vote | 0.380 [0.290, 0.470] | 0.650 [0.550, 0.740] | 0.650 [0.550, 0.740] |
+| crnn-greedy | legacy_vote | 0.980 [0.950, 1.000] | 1.000 [1.000, 1.000] | 1.000 [1.000, 1.000] |
+| crnn-beam | legacy_vote | 0.980 [0.950, 1.000] | 1.000 [1.000, 1.000] | 1.000 [1.000, 1.000] |
+| crnn-beam-unconstrained | legacy_vote | 0.980 [0.950, 1.000] | 1.000 [1.000, 1.000] | 1.000 [1.000, 1.000] |
 <!-- END RENDER synthetic-baseline -->
+
+## Recogniser: CRNN with grammar-constrained decoding
+
+Beside the EasyOCR path, the platform trains a compact CRNN (CNN, bidirectional LSTM,
+CTC) on synthetic crops, decodes it with a beam search pruned by the plate grammar, fits a
+temperature so its confidence is calibrated, and wraps each read in a conformal
+prediction set. It runs through ONNX Runtime, without PyTorch. Details and limitations are
+in [`docs/model_card.md`](docs/model_card.md).
+
+<!-- BEGIN RENDER crnn-training -->
+`models/crnn.onnx` (version `5348143705d4`, 5.8 MB, 1440051 parameters): trained on synthetic crops only, 24 epochs of 20000 freshly generated crops each on `cuda`, in 1139.4 s. The kept epoch is 18, chosen by greedy exact match on the synthetic validation split (0.995). Fine-tuned on real data: no. Synthetic results are not real-world accuracy.
+<!-- END RENDER crnn-training -->
+
+<!-- BEGIN RENDER crnn-calibration -->
+**Synthetic results are not real-world accuracy.** Model `5348143705d4`; temperature fitted on the synthetic calibration split (n = 2000): T = 0.889, NLL of the true plate 0.040 at T = 1 and 0.040 after.
+
+| Split | Exact match | Mean confidence | ECE |
+|---|---|---|---|
+| calibration, T = 1 | 0.995 [0.992, 0.998] | 0.995 [0.993, 0.996] | 0.004 [0.002, 0.006] |
+| calibration, fitted T | 0.995 [0.992, 0.998] | 0.996 [0.994, 0.997] | 0.002 [0.002, 0.006] |
+| test, fitted T | 0.995 [0.991, 0.998] | 0.997 [0.995, 0.998] | 0.004 [0.002, 0.007] |
+
+Conformal prediction sets (thresholds from the conformal split, n = 2000; coverage measured on the test split, n = 2000, with a joint bootstrap over both splits):
+
+| Level | Coverage | Mean set size | Singleton sets |
+|---|---|---|---|
+| 90% | 0.901 [0.882, 0.918] | 0.901 [0.882, 0.918] | 0.901 |
+| 95% | 0.955 [0.935, 0.965] | 0.955 [0.935, 0.965] | 0.955 |
+<!-- END RENDER crnn-calibration -->
+
+### Pseudo-real stand-in
+
+A heavier augmentation preset stands in for the gap between synthetic and real photos
+until real labelled data exists. Rendered from `results/eval_pseudo_real.json`.
+
+<!-- BEGIN RENDER pseudo-real-baseline -->
+**Synthetic results are not real-world accuracy.** Set: pseudo_real (`pseudo_real`), n = 300, generator seed 1006; values with 95% bootstrap intervals over images (1000 resamples).
+
+| Recogniser | Version | Exact match | Digits | Letter | Region | CER | ECE | Set coverage |
+|---|---|---|---|---|---|---|---|---|
+| easyocr | `easyocr-1.7.2+segmentation` | 0.023 [0.007, 0.043] | 0.030 [0.013, 0.050] | 0.135 [0.095, 0.181] | 0.021 [0.004, 0.041] | 0.951 [0.930, 0.969] | 0.153 [0.117, 0.193] | n/a |
+| crnn-greedy | `crnn-5348143705d4-T0.888664` | 0.600 [0.540, 0.650] | 0.693 [0.640, 0.743] | 0.810 [0.758, 0.861] | 0.696 [0.637, 0.752] | 0.167 [0.138, 0.200] | 0.173 [0.138, 0.216] | n/a |
+| crnn-beam | `crnn-5348143705d4-T0.888664` | 0.610 [0.553, 0.660] | 0.717 [0.667, 0.767] | 0.865 [0.823, 0.908] | 0.751 [0.693, 0.804] | 0.164 [0.135, 0.197] | 0.172 [0.135, 0.209] | 0.237 [0.187, 0.283] |
+| crnn-beam-unconstrained | `crnn-5348143705d4-T0.888664` | 0.603 [0.543, 0.653] | 0.697 [0.640, 0.747] | 0.827 [0.777, 0.875] | 0.705 [0.646, 0.759] | 0.165 [0.136, 0.197] | 0.151 [0.118, 0.188] | n/a |
+
+Set coverage is the share of truths inside the conformal set at the level fixed on the synthetic conformal split; it holds its level only when the evaluated images are exchangeable with that split, so a drop on the pseudo-real set is the expected warning sign of a distribution shift, not a bug.
+<!-- END RENDER pseudo-real-baseline -->
 
 ## Configuration
 
@@ -282,9 +337,16 @@ plate_reader/
     settings.py         typed PLATE_* configuration
     docs_render.py      renders README numbers from results; detects drift
     data/               the real-data layout and its validator
+    synthetic/          deterministic synthetic plates (fonts, render, augment)
+    eval/               evaluation harness, bootstrap intervals, reports
+    crnn/               CRNN model, CTC decoders, calibration, conformal, ONNX runtime
+    training/           CRNN training, ONNX export, calibration, detector training
+    fusion.py           combining several photos (legacy vote baseline)
     cli/                the `plate` command line
     pipeline.py         orchestration and voting
 models/best.pt          fine-tuned detector
+models/crnn.onnx        CRNN recogniser (with crnn.json metadata and crnn.pt weights)
+results/                metrics JSON the docs render from
 data/                   placeholder for real data (README, layout, detector.yaml)
 docs/                   ADRs, training log, insert-your-own-data guide
 tools/repo_guards.py    pre-commit and CI guards

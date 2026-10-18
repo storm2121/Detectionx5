@@ -1,0 +1,919 @@
+{
+  "schema": "detectionx5.eval/1",
+  "label": "synthetic results are not real-world accuracy",
+  "set": {
+    "name": "pseudo_real",
+    "kind": "pseudo_real",
+    "n": 300,
+    "seed": 1006,
+    "generator_version": "1",
+    "source": "plate_reader.synthetic (pseudo-real preset)"
+  },
+  "bootstrap": {
+    "resamples": 1000,
+    "confidence": 0.95,
+    "seed": 0,
+    "unit": "image",
+    "method": "percentile"
+  },
+  "recognizers": {
+    "easyocr": {
+      "n": 300,
+      "metrics": {
+        "exact_match": {
+          "value": 0.023333,
+          "ci_low": 0.006667,
+          "ci_high": 0.043333,
+          "n": 300
+        },
+        "digits_accuracy": {
+          "value": 0.03,
+          "ci_low": 0.013333,
+          "ci_high": 0.05,
+          "n": 300
+        },
+        "letter_accuracy": {
+          "value": 0.135021,
+          "ci_low": 0.095233,
+          "ci_high": 0.181044,
+          "n": 237
+        },
+        "region_accuracy": {
+          "value": 0.021097,
+          "ci_low": 0.004219,
+          "ci_high": 0.040986,
+          "n": 237
+        },
+        "format_accuracy": {
+          "value": 0.183333,
+          "ci_low": 0.14,
+          "ci_high": 0.226667,
+          "n": 300
+        },
+        "read_rate": {
+          "value": 0.196667,
+          "ci_low": 0.153333,
+          "ci_high": 0.24,
+          "n": 300
+        },
+        "cer": {
+          "value": 0.950566,
+          "ci_low": 0.929758,
+          "ci_high": 0.969332,
+          "n": 300
+        },
+        "mean_confidence": {
+          "value": 0.174494,
+          "ci_low": 0.135018,
+          "ci_high": 0.215599,
+          "n": 300
+        },
+        "ece": {
+          "value": 0.153208,
+          "ci_low": 0.117051,
+          "ci_high": 0.192534,
+          "n": 300
+        }
+      },
+      "reliability": [
+        {
+          "low": 0.0,
+          "high": 0.1,
+          "n": 241,
+          "accuracy": 0.0,
+          "confidence": 0.0
+        },
+        {
+          "low": 0.1,
+          "high": 0.2,
+          "n": 0,
+          "accuracy": null,
+          "confidence": null
+        },
+        {
+          "low": 0.2,
+          "high": 0.3,
+          "n": 1,
+          "accuracy": 0.0,
+          "confidence": 0.288698
+        },
+        {
+          "low": 0.3,
+          "high": 0.4,
+          "n": 0,
+          "accuracy": null,
+          "confidence": null
+        },
+        {
+          "low": 0.4,
+          "high": 0.5,
+          "n": 3,
+          "accuracy": 0.0,
+          "confidence": 0.477667
+        },
+        {
+          "low": 0.5,
+          "high": 0.6,
+          "n": 6,
+          "accuracy": 0.0,
+          "confidence": 0.545467
+        },
+        {
+          "low": 0.6,
+          "high": 0.7,
+          "n": 1,
+          "accuracy": 1.0,
+          "confidence": 0.692818
+        },
+        {
+          "low": 0.7,
+          "high": 0.8,
+          "n": 4,
+          "accuracy": 0.0,
+          "confidence": 0.758837
+        },
+        {
+          "low": 0.8,
+          "high": 0.9,
+          "n": 1,
+          "accuracy": 0.0,
+          "confidence": 0.854834
+        },
+        {
+          "low": 0.9,
+          "high": 1.0,
+          "n": 43,
+          "accuracy": 0.139535,
+          "confidence": 0.994665
+        }
+      ],
+      "letter_confusion": {
+        "rows": [
+          "أ",
+          "ب",
+          "د",
+          "ه",
+          "و",
+          "ط"
+        ],
+        "columns": [
+          "أ",
+          "ب",
+          "د",
+          "ه",
+          "و",
+          "ط",
+          "none"
+        ],
+        "matrix": [
+          [
+            1,
+            0,
+            1,
+            0,
+            0,
+            1,
+            38
+          ],
+          [
+            2,
+            5,
+            1,
+            1,
+            0,
+            1,
+            25
+          ],
+          [
+            0,
+            0,
+            8,
+            0,
+            0,
+            0,
+            38
+          ],
+          [
+            2,
+            1,
+            1,
+            5,
+            0,
+            0,
+            28
+          ],
+          [
+            1,
+            1,
+            0,
+            0,
+            3,
+            0,
+            35
+          ],
+          [
+            2,
+            0,
+            1,
+            0,
+            0,
+            10,
+            25
+          ]
+        ]
+      },
+      "latency_ms": {
+        "p50": 1105.021,
+        "p90": 1653.995,
+        "p99": 2019.665,
+        "mean": 1098.883
+      },
+      "model_version": "easyocr-1.7.2+segmentation",
+      "calibrated": false
+    },
+    "crnn-greedy": {
+      "n": 300,
+      "metrics": {
+        "exact_match": {
+          "value": 0.6,
+          "ci_low": 0.54,
+          "ci_high": 0.65,
+          "n": 300
+        },
+        "digits_accuracy": {
+          "value": 0.693333,
+          "ci_low": 0.639917,
+          "ci_high": 0.743333,
+          "n": 300
+        },
+        "letter_accuracy": {
+          "value": 0.810127,
+          "ci_low": 0.7577,
+          "ci_high": 0.860563,
+          "n": 237
+        },
+        "region_accuracy": {
+          "value": 0.696203,
+          "ci_low": 0.637452,
+          "ci_high": 0.752197,
+          "n": 237
+        },
+        "format_accuracy": {
+          "value": 0.88,
+          "ci_low": 0.84,
+          "ci_high": 0.916667,
+          "n": 300
+        },
+        "read_rate": {
+          "value": 1.0,
+          "ci_low": 1.0,
+          "ci_high": 1.0,
+          "n": 300
+        },
+        "cer": {
+          "value": 0.167362,
+          "ci_low": 0.137868,
+          "ci_high": 0.200134,
+          "n": 300
+        },
+        "mean_confidence": {
+          "value": 0.442315,
+          "ci_low": 0.410783,
+          "ci_high": 0.474421,
+          "n": 300
+        },
+        "ece": {
+          "value": 0.172704,
+          "ci_low": 0.138264,
+          "ci_high": 0.21634,
+          "n": 300
+        }
+      },
+      "reliability": [
+        {
+          "low": 0.0,
+          "high": 0.1,
+          "n": 53,
+          "accuracy": 0.018868,
+          "confidence": 0.043675
+        },
+        {
+          "low": 0.1,
+          "high": 0.2,
+          "n": 21,
+          "accuracy": 0.095238,
+          "confidence": 0.139902
+        },
+        {
+          "low": 0.2,
+          "high": 0.3,
+          "n": 32,
+          "accuracy": 0.5625,
+          "confidence": 0.252217
+        },
+        {
+          "low": 0.3,
+          "high": 0.4,
+          "n": 31,
+          "accuracy": 0.548387,
+          "confidence": 0.354582
+        },
+        {
+          "low": 0.4,
+          "high": 0.5,
+          "n": 36,
+          "accuracy": 0.833333,
+          "confidence": 0.456464
+        },
+        {
+          "low": 0.5,
+          "high": 0.6,
+          "n": 35,
+          "accuracy": 0.857143,
+          "confidence": 0.546939
+        },
+        {
+          "low": 0.6,
+          "high": 0.7,
+          "n": 25,
+          "accuracy": 0.88,
+          "confidence": 0.647786
+        },
+        {
+          "low": 0.7,
+          "high": 0.8,
+          "n": 25,
+          "accuracy": 0.8,
+          "confidence": 0.757212
+        },
+        {
+          "low": 0.8,
+          "high": 0.9,
+          "n": 20,
+          "accuracy": 0.95,
+          "confidence": 0.842335
+        },
+        {
+          "low": 0.9,
+          "high": 1.0,
+          "n": 22,
+          "accuracy": 0.954545,
+          "confidence": 0.946883
+        }
+      ],
+      "letter_confusion": {
+        "rows": [
+          "أ",
+          "ب",
+          "د",
+          "ه",
+          "و",
+          "ط"
+        ],
+        "columns": [
+          "أ",
+          "ب",
+          "د",
+          "ه",
+          "و",
+          "ط",
+          "none"
+        ],
+        "matrix": [
+          [
+            35,
+            0,
+            0,
+            0,
+            0,
+            0,
+            6
+          ],
+          [
+            1,
+            31,
+            0,
+            0,
+            1,
+            0,
+            2
+          ],
+          [
+            2,
+            0,
+            32,
+            1,
+            4,
+            0,
+            7
+          ],
+          [
+            0,
+            0,
+            0,
+            30,
+            1,
+            0,
+            6
+          ],
+          [
+            3,
+            0,
+            0,
+            0,
+            31,
+            0,
+            6
+          ],
+          [
+            0,
+            0,
+            0,
+            0,
+            0,
+            33,
+            5
+          ]
+        ]
+      },
+      "latency_ms": {
+        "p50": 8.821,
+        "p90": 20.713,
+        "p99": 36.258,
+        "mean": 10.966
+      },
+      "model_version": "crnn-5348143705d4-T0.888664",
+      "calibrated": false
+    },
+    "crnn-beam": {
+      "n": 300,
+      "metrics": {
+        "exact_match": {
+          "value": 0.61,
+          "ci_low": 0.553333,
+          "ci_high": 0.66,
+          "n": 300
+        },
+        "digits_accuracy": {
+          "value": 0.716667,
+          "ci_low": 0.666667,
+          "ci_high": 0.766667,
+          "n": 300
+        },
+        "letter_accuracy": {
+          "value": 0.864979,
+          "ci_low": 0.822977,
+          "ci_high": 0.90796,
+          "n": 237
+        },
+        "region_accuracy": {
+          "value": 0.751055,
+          "ci_low": 0.692898,
+          "ci_high": 0.804364,
+          "n": 237
+        },
+        "format_accuracy": {
+          "value": 0.98,
+          "ci_low": 0.96325,
+          "ci_high": 0.993333,
+          "n": 300
+        },
+        "read_rate": {
+          "value": 0.99,
+          "ci_low": 0.976667,
+          "ci_high": 1.0,
+          "n": 300
+        },
+        "cer": {
+          "value": 0.164384,
+          "ci_low": 0.134891,
+          "ci_high": 0.196931,
+          "n": 300
+        },
+        "mean_confidence": {
+          "value": 0.78151,
+          "ci_low": 0.747408,
+          "ci_high": 0.810283,
+          "n": 300
+        },
+        "ece": {
+          "value": 0.17151,
+          "ci_low": 0.135475,
+          "ci_high": 0.209253,
+          "n": 300
+        },
+        "coverage": {
+          "value": 0.236667,
+          "ci_low": 0.186667,
+          "ci_high": 0.283333,
+          "n": 300
+        },
+        "set_size": {
+          "value": 0.246667,
+          "ci_low": 0.196667,
+          "ci_high": 0.293333,
+          "n": 300
+        }
+      },
+      "reliability": [
+        {
+          "low": 0.0,
+          "high": 0.1,
+          "n": 3,
+          "accuracy": 0.0,
+          "confidence": 0.0
+        },
+        {
+          "low": 0.1,
+          "high": 0.2,
+          "n": 7,
+          "accuracy": 0.0,
+          "confidence": 0.154922
+        },
+        {
+          "low": 0.2,
+          "high": 0.3,
+          "n": 5,
+          "accuracy": 0.0,
+          "confidence": 0.255597
+        },
+        {
+          "low": 0.3,
+          "high": 0.4,
+          "n": 23,
+          "accuracy": 0.0,
+          "confidence": 0.334123
+        },
+        {
+          "low": 0.4,
+          "high": 0.5,
+          "n": 27,
+          "accuracy": 0.185185,
+          "confidence": 0.442854
+        },
+        {
+          "low": 0.5,
+          "high": 0.6,
+          "n": 20,
+          "accuracy": 0.25,
+          "confidence": 0.550675
+        },
+        {
+          "low": 0.6,
+          "high": 0.7,
+          "n": 14,
+          "accuracy": 0.214286,
+          "confidence": 0.653814
+        },
+        {
+          "low": 0.7,
+          "high": 0.8,
+          "n": 17,
+          "accuracy": 0.470588,
+          "confidence": 0.755652
+        },
+        {
+          "low": 0.8,
+          "high": 0.9,
+          "n": 18,
+          "accuracy": 0.555556,
+          "confidence": 0.871528
+        },
+        {
+          "low": 0.9,
+          "high": 1.0,
+          "n": 166,
+          "accuracy": 0.915663,
+          "confidence": 0.986435
+        }
+      ],
+      "letter_confusion": {
+        "rows": [
+          "أ",
+          "ب",
+          "د",
+          "ه",
+          "و",
+          "ط"
+        ],
+        "columns": [
+          "أ",
+          "ب",
+          "د",
+          "ه",
+          "و",
+          "ط",
+          "none"
+        ],
+        "matrix": [
+          [
+            39,
+            0,
+            0,
+            1,
+            1,
+            0,
+            0
+          ],
+          [
+            1,
+            31,
+            0,
+            0,
+            2,
+            0,
+            1
+          ],
+          [
+            2,
+            0,
+            35,
+            1,
+            6,
+            0,
+            2
+          ],
+          [
+            0,
+            0,
+            0,
+            32,
+            1,
+            3,
+            1
+          ],
+          [
+            5,
+            1,
+            0,
+            0,
+            33,
+            0,
+            1
+          ],
+          [
+            0,
+            1,
+            0,
+            0,
+            1,
+            35,
+            1
+          ]
+        ]
+      },
+      "latency_ms": {
+        "p50": 24.558,
+        "p90": 44.884,
+        "p99": 102.076,
+        "mean": 28.81
+      },
+      "model_version": "crnn-5348143705d4-T0.888664",
+      "calibrated": true
+    },
+    "crnn-beam-unconstrained": {
+      "n": 300,
+      "metrics": {
+        "exact_match": {
+          "value": 0.603333,
+          "ci_low": 0.543333,
+          "ci_high": 0.653333,
+          "n": 300
+        },
+        "digits_accuracy": {
+          "value": 0.696667,
+          "ci_low": 0.64,
+          "ci_high": 0.746667,
+          "n": 300
+        },
+        "letter_accuracy": {
+          "value": 0.827004,
+          "ci_low": 0.776802,
+          "ci_high": 0.875,
+          "n": 237
+        },
+        "region_accuracy": {
+          "value": 0.704641,
+          "ci_low": 0.64566,
+          "ci_high": 0.759191,
+          "n": 237
+        },
+        "format_accuracy": {
+          "value": 0.896667,
+          "ci_low": 0.86325,
+          "ci_high": 0.93,
+          "n": 300
+        },
+        "read_rate": {
+          "value": 1.0,
+          "ci_low": 1.0,
+          "ci_high": 1.0,
+          "n": 300
+        },
+        "cer": {
+          "value": 0.164979,
+          "ci_low": 0.135719,
+          "ci_high": 0.197329,
+          "n": 300
+        },
+        "mean_confidence": {
+          "value": 0.753991,
+          "ci_low": 0.71893,
+          "ci_high": 0.786601,
+          "n": 300
+        },
+        "ece": {
+          "value": 0.150658,
+          "ci_low": 0.117566,
+          "ci_high": 0.188042,
+          "n": 300
+        }
+      },
+      "reliability": [
+        {
+          "low": 0.0,
+          "high": 0.1,
+          "n": 0,
+          "accuracy": null,
+          "confidence": null
+        },
+        {
+          "low": 0.1,
+          "high": 0.2,
+          "n": 13,
+          "accuracy": 0.0,
+          "confidence": 0.163064
+        },
+        {
+          "low": 0.2,
+          "high": 0.3,
+          "n": 18,
+          "accuracy": 0.0,
+          "confidence": 0.252468
+        },
+        {
+          "low": 0.3,
+          "high": 0.4,
+          "n": 25,
+          "accuracy": 0.04,
+          "confidence": 0.345497
+        },
+        {
+          "low": 0.4,
+          "high": 0.5,
+          "n": 20,
+          "accuracy": 0.2,
+          "confidence": 0.438337
+        },
+        {
+          "low": 0.5,
+          "high": 0.6,
+          "n": 19,
+          "accuracy": 0.263158,
+          "confidence": 0.541341
+        },
+        {
+          "low": 0.6,
+          "high": 0.7,
+          "n": 11,
+          "accuracy": 0.272727,
+          "confidence": 0.657436
+        },
+        {
+          "low": 0.7,
+          "high": 0.8,
+          "n": 17,
+          "accuracy": 0.470588,
+          "confidence": 0.7537
+        },
+        {
+          "low": 0.8,
+          "high": 0.9,
+          "n": 21,
+          "accuracy": 0.619048,
+          "confidence": 0.863599
+        },
+        {
+          "low": 0.9,
+          "high": 1.0,
+          "n": 156,
+          "accuracy": 0.942308,
+          "confidence": 0.98502
+        }
+      ],
+      "letter_confusion": {
+        "rows": [
+          "أ",
+          "ب",
+          "د",
+          "ه",
+          "و",
+          "ط"
+        ],
+        "columns": [
+          "أ",
+          "ب",
+          "د",
+          "ه",
+          "و",
+          "ط",
+          "none"
+        ],
+        "matrix": [
+          [
+            35,
+            0,
+            0,
+            0,
+            0,
+            0,
+            6
+          ],
+          [
+            1,
+            31,
+            0,
+            0,
+            1,
+            0,
+            2
+          ],
+          [
+            2,
+            0,
+            34,
+            1,
+            4,
+            0,
+            5
+          ],
+          [
+            0,
+            0,
+            0,
+            30,
+            1,
+            0,
+            6
+          ],
+          [
+            4,
+            0,
+            0,
+            0,
+            32,
+            0,
+            4
+          ],
+          [
+            0,
+            0,
+            0,
+            0,
+            0,
+            34,
+            4
+          ]
+        ]
+      },
+      "latency_ms": {
+        "p50": 31.377,
+        "p90": 57.061,
+        "p99": 90.169,
+        "mean": 34.538
+      },
+      "model_version": "crnn-5348143705d4-T0.888664",
+      "calibrated": false
+    }
+  },
+  "comparisons": {
+    "crnn-greedy - easyocr": {
+      "exact_match_difference": {
+        "value": 0.576667,
+        "ci_low": 0.52,
+        "ci_high": 0.63,
+        "n": 300
+      }
+    },
+    "crnn-beam - easyocr": {
+      "exact_match_difference": {
+        "value": 0.586667,
+        "ci_low": 0.53,
+        "ci_high": 0.64,
+        "n": 300
+      }
+    },
+    "crnn-beam-unconstrained - easyocr": {
+      "exact_match_difference": {
+        "value": 0.58,
+        "ci_low": 0.523333,
+        "ci_high": 0.630083,
+        "n": 300
+      }
+    }
+  },
+  "environment": {
+    "package_version": "2.0.0.dev0",
+    "device": "cuda"
+  }
+}
