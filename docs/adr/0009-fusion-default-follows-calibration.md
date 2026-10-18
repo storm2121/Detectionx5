@@ -1,8 +1,9 @@
 # ADR 0009: the fusion default follows calibration
 
-Status: accepted (executing agent, 2026-10-18). Deviates from the letter of MILESTONES M3
-("the pipeline uses probabilistic fusion by default") for one code path; open for the
-architect's review.
+Status: accepted by the architect (2026-10-18). Deviates from the letter of MILESTONES M3
+("the pipeline uses probabilistic fusion by default") for one code path; the DoD is met in
+spirit: probabilistic fusion is the default wherever the views are calibrated, and both
+methods stay selectable everywhere.
 
 ## Context
 

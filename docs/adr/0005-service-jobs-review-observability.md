@@ -64,6 +64,14 @@ metrics.
   stride-aligned rectangle as Ultralytics' PyTorch predictor; padding to a square instead
   changed confidences noticeably (`tests/test_tracking_registry.py` checks the parity).
 
+## Architect review (2026-10-18)
+
+- `PLATE_ALPHA` defaults to 0.05; empty conformal sets are queued for review unless
+  `PLATE_REVIEW_SKIP_EMPTY_SETS` is set (the former `PLATE_REVIEW_EMPTY_SETS` is gone).
+- `docker compose --profile tracing up` adds Grafana Tempo as the trace store (no host port;
+  Grafana has a provisioned Tempo data source). The default stack is unchanged; without the
+  profile the collector's Tempo export fails fast and is dropped.
+
 ## Consequences
 
 More services in Compose and more operational surface, in exchange for an honest

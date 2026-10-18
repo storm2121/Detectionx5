@@ -52,6 +52,10 @@ Each milestone ends with its definition of done (DoD) passing and `just check` g
   multi-view synthetic sets (K = 1, 3, 5 views).
 - DoD: property tests green; `results/eval_views.json` shows both methods with CIs; the pipeline uses
   probabilistic fusion by default with the legacy vote selectable.
+- Note (accepted 2026-10-18, ADR 0009): met in spirit. `PlatePipeline`, the calibrated CRNN path
+  the service uses, fuses probabilistically by default; the EasyOCR `read_images` path defaults to
+  `auto`, which keeps the vote because EasyOCR's vote shares are not calibrated and the vote
+  measured better for them. Both methods stay selectable.
 - CV line: "Replaced string voting with grammar-constrained probabilistic fusion across photos,
   combining per-view CTC posteriors into a plate posterior with per-character confidence."
 

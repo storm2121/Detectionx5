@@ -61,7 +61,14 @@ All notable changes to this project are recorded here. The format follows
   PyTorch detector, `plate registry promote|list`, Dockerfiles, `docker-compose.yml` with
   the collector, Prometheus and a Grafana dashboard (`docs/grafana/dashboard.json`).
 
+- Review follow-up: conformal thresholds per number of fused views (`plate train
+  calibrate-fused`, `results/calibration_fused.json`); `docs/data_card.md`; Tempo as the trace
+  store under the Compose `tracing` profile.
+
 ### Changed
+
+- Review follow-up: the service serves conformal sets at alpha 0.05 and queues empty sets for
+  review by default (`PLATE_REVIEW_SKIP_EMPTY_SETS` opts out).
 
 - M3: `plate_reader.pipeline.PlatePipeline` (detect, read, fuse, conformal set) fuses
   probabilistically by default; `read_images`, `plate read` and `cli.py` take

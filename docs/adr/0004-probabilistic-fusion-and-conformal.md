@@ -58,6 +58,18 @@ to send it for review.
   because EasyOCR's vote shares are not calibrated and the vote measures better for them on
   the multi-view synthetic sets.
 
+## Architect review (2026-10-18)
+
+- The service serves sets at alpha 0.05 (`PLATE_ALPHA`) and the review trigger uses the same
+  level; the harness keeps reporting alpha 0.1 and 0.05.
+- An empty set is a signal, not a bug: no string can be certified at that level. Empty sets go
+  to review by default; `PLATE_REVIEW_SKIP_EMPTY_SETS` opts out.
+- Fused sets get their own thresholds per number of views (K = 1, 3, 5), fitted on separate
+  synthetic multi-view calibration sets (`plate train calibrate-fused`, stored in
+  `models/crnn.json` under `conformal_fused`, reported in `results/calibration_fused.json`);
+  the pipeline uses the largest calibrated K not above the number of fused views. Real
+  multi-photo data will have to refit them.
+
 ## Consequences
 
 The API returns a set and a calibrated probability; the review queue has a principled
