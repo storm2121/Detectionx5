@@ -1,0 +1,223 @@
+{
+  "schema": "detectionx5.registry/1",
+  "models": [
+    {
+      "kind": "crnn",
+      "version": "5348143705d4",
+      "file": "crnn.onnx",
+      "bytes": 5766342,
+      "metrics": {
+        "calibration_crnn": {
+          "set_kind": "synthetic",
+          "coverage": {
+            "0.1": {
+              "value": 0.901,
+              "ci_low": 0.882487,
+              "ci_high": 0.918013,
+              "n": 2000
+            },
+            "0.05": {
+              "value": 0.9545,
+              "ci_low": 0.9355,
+              "ci_high": 0.965012,
+              "n": 2000
+            }
+          }
+        },
+        "eval_pseudo_real/crnn-greedy": {
+          "set_kind": "pseudo_real",
+          "n": 300,
+          "exact_match": {
+            "value": 0.6,
+            "ci_low": 0.54,
+            "ci_high": 0.65,
+            "n": 300
+          },
+          "cer": {
+            "value": 0.167362,
+            "ci_low": 0.137868,
+            "ci_high": 0.200134,
+            "n": 300
+          },
+          "ece": {
+            "value": 0.172704,
+            "ci_low": 0.138264,
+            "ci_high": 0.21634,
+            "n": 300
+          }
+        },
+        "eval_pseudo_real/crnn-beam": {
+          "set_kind": "pseudo_real",
+          "n": 300,
+          "exact_match": {
+            "value": 0.61,
+            "ci_low": 0.553333,
+            "ci_high": 0.66,
+            "n": 300
+          },
+          "cer": {
+            "value": 0.164384,
+            "ci_low": 0.134891,
+            "ci_high": 0.196931,
+            "n": 300
+          },
+          "ece": {
+            "value": 0.17151,
+            "ci_low": 0.135475,
+            "ci_high": 0.209253,
+            "n": 300
+          }
+        },
+        "eval_pseudo_real/crnn-beam-unconstrained": {
+          "set_kind": "pseudo_real",
+          "n": 300,
+          "exact_match": {
+            "value": 0.603333,
+            "ci_low": 0.543333,
+            "ci_high": 0.653333,
+            "n": 300
+          },
+          "cer": {
+            "value": 0.164979,
+            "ci_low": 0.135719,
+            "ci_high": 0.197329,
+            "n": 300
+          },
+          "ece": {
+            "value": 0.150658,
+            "ci_low": 0.117566,
+            "ci_high": 0.188042,
+            "n": 300
+          }
+        },
+        "eval_synthetic/crnn-greedy": {
+          "set_kind": "synthetic",
+          "n": 300,
+          "exact_match": {
+            "value": 0.99,
+            "ci_low": 0.98,
+            "ci_high": 1.0,
+            "n": 300
+          },
+          "cer": {
+            "value": 0.002466,
+            "ci_low": 0.0,
+            "ci_high": 0.005573,
+            "n": 300
+          },
+          "ece": {
+            "value": 0.287824,
+            "ci_low": 0.264016,
+            "ci_high": 0.309556,
+            "n": 300
+          }
+        },
+        "eval_synthetic/crnn-beam": {
+          "set_kind": "synthetic",
+          "n": 300,
+          "exact_match": {
+            "value": 0.99,
+            "ci_low": 0.98,
+            "ci_high": 1.0,
+            "n": 300
+          },
+          "cer": {
+            "value": 0.002466,
+            "ci_low": 0.0,
+            "ci_high": 0.005573,
+            "n": 300
+          },
+          "ece": {
+            "value": 0.008783,
+            "ci_low": 0.002043,
+            "ci_high": 0.017417,
+            "n": 300
+          }
+        },
+        "eval_synthetic/crnn-beam-unconstrained": {
+          "set_kind": "synthetic",
+          "n": 300,
+          "exact_match": {
+            "value": 0.99,
+            "ci_low": 0.98,
+            "ci_high": 1.0,
+            "n": 300
+          },
+          "cer": {
+            "value": 0.002466,
+            "ci_low": 0.0,
+            "ci_high": 0.005573,
+            "n": 300
+          },
+          "ece": {
+            "value": 0.009188,
+            "ci_low": 0.002594,
+            "ci_high": 0.017569,
+            "n": 300
+          }
+        },
+        "eval_views/crnn-greedy": {
+          "set_kind": "synthetic",
+          "n": 1000,
+          "exact_match": {
+            "value": 0.993,
+            "ci_low": 0.987,
+            "ci_high": 0.998,
+            "n": 1000
+          },
+          "cer": {
+            "value": 0.001843,
+            "ci_low": 0.00055,
+            "ci_high": 0.003486,
+            "n": 1000
+          },
+          "ece": {
+            "value": 0.294644,
+            "ci_low": 0.281573,
+            "ci_high": 0.308191,
+            "n": 1000
+          }
+        },
+        "eval_views/crnn-beam": {
+          "set_kind": "synthetic",
+          "n": 1000,
+          "exact_match": {
+            "value": 0.993,
+            "ci_low": 0.987,
+            "ci_high": 0.998,
+            "n": 1000
+          },
+          "cer": {
+            "value": 0.001843,
+            "ci_low": 0.00055,
+            "ci_high": 0.003486,
+            "n": 1000
+          },
+          "ece": {
+            "value": 0.004452,
+            "ci_low": 0.002756,
+            "ci_high": 0.007832,
+            "n": 1000
+          }
+        }
+      },
+      "data_fingerprint": "synthetic:generator-1:train-seed-1001",
+      "created_at": "2026-10-18T16:31:11+00:00",
+      "promoted_at": "2026-10-18T17:56:05+00:00"
+    },
+    {
+      "kind": "detector",
+      "version": "0ff7df0ca1c3",
+      "file": "detector.onnx",
+      "bytes": 9160875,
+      "metrics": {},
+      "data_fingerprint": "synthetic:generator-1:train-seed-1001",
+      "created_at": "2026-10-18T17:47:27+00:00",
+      "promoted_at": "2026-10-18T17:56:06+00:00"
+    }
+  ],
+  "active": {
+    "crnn": "5348143705d4",
+    "detector": "0ff7df0ca1c3"
+  }
+}
