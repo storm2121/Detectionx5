@@ -23,6 +23,17 @@ All notable changes to this project are recorded here. The format follows
   pre-commit hooks and CI tests; `justfile`; `.editorconfig`; CI workflow; ADRs 0001 to
   0008.
 
+- M1: `plate_reader/synthetic/`, a byte-deterministic generator of plate crops, scenes,
+  multi-view sets and a pseudo-real set, with bundled OFL fonts and documented augmentation
+  distributions; `plate synth crops|scenes|views|pseudo-real`.
+- M1: `plate_reader/eval/`, the evaluation harness: exact match, per-field accuracy, CER,
+  read rate, ECE and reliability bins, letter confusion, latency percentiles, paired
+  bootstrap intervals, multi-view fusion at 1, 3 and 5 views, an HTML report and a
+  content-addressed read cache; `plate eval --set synthetic|pseudo_real|data|views`.
+- M1: `results/eval_synthetic.json` (the EasyOCR path and the legacy vote on synthetic
+  plates) rendered into the README with the synthetic label; CI runs a small synthetic
+  evaluation and a byte-determinism check.
+
 ### Changed
 
 - M0: the README detector table now shows the shipped checkpoint (epoch 90) instead of
