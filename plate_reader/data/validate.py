@@ -178,33 +178,35 @@ def _validate_detector(report: ValidationReport, layout: DataLayout) -> None:
         report.error(layout.detector_yaml, "missing: detector images exist without detector.yaml")
 
 
+def validate_ocr_csv(report: ValidationReport, path: Path, counter: str) -> None:
+    """Check one ``crop_path,plate_text,format`` file (real splits and synthetic crops)."""
+    report.counts[counter] += 0
+    seen: set[str] = set()
+    for number, row in enumerate(_read_csv(report, path, OCR_COLUMNS), start=2):
+        where = f"{report._rel(path)}:{number}"
+        crop = row["crop_path"]
+        if crop in seen:
+            report.error(where, f"duplicate crop_path {crop!r}")
+        seen.add(crop)
+        crop_path = path.parent / crop
+        if not crop_path.is_file():
+            report.error(where, f"crop {crop!r} does not exist")
+        elif _image_size(crop_path) is None:
+            report.error(where, f"crop {crop!r} cannot be decoded")
+        _check_plate(report, where, row["plate_text"], row["format"])
+        report.counts[counter] += 1
+
+
 def _validate_ocr(report: ValidationReport, layout: DataLayout) -> None:
     for split in SPLITS:
         path = layout.ocr_labels(split)
         report.counts[f"ocr_{split}_crops"] = 0
-        if not path.exists():
-            continue
-        seen: set[str] = set()
-        for number, row in enumerate(_read_csv(report, path, OCR_COLUMNS), start=2):
-            where = f"{report._rel(path)}:{number}"
-            crop = row["crop_path"]
-            if crop in seen:
-                report.error(where, f"duplicate crop_path {crop!r}")
-            seen.add(crop)
-            crop_path = path.parent / crop
-            if not crop_path.is_file():
-                report.error(where, f"crop {crop!r} does not exist")
-            elif _image_size(crop_path) is None:
-                report.error(where, f"crop {crop!r} cannot be decoded")
-            _check_plate(report, where, row["plate_text"], row["format"])
-            report.counts[f"ocr_{split}_crops"] += 1
+        if path.exists():
+            validate_ocr_csv(report, path, f"ocr_{split}_crops")
 
 
-def _validate_eval(report: ValidationReport, layout: DataLayout) -> None:
-    path = layout.eval_labels
-    report.counts["eval_images"] = 0
-    if not path.exists():
-        return
+def validate_eval_csv(report: ValidationReport, path: Path) -> None:
+    """Check one ``image_path,plate_text,format,x1,y1,x2,y2`` file."""
     for number, row in enumerate(_read_csv(report, path, EVAL_COLUMNS), start=2):
         where = f"{report._rel(path)}:{number}"
         image_path = path.parent / row["image_path"]
@@ -230,6 +232,12 @@ def _validate_eval(report: ValidationReport, layout: DataLayout) -> None:
         report.counts["eval_images"] += 1
 
 
+def _validate_eval(report: ValidationReport, layout: DataLayout) -> None:
+    report.counts["eval_images"] = 0
+    if layout.eval_labels.exists():
+        validate_eval_csv(report, layout.eval_labels)
+
+
 def validate_data(root: Path) -> ValidationReport:
     """Validate ``root`` against :class:`DataLayout`; an empty layout is valid."""
     report = ValidationReport(root=root.resolve())
@@ -243,4 +251,4 @@ def validate_data(root: Path) -> ValidationReport:
     return report
 
 
-__all__ = ["Issue", "ValidationReport", "validate_data"]
+__all__ = ["Issue", "ValidationReport", "validate_data", "validate_eval_csv", "validate_ocr_csv"]
