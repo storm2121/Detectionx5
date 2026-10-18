@@ -1,5 +1,7 @@
 # Spans arrive over OTLP; the spanmetrics connector turns them into request-rate and
-# duration metrics that Prometheus scrapes, and the debug exporter logs them.
+# duration metrics that Prometheus scrapes, the debug exporter logs them, and otlp/tempo
+# sends them to Tempo when the stack runs with `--profile tracing`. Without that profile the
+# Tempo export fails fast and is dropped (no retries, no queue), so nothing piles up.
 receivers:
   otlp:
     protocols:
@@ -15,13 +17,18 @@ connectors:
 exporters:
   debug: {verbosity: basic}
   prometheus: {endpoint: 0.0.0.0:8889}
+  otlp/tempo:
+    endpoint: tempo:4317
+    tls: {insecure: true}
+    retry_on_failure: {enabled: false}
+    sending_queue: {enabled: false}
 
 service:
   pipelines:
     traces:
       receivers: [otlp]
       processors: [batch]
-      exporters: [debug, spanmetrics]
+      exporters: [debug, spanmetrics, otlp/tempo]
     metrics:
       receivers: [spanmetrics]
       exporters: [prometheus]

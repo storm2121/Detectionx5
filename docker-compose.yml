@@ -1,6 +1,8 @@
 # DetectionX5 platform. Host ports are chosen to avoid clashes with other projects on the
 # same machine: API 8100, PostgreSQL 5433, Redis 6380, Prometheus 9100, Grafana 3100,
 # OpenTelemetry collector 4319 (gRPC) and 4320 (HTTP), dashboard 5174.
+# `docker compose --profile tracing up` adds Tempo as the trace store (no host port; browse
+# traces in Grafana's Tempo data source).
 name: detectionx5
 
 x-plate-env: &plate-env
@@ -76,6 +78,12 @@ services:
   dashboard:
     build: {context: ., dockerfile: Dockerfile.dashboard}
     ports: ["5174:80"]
+
+  tempo:
+    image: grafana/tempo:2.8.1
+    profiles: [tracing]
+    command: ["-config.file=/etc/tempo.yaml"]
+    volumes: ["./docker/tempo.yaml:/etc/tempo.yaml:ro"]
 
 volumes:
   pgdata: {}
