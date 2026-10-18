@@ -1,0 +1,67 @@
+name: ci
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  UV_LINK_MODE: copy
+  PYTHONUTF8: "1"
+
+jobs:
+  lint:
+    name: lint and guards
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.12"
+          enable-cache: true
+      - name: Install lint tooling only
+        run: uv sync --frozen --no-default-groups --group dev
+      - run: uv run ruff format --check .
+      - run: uv run ruff check .
+      - name: No mention of the original dataset host or name
+        run: uv run python tools/repo_guards.py names --all
+      - name: No real data under data/
+        run: uv run python tools/repo_guards.py data --all
+      - run: uv run plate docs check
+      - run: uv run plate data validate --strict
+
+  type:
+    name: mypy --strict
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.12"
+          enable-cache: true
+      - run: uv sync --frozen
+      - run: uv run mypy plate_reader services
+
+  test:
+    name: unit tests and coverage
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.12"
+          enable-cache: true
+      - run: uv sync --frozen
+      - name: pytest (coverage gate 85% on plate_reader)
+        run: uv run pytest -q --cov=plate_reader --cov-report=term --cov-report=xml --cov-fail-under=85
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: coverage
+          path: coverage.xml

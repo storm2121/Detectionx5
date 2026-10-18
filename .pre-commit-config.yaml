@@ -1,0 +1,45 @@
+# Local hooks run the locked tool versions through uv, so pre-commit needs no network
+# access and agrees with CI. Install with `just setup` (pre-commit and commit-msg hooks).
+default_install_hook_types: [pre-commit, commit-msg]
+default_stages: [pre-commit]
+
+repos:
+  - repo: local
+    hooks:
+      - id: ruff-format
+        name: ruff format
+        entry: uv run ruff format
+        language: system
+        types_or: [python, pyi]
+      - id: ruff-check
+        name: ruff check
+        entry: uv run ruff check --fix
+        language: system
+        types_or: [python, pyi]
+      - id: mypy
+        name: mypy --strict (plate_reader, services)
+        entry: uv run mypy plate_reader services
+        language: system
+        types: [python]
+        pass_filenames: false
+      - id: forbidden-names
+        name: no mention of the original dataset host or name
+        entry: uv run python tools/repo_guards.py names
+        language: system
+        types: [text]
+      - id: forbidden-names-commit-msg
+        name: no mention of the original dataset host or name (commit message)
+        entry: uv run python tools/repo_guards.py names --commit-msg
+        language: system
+        stages: [commit-msg]
+      - id: data-placeholder
+        name: data/ holds no real images, videos or large CSVs
+        entry: uv run python tools/repo_guards.py data
+        language: system
+        files: ^data/
+      - id: docs-check
+        name: plate docs check (no drift, no hand-typed numbers)
+        entry: uv run plate docs check
+        language: system
+        pass_filenames: false
+        files: ^(README\.md|docs/.*\.(md|csv)|results/.*\.json|plate_reader/docs_render\.py)$
