@@ -65,3 +65,29 @@ jobs:
         with:
           name: coverage
           path: coverage.xml
+
+  synthetic-eval:
+    name: small synthetic evaluation
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.12"
+          enable-cache: true
+      - run: uv sync --frozen
+      - name: Cache EasyOCR models
+        uses: actions/cache@v4
+        with:
+          path: ~/.EasyOCR
+          key: easyocr-models-v1
+      - name: Byte-deterministic generator
+        run: |
+          uv run plate synth crops --out /tmp/a --n 30 --seed 7
+          uv run plate synth crops --out /tmp/b --n 30 --seed 7
+          diff -r /tmp/a /tmp/b
+      - name: Evaluate the EasyOCR path and the legacy vote (synthetic, small)
+        run: uv run plate eval --set synthetic --n 20 --views 5 --k 3 --resamples 200 --device cpu --out /tmp/results --quiet
+      - name: Results carry the synthetic label and bootstrap intervals
+        run: |
+          uv run python -c "import json; d = json.load(open('/tmp/results/eval_synthetic.json', encoding='utf-8')); assert d['label'] == 'synthetic results are not real-world accuracy'; m = d['recognizers']['easyocr']['metrics']['exact_match']; assert m['ci_low'] <= m['value'] <= m['ci_high']; print(m)"

@@ -45,6 +45,18 @@ test *args:
 docs:
     uv run plate docs render
 
+# Deterministic synthetic sets under synthetic/ (gitignored); equal seeds give equal bytes.
+synth n="1000" seed="0":
+    uv run plate synth crops --n {{n}} --seed {{seed}}
+    uv run plate synth pseudo-real --n {{n}} --seed {{seed}}
+    uv run plate synth views --n 200 --k 5 --seed {{seed}}
+    uv run plate synth scenes --n 200 --seed {{seed}}
+
+# Evaluate on the synthetic set (with multi-view fusion) and re-render the README.
+eval *args:
+    uv run plate eval --set synthetic {{args}}
+    uv run plate docs render
+
 # The gate every milestone must pass.
 check: lint type guards
     uv run pytest -q --cov=plate_reader --cov-report=term --cov-fail-under=85
