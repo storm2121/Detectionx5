@@ -34,6 +34,16 @@ All notable changes to this project are recorded here. The format follows
   plates) rendered into the README with the synthetic label; CI runs a small synthetic
   evaluation and a byte-determinism check.
 
+- M2: `plate_reader/crnn/`: CRNN (residual CNN, BiLSTM, CTC), numpy decoders (greedy,
+  prefix beam, grammar-constrained prefix beam), temperature scaling fitted on the reported
+  posterior, split conformal prediction sets with a joint-bootstrap coverage interval, and
+  an ONNX Runtime wrapper with metadata (`models/crnn.json`).
+- M2: `plate train crnn` (synthetic pretraining with a curriculum, optional fine-tuning on
+  `data/ocr`), `plate train calibrate`, `plate export onnx`, `plate export fixtures`; the
+  trained `models/crnn.onnx` and `models/crnn.pt`; PyTorch-versus-ONNX parity tests.
+- M2: the harness compares the EasyOCR path with CRNN greedy, constrained beam and
+  unconstrained beam on the synthetic and pseudo-real sets; model card v1.
+
 ### Changed
 
 - M0: the README detector table now shows the shipped checkpoint (epoch 90) instead of
