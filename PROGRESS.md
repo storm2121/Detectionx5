@@ -208,3 +208,64 @@ Never record the name of the original dataset host.
   the EasyOCR path; confirm or overrule. (2) Should fused prediction sets get their own
   conformal threshold per number of views once real multi-photo sets exist?
 - Next: M4.
+
+### M4: read log, review queue, active learning, jobs, observability, Compose — done — 2026-10-18
+
+- Built: `services/api` (FastAPI): `POST /read` (one to ten photos; plate, fields, calibrated
+  confidence, conformal set with its level, per-view hypotheses, per-character posteriors,
+  model version, review state; `detect=false` reads photos as crops), `GET /reads`,
+  `GET /reads/{id}`, `GET /reads/{id}/views/{index}/crop`, `GET /review/queue`,
+  `POST /review/{id}` (corrected plate, validated by the grammar, or a confirmation),
+  `POST /review/export` (reviewed crops plus `labels.csv` rows in the `data/ocr/train`
+  layout), `POST /jobs` (folder or video under `PLATE_JOBS_ROOT`), `POST /jobs/upload`,
+  `GET /jobs/{id}`, `GET /jobs/{id}/events` (Server-Sent Events), `GET /models`,
+  `GET /health`, `GET /metrics`. SQLAlchemy 2 models with an explicit Alembic migration
+  (applied at start-up; SQLite by default, PostgreSQL in Compose); the engine is
+  `PlatePipeline` plus the review policy; RQ jobs for folders (one read per photo) and videos
+  (sampling, greedy IoU tracking, per-track fusion of the best crops), with progress on the
+  job row; an RQ worker entry point (`python -m services.api.worker`, `SimpleWorker` on
+  Windows). `plate_reader/telemetry.py` (a span and a histogram per stage, request latency,
+  confidence and set-size histograms, read and job counters, review-queue gauge).
+  `models/detector.onnx` (`plate export detector`: NMS-free one-to-one head, dynamic shape)
+  with `OnnxPlateDetector`, which letterboxes like Ultralytics' predictor; parity test
+  against the PyTorch detector. `plate registry promote|list` and `models/registry.json`.
+  `Dockerfile.api`, `Dockerfile.worker` (torch-free), `Dockerfile.dashboard` (placeholder),
+  `docker-compose.yml` (api, worker, redis, postgres, otel-collector, prometheus, grafana,
+  dashboard) with the collector, Prometheus and Grafana provisioning under `docker/` and the
+  dashboard in `docs/grafana/dashboard.json`; `tools/demo_read.py`; `just api`, `just worker`,
+  `just export`, `just train-crnn`, `just demo` (and `just dashboard`, which says M5).
+  README run section with the host-port table; ADR 0005 as built; data guide updated.
+- Commands run and results:
+  - `uv run pytest tests/test_service.py tests/test_tracking_registry.py`: 20 passed
+    (every endpoint with a fake recogniser and detector, SQLite and an in-process RQ queue on
+    fakeredis; the review round trip ends with a validated `labels.csv` under a temporary
+    `data/ocr/train`; folder, video and uploaded-video jobs; SSE; path traversal, missing
+    files and a missing queue; Alembic upgrade and downgrade; the tracker's hypothesis
+    property; the registry; ONNX-versus-PyTorch detector parity on `samples/car.jpg`).
+  - `docker compose build api worker dashboard` then `docker compose up -d`: all eight
+    services started; api, postgres and redis healthy. `curl localhost:8100/health`:
+    status ok, database ok, queue ok, detector true. `uv run python tools/demo_read.py` (a
+    synthetic street scene through the ONNX detector and the CRNN) and
+    `tools/demo_read.py --crop --views 3` both returned the generated plate with a singleton
+    conformal set. `/metrics` shows the stage histograms, read counters and the review-queue
+    gauge; Prometheus scrapes the API and the collector's span metrics (both targets up);
+    Grafana 12 is healthy with the provisioned dashboard; the dashboard placeholder serves on
+    5174. A synthetic video uploaded to `POST /jobs/upload` went through Redis to the worker
+    and came back as one track with the right plate, with SSE progress events. The stack was
+    then stopped (`docker compose down`). The Docker engine crashed once during the first
+    build (the machine is shared and memory was short); Docker Desktop was restarted and the
+    build and checks then succeeded.
+  - `just check`: green, 198 passed, 1 skipped, coverage 93.8% on `plate_reader`.
+- Decisions: the detector ONNX export uses `nms=False` (the one-to-one head the PyTorch path
+  selects) and dynamic height and width, because padding to a square instead of
+  Ultralytics' minimum rectangle changed confidences noticeably; the service fuses with unit
+  weights (ADR 0009); empty conformal sets are queued only with `PLATE_REVIEW_EMPTY_SETS`;
+  job progress lives on the job row and SSE polls it, which works on SQLite and PostgreSQL
+  and survives worker restarts; workers receive the API's settings with each job. ADR 0005.
+- Stubbed or skipped, and why: the dashboard service is a static placeholder page (M5).
+  Traces reach the collector and become span metrics in Prometheus; there is no trace store
+  (Tempo or Jaeger) because the architecture's Compose list has none. The CI workflow does
+  not build the images yet (Docker build is listed for CI in ARCHITECTURE §14).
+- Open questions for the architect: add a trace store to Compose? Default `PLATE_ALPHA` for
+  the service given the empty-set behaviour (ADR 0004)?
+- Next: M5 (stop here per AGENT_RULES §5.4).
