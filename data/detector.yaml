@@ -1,0 +1,7 @@
+# Ultralytics dataset file for the plate detector (one class, LP).
+# Paths are relative to this file's folder, which Ultralytics uses as the dataset root
+# when no 'path' key is given. See docs/insert_your_own_data.md.
+train: detector/images/train
+val: detector/images/val
+names:
+  0: LP
