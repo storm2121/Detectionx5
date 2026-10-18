@@ -1,0 +1,270 @@
+{
+  "schema": "detectionx5.train_crnn/1",
+  "label": "trained on synthetic data; synthetic results are not real-world accuracy",
+  "generator_version": "1",
+  "train_seed": 1001,
+  "val_seed": 1002,
+  "config": {
+    "epochs": 24,
+    "epoch_size": 20000,
+    "batch_size": 128,
+    "lr": 0.002,
+    "weight_decay": 0.0001,
+    "workers": 6,
+    "val_size": 1000,
+    "seed": 0,
+    "device": "cuda",
+    "amp": true,
+    "curriculum_start": 0.3,
+    "curriculum_ramp": 0.6,
+    "beam_every": 6,
+    "fine_tune_epochs": 6,
+    "fine_tune_lr": 0.0003,
+    "data_dir": "data",
+    "checkpoint": "crnn_best.pt",
+    "model": {
+      "height": 32,
+      "width": 160,
+      "channels": [
+        32,
+        64,
+        128,
+        160
+      ],
+      "lstm_hidden": 128,
+      "lstm_layers": 2,
+      "dropout": 0.1,
+      "num_classes": 19,
+      "extra": {}
+    }
+  },
+  "device": "cuda",
+  "parameters": 1440051,
+  "seconds": 1139.4,
+  "best_epoch": 18,
+  "best_val_exact_greedy": 0.995,
+  "fine_tuned_on_real_data": false,
+  "history": [
+    {
+      "epoch": 0,
+      "phase": "synthetic",
+      "loss": 4.925922,
+      "strength_max": 0.3,
+      "lr": 0.00042406,
+      "val_exact_greedy": 0.0,
+      "seconds": 42.31
+    },
+    {
+      "epoch": 1,
+      "phase": "synthetic",
+      "loss": 2.084282,
+      "strength_max": 0.3486,
+      "lr": 0.00120963,
+      "val_exact_greedy": 0.001,
+      "seconds": 29.87
+    },
+    {
+      "epoch": 2,
+      "phase": "synthetic",
+      "loss": 0.389573,
+      "strength_max": 0.3972,
+      "lr": 0.0018736,
+      "val_exact_greedy": 0.694,
+      "seconds": 34.49
+    },
+    {
+      "epoch": 3,
+      "phase": "synthetic",
+      "loss": 0.033197,
+      "strength_max": 0.4458,
+      "lr": 0.00199804,
+      "val_exact_greedy": 0.056,
+      "seconds": 38.79
+    },
+    {
+      "epoch": 4,
+      "phase": "synthetic",
+      "loss": 0.037,
+      "strength_max": 0.4944,
+      "lr": 0.00197664,
+      "val_exact_greedy": 0.959,
+      "seconds": 42.18
+    },
+    {
+      "epoch": 5,
+      "phase": "synthetic",
+      "loss": 0.007084,
+      "strength_max": 0.5431,
+      "lr": 0.00193212,
+      "val_exact_greedy": 0.97,
+      "seconds": 42.95,
+      "val_exact_beam": 0.972
+    },
+    {
+      "epoch": 6,
+      "phase": "synthetic",
+      "loss": 0.007621,
+      "strength_max": 0.5917,
+      "lr": 0.00186554,
+      "val_exact_greedy": 0.964,
+      "seconds": 38.74
+    },
+    {
+      "epoch": 7,
+      "phase": "synthetic",
+      "loss": 0.01218,
+      "strength_max": 0.6403,
+      "lr": 0.00177847,
+      "val_exact_greedy": 0.97,
+      "seconds": 39.67
+    },
+    {
+      "epoch": 8,
+      "phase": "synthetic",
+      "loss": 0.007473,
+      "strength_max": 0.6889,
+      "lr": 0.00167297,
+      "val_exact_greedy": 0.859,
+      "seconds": 41.09
+    },
+    {
+      "epoch": 9,
+      "phase": "synthetic",
+      "loss": 0.00594,
+      "strength_max": 0.7375,
+      "lr": 0.00155155,
+      "val_exact_greedy": 0.982,
+      "seconds": 38.45
+    },
+    {
+      "epoch": 10,
+      "phase": "synthetic",
+      "loss": 0.006553,
+      "strength_max": 0.7861,
+      "lr": 0.00141707,
+      "val_exact_greedy": 0.983,
+      "seconds": 46.62
+    },
+    {
+      "epoch": 11,
+      "phase": "synthetic",
+      "loss": 0.008072,
+      "strength_max": 0.8347,
+      "lr": 0.00127272,
+      "val_exact_greedy": 0.975,
+      "seconds": 43.36,
+      "val_exact_beam": 0.977
+    },
+    {
+      "epoch": 12,
+      "phase": "synthetic",
+      "loss": 0.004147,
+      "strength_max": 0.8833,
+      "lr": 0.00112192,
+      "val_exact_greedy": 0.991,
+      "seconds": 45.67
+    },
+    {
+      "epoch": 13,
+      "phase": "synthetic",
+      "loss": 0.007059,
+      "strength_max": 0.9319,
+      "lr": 0.00096823,
+      "val_exact_greedy": 0.988,
+      "seconds": 42.86
+    },
+    {
+      "epoch": 14,
+      "phase": "synthetic",
+      "loss": 0.006518,
+      "strength_max": 0.9806,
+      "lr": 0.00081529,
+      "val_exact_greedy": 0.993,
+      "seconds": 59.17
+    },
+    {
+      "epoch": 15,
+      "phase": "synthetic",
+      "loss": 0.005797,
+      "strength_max": 1.0,
+      "lr": 0.00066673,
+      "val_exact_greedy": 0.992,
+      "seconds": 52.45
+    },
+    {
+      "epoch": 16,
+      "phase": "synthetic",
+      "loss": 0.005748,
+      "strength_max": 1.0,
+      "lr": 0.00052605,
+      "val_exact_greedy": 0.994,
+      "seconds": 55.6
+    },
+    {
+      "epoch": 17,
+      "phase": "synthetic",
+      "loss": 0.004484,
+      "strength_max": 1.0,
+      "lr": 0.00039659,
+      "val_exact_greedy": 0.994,
+      "seconds": 53.98,
+      "val_exact_beam": 0.994
+    },
+    {
+      "epoch": 18,
+      "phase": "synthetic",
+      "loss": 0.003956,
+      "strength_max": 1.0,
+      "lr": 0.00028141,
+      "val_exact_greedy": 0.995,
+      "seconds": 60.13
+    },
+    {
+      "epoch": 19,
+      "phase": "synthetic",
+      "loss": 0.003718,
+      "strength_max": 1.0,
+      "lr": 0.00018324,
+      "val_exact_greedy": 0.994,
+      "seconds": 57.66
+    },
+    {
+      "epoch": 20,
+      "phase": "synthetic",
+      "loss": 0.002811,
+      "strength_max": 1.0,
+      "lr": 0.00010441,
+      "val_exact_greedy": 0.995,
+      "seconds": 51.52
+    },
+    {
+      "epoch": 21,
+      "phase": "synthetic",
+      "loss": 0.002569,
+      "strength_max": 1.0,
+      "lr": 4.677e-05,
+      "val_exact_greedy": 0.995,
+      "seconds": 45.57
+    },
+    {
+      "epoch": 22,
+      "phase": "synthetic",
+      "loss": 0.002474,
+      "strength_max": 1.0,
+      "lr": 1.169e-05,
+      "val_exact_greedy": 0.995,
+      "seconds": 58.87
+    },
+    {
+      "epoch": 23,
+      "phase": "synthetic",
+      "loss": 0.002725,
+      "strength_max": 1.0,
+      "lr": 1e-08,
+      "val_exact_greedy": 0.995,
+      "seconds": 60.53,
+      "val_exact_beam": 0.995
+    }
+  ],
+  "model_version": "5348143705d4"
+}

@@ -1,0 +1,48 @@
+{
+  "version": "5348143705d4",
+  "charset": [
+    "<blank>",
+    "0",
+    "1",
+    "2",
+    "3",
+    "4",
+    "5",
+    "6",
+    "7",
+    "8",
+    "9",
+    "أ",
+    "ب",
+    "د",
+    "ه",
+    "و",
+    "ط",
+    "W",
+    "-"
+  ],
+  "charset_id": "c467d5b1298f",
+  "input": {
+    "height": 32,
+    "width": 160,
+    "channels": 1,
+    "mean": 0.5,
+    "std": 0.5
+  },
+  "temperature": 0.888664,
+  "calibrated": true,
+  "beam_width": 10,
+  "conformal": {
+    "0.1": 0.0013430074298037052,
+    "0.05": 0.002234385240475009
+  },
+  "training": {
+    "best_epoch": 18,
+    "best_val_exact_greedy": 0.995,
+    "parameters": 1440051,
+    "device": "cuda",
+    "fine_tuned_on_real_data": false,
+    "generator_version": "1"
+  },
+  "set_kind": "synthetic"
+}
