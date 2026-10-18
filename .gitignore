@@ -41,6 +41,9 @@ data/**
 # Evaluation read cache (content-addressed, safe to delete).
 .cache/
 
+# The service's local database, crops and job uploads (Compose uses a volume).
+/storage/
+
 # Synthetic sets are regenerated deterministically from a seed, never committed.
 /synthetic/
 

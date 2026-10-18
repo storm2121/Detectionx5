@@ -34,7 +34,6 @@ COMMANDS: Final[tuple[tuple[str, str, Kind], ...]] = (
     ("train", "train", "group"),
     ("export", "export", "group"),
     ("registry", "registry", "group"),
-    ("worker", "worker", "command"),
 )
 
 
