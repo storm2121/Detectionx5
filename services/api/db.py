@@ -20,11 +20,16 @@ from sqlalchemy.orm import Session, sessionmaker
 MIGRATIONS = Path(__file__).resolve().parent / "migrations"
 
 
+def ensure_sqlite_dir(url: str) -> None:
+    """SQLite creates the database file but not its folder; create the folder first."""
+    if url.startswith("sqlite") and ":///" in url and not url.endswith(":memory:"):
+        Path(url.split(":///", 1)[1]).parent.mkdir(parents=True, exist_ok=True)
+
+
 def make_engine(url: str) -> Engine:
     kwargs: dict[str, Any] = {"pool_pre_ping": True}
     if url.startswith("sqlite"):
-        if ":///" in url and not url.endswith(":memory:"):
-            Path(url.split(":///", 1)[1]).parent.mkdir(parents=True, exist_ok=True)
+        ensure_sqlite_dir(url)
         kwargs["connect_args"] = {"check_same_thread": False}
     engine = create_engine(url, **kwargs)
     if url.startswith("sqlite"):
@@ -47,6 +52,7 @@ def alembic_config(url: str) -> Config:
 
 def migrate(url: str) -> None:
     """Upgrade the database at ``url`` to the latest revision."""
+    ensure_sqlite_dir(url)
     command.upgrade(alembic_config(url), "head")
 
 
@@ -72,4 +78,4 @@ class Database:
         self.engine.dispose()
 
 
-__all__ = ["Database", "alembic_config", "make_engine", "migrate"]
+__all__ = ["Database", "alembic_config", "ensure_sqlite_dir", "make_engine", "migrate"]

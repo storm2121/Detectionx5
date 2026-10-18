@@ -21,7 +21,8 @@ COPY plate_reader ./plate_reader
 COPY services ./services
 COPY config.py ./
 RUN uv sync --frozen --no-default-groups
-COPY models/crnn.onnx models/crnn.json models/detector.onnx ./models/
+COPY models/crnn.onnx models/crnn.json models/detector.onnx models/registry.json ./models/
+COPY results/*.json ./results/
 
 ENV PLATE_STORAGE_DIR=/app/storage \
     PLATE_JOBS_ROOT=/app/storage/jobs \

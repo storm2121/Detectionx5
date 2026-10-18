@@ -2,7 +2,7 @@
 
 ``uvicorn services.api.main:app`` serves synchronous reads of one to ten photos, the read
 log, the review queue and its export, background jobs with live progress, the model
-registry, health and Prometheus metrics. The inference engine, the database URL and the
+registry, the committed evaluation results, health and Prometheus metrics. The inference engine, the database URL and the
 job queue are injected through :func:`create_app`, which is how the tests run every
 endpoint with fake models, SQLite and an in-process Redis double.
 """
@@ -19,9 +19,10 @@ from pathlib import Path
 from typing import Annotated, Any
 
 from fastapi import FastAPI, File, HTTPException, Query, Request, Response, UploadFile
+from fastapi import Path as PathParam
 from fastapi.responses import FileResponse, StreamingResponse
 from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
-from sqlalchemy import text
+from sqlalchemy import select, text
 from starlette.concurrency import run_in_threadpool
 
 from plate_reader import __version__
@@ -255,6 +256,20 @@ def create_app(
                 handle.write(chunk)
         return _enqueue(request, "video", target)
 
+    @app.get("/jobs", response_model=list[JobOut])
+    def jobs(
+        request: Request,
+        limit: Annotated[int, Query(ge=1, le=200)] = 20,
+        offset: Annotated[int, Query(ge=0)] = 0,
+    ) -> list[JobOut]:
+        """The most recent jobs first."""
+        db: Database = request.app.state.db
+        with db.session() as session:
+            rows = session.scalars(
+                select(Job).order_by(Job.created_at.desc(), Job.id).limit(limit).offset(offset)
+            ).all()
+            return [_job_out(job) for job in rows]
+
     @app.get("/jobs/{job_id}", response_model=JobOut)
     def job_detail(request: Request, job_id: str) -> JobOut:
         db: Database = request.app.state.db
@@ -304,6 +319,37 @@ def create_app(
         return StreamingResponse(
             stream(), media_type="text/event-stream", headers={"Cache-Control": "no-cache"}
         )
+
+    # --- committed results ----------------------------------------------------------------
+    def _result_files() -> dict[str, Path]:
+        if not config.results_dir.is_dir():
+            return {}
+        return {path.stem: path for path in sorted(config.results_dir.glob("*.json"))}
+
+    @app.get("/results")
+    def results_index() -> list[dict[str, Any]]:
+        """Names, schemas and labels of the evaluation results the dashboard renders."""
+        index: list[dict[str, Any]] = []
+        for name, path in _result_files().items():
+            try:
+                payload = json.loads(path.read_text(encoding="utf-8"))
+            except (OSError, ValueError):
+                continue
+            if isinstance(payload, dict):
+                index.append(
+                    {"name": name, "schema": payload.get("schema"), "label": payload.get("label")}
+                )
+        return index
+
+    @app.get("/results/{name}")
+    def result_file(
+        name: Annotated[str, PathParam(pattern="^[a-z0-9_]{1,64}$")],
+    ) -> Response:
+        """One results file exactly as committed (every number in it is synthetic)."""
+        path = _result_files().get(name)
+        if path is None:
+            raise HTTPException(404, "No such results file.")
+        return Response(path.read_bytes(), media_type="application/json")
 
     # --- models, health, metrics ---------------------------------------------------------
     @app.get("/models")

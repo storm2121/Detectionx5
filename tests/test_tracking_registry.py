@@ -71,7 +71,8 @@ def test_every_detection_lands_in_exactly_one_track(frames: list[list[tuple[int,
 def test_migrations_create_and_drop_the_schema(tmp_path: Path) -> None:
     from alembic import command
 
-    url = f"sqlite:///{(tmp_path / 'm.db').as_posix()}"
+    # The folder does not exist yet: a first local run must still create the database.
+    url = f"sqlite:///{(tmp_path / 'fresh' / 'm.db').as_posix()}"
     migrate(url)
     tables = set(inspect(create_engine(url)).get_table_names())
     assert {"reads", "read_views", "review_items", "jobs", "exports", "alembic_version"} <= tables

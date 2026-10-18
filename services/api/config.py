@@ -37,6 +37,10 @@ class ServiceSettings(BaseSettings):
         description="ONNX detector; without it photos are read as plate crops",
     )
     registry_path: Path = Field(default=PROJECT_ROOT / "models" / "registry.json")
+    results_dir: Path = Field(
+        default=PROJECT_ROOT / "results",
+        description="committed evaluation results (JSON) that the dashboard renders",
+    )
     review_threshold: float = Field(default=0.9, ge=0.0, le=1.0)
     review_skip_empty_sets: bool = Field(
         default=False,
@@ -58,6 +62,7 @@ class ServiceSettings(BaseSettings):
         "crnn_model",
         "detector_model",
         "registry_path",
+        "results_dir",
         mode="after",
     )
     @classmethod

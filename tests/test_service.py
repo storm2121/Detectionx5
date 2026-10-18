@@ -86,6 +86,7 @@ def service(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Any:
         jobs_root=tmp_path / "jobs",
         export_dir=tmp_path / "data" / "ocr" / "train",
         registry_path=tmp_path / "registry.json",
+        results_dir=tmp_path / "results",
         review_threshold=0.9,
     )
     engine = Engine(FakeRecognizer(), FakeDetector())
@@ -356,3 +357,40 @@ def test_empty_sets_go_to_review_unless_skipped(tmp_path: Path, skip: bool, queu
     assert body["prediction_set"] == []
     assert body["review"]["queued"] is queued
     assert body["review"]["reason"] == ("empty_set" if queued else None)
+
+
+def test_results_are_served_as_committed(service: Any) -> None:
+    assert service.client.get("/results").json() == []
+    results = service.settings.results_dir
+    results.mkdir()
+    payload = {
+        "schema": "detectionx5.eval/1",
+        "label": "synthetic results are not real-world accuracy",
+    }
+    (results / "eval_synthetic.json").write_text(json.dumps(payload), encoding="utf-8")
+    (results / "broken.json").write_text("{", encoding="utf-8")
+    (results / "notes.txt").write_text("not served", encoding="utf-8")
+    index = service.client.get("/results").json()
+    assert index == [{"name": "eval_synthetic", **payload}]
+    served = service.client.get("/results/eval_synthetic")
+    assert served.status_code == 200
+    assert served.headers["content-type"] == "application/json"
+    assert served.json() == payload
+    assert service.client.get("/results/notes").status_code == 404
+    assert service.client.get("/results/missing").status_code == 404
+    assert service.client.get("/results/..%2Fsecret").status_code in (404, 422)
+    assert service.client.get("/results/Eval-Synthetic").status_code == 422
+
+
+def test_jobs_are_listed_newest_first(service: Any) -> None:
+    folder = service.settings.jobs_root / "batch"
+    folder.mkdir(parents=True)
+    (folder / "a.png").write_bytes(png(CONFIDENT))
+    first = service.client.post("/jobs", json={"kind": "folder", "path": "batch"}).json()
+    second = service.client.post("/jobs", json={"kind": "folder", "path": "batch"}).json()
+    listed = service.client.get("/jobs").json()
+    assert {job["id"] for job in listed} == {first["id"], second["id"]}
+    assert all(job["status"] == "finished" for job in listed)
+    assert listed[0]["created_at"] >= listed[1]["created_at"]
+    assert len(service.client.get("/jobs", params={"limit": 1}).json()) == 1
+    assert service.client.get("/jobs", params={"offset": 2}).json() == []
