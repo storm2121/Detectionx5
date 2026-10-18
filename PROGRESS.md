@@ -116,3 +116,55 @@ Never record the name of the original dataset host.
 - Open questions for the architect: the pseudo-real preset's strength is a guess until real
   photos exist; calibrating it against real crops is what M6's sweep is for.
 - Next: M2 (CRNN, constrained decoding, calibration, conformal sets, ONNX).
+
+### M2: CRNN recogniser, constrained decoding, calibration, conformal sets, ONNX — done — 2026-10-18
+
+- Built: `plate_reader/crnn/` (charset derived from the grammar's symbols, the input
+  contract in `preprocess.py`, the CRNN in PyTorch, numpy decoders: greedy, CTC prefix beam
+  and grammar-constrained prefix beam, an exact CTC forward pass used by the tests,
+  temperature scaling fitted on the reported beam posterior, split conformal sets with a
+  joint calibration-and-test bootstrap for coverage, an ONNX Runtime wrapper with metadata,
+  parity fixtures); `plate_reader/training/` (on-the-fly synthetic stream with a curriculum,
+  the training loop with fp16 autocast on CUDA, optional fine-tuning on `data/ocr`, ONNX
+  export at opset 17, calibration on three disjoint synthetic splits); `plate train crnn`,
+  `plate train calibrate`, `plate train detector` (thin Ultralytics wrapper, not run),
+  `plate export onnx`, `plate export fixtures`. Committed `models/crnn.onnx`,
+  `models/crnn.json`, `models/crnn.pt` (each under 6 MB), `results/train_crnn.json`,
+  `results/calibration_crnn.json`, `results/parity_fixtures.json` with sixteen fixture PNGs
+  under `tests/fixtures/parity/`. The harness registers `crnn-greedy`, `crnn-beam` and
+  `crnn-beam-unconstrained`; `results/eval_synthetic.json` and `results/eval_pseudo_real.json`
+  compare them with the EasyOCR path. Model card v1 (`docs/model_card.md`); README sections
+  for the CRNN, its calibration and the pseudo-real set, all rendered.
+- Commands run and results:
+  - `plate train crnn --epochs 24 --epoch-size 20000 --batch-size 128 --workers 6 --device cuda`:
+    CUDA torch on the RTX 3050, about 19 minutes of training plus calibration; exit 0.
+    No CPU fallback was needed.
+  - Conformal coverage at alpha 0.1 on the synthetic test split, with the joint bootstrap
+    interval over the calibration and test splits: the interval contains 0.9 (and the alpha
+    0.05 interval contains 0.95); values in `results/calibration_crnn.json` and the README.
+  - `uv run pytest tests/test_parity.py`: 3 passed (random-weight export at batch sizes one
+    and four, committed ONNX against committed weights, fixtures reproduced).
+  - `plate eval --set synthetic --n 300 --views 100 --k 5 -r easyocr -r crnn-greedy
+    -r crnn-beam -r crnn-beam-unconstrained` and the same with `--set pseudo_real`: exit 0
+    (about 40 minutes, almost all of it the EasyOCR baseline; its reads are now cached).
+    On the pseudo-real set the conformal coverage falls far below its level, the expected
+    effect of a distribution shift; the tables carry a sentence saying so.
+  - `just check`: green, 163 passed, 1 skipped, coverage 93.9% on `plate_reader`.
+- Decisions: the TorchScript-based ONNX exporter (`dynamo=False`) because the dynamo
+  exporter in torch 2.14 targets opset 18 and above; the temperature is fitted on the beam
+  posterior the service reports, by golden-section search, and stays at one on a flat
+  objective; nonconformity is computed as the mass of the other candidates so confident
+  reads do not tie at zero; the coverage interval resamples calibration and test together.
+  `crnn.pt` is committed for the parity test and for fine-tuning. A machine path that leaked
+  into `results/train_crnn.json` was replaced by a repository-relative one (and the
+  serialiser fixed). See ADR 0003.
+- Stubbed or skipped, and why: the detector was not retrained (`plate train detector` is a
+  thin Ultralytics wrapper, untested end to end because no real detector data exists); GPU
+  training is seeded but not bitwise reproducible (cuDNN LSTM), so the model version is the
+  ONNX hash.
+- Open questions for the architect: on the synthetic splits the CRNN is right far more often
+  than 1 - alpha, so at alpha 0.1 about one read in ten gets an empty conformal set (coverage
+  is still on target). Should the service use a smaller alpha, and should empty sets go to
+  review? (M4 makes it a setting, off by default, as ARCHITECTURE §11 specifies "more than
+  one string".)
+- Next: M3.
