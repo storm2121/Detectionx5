@@ -73,3 +73,46 @@ Never record the name of the original dataset host.
   Earlier commits on `main` still contain the old credits line; the guard checks the
   working tree and new commit messages, not history.
 - Next: M1 (synthetic plates and the evaluation harness).
+
+### M1: synthetic plates and the evaluation harness — done — 2026-10-18
+
+- Built: `plate_reader/synthetic/` (bundled OFL fonts with licences and `FONTS.md`;
+  `render.py` draws standard and temporary plates from grammar tokens; `augment.py` holds
+  every augmentation with its documented, strength-scaled distribution and a heavier
+  pseudo-real preset; `backgrounds.py` procedural bodywork and street scenes;
+  `generate.py` per-sample seeding from `(seed, kind, index, view)`; `writer.py` writes
+  sets in the `data/` layouts with timestamp-free manifests; `splits.py` fixes distinct
+  seeds per split); `plate synth crops|scenes|views|pseudo-real`. `plate_reader/eval/`
+  (metrics, paired percentile bootstrap, recogniser protocol with the EasyOCR adapter,
+  evaluation sets including the real-data `data` path, multi-view fusion at 1, 3 and 5
+  views, Plotly HTML report, content-addressed read cache); the legacy vote moved into
+  `fusion.py` as the baseline; `plate eval --set synthetic|pseudo_real|data|views`.
+  `results/eval_synthetic.json` (EasyOCR path on 300 synthetic crops, legacy vote on 100
+  five-view sets) rendered into the README with the synthetic label. CI job: generator
+  determinism (`diff -r` of two runs) and a small synthetic evaluation.
+- Commands run and results:
+  - `plate synth crops --out A --n 40 --seed 5` twice: `diff -r` identical, same digest;
+    the digest was unchanged after later lint-only edits to the generator.
+  - `plate synth scenes ...` then `plate data validate --root <scenes>`: 0 errors.
+  - `plate eval --set synthetic --n 300 --views 100 --k 5 --resamples 1000`: exit 0, about
+    14 minutes with EasyOCR on CUDA; numbers in `results/eval_synthetic.json` and the README.
+  - `uv run plate docs check`: in sync. `just check`: green, 140 passed, 1 skipped,
+    coverage 96.1% on `plate_reader`.
+- Decisions: fonts are Barlow Condensed (digits, `W`) and Noto Kufi / Noto Naskh Arabic at
+  sampled weights (letter); crops are composed like detector crops (plate warped onto
+  bodywork with padding) and degraded at output resolution; a scene set is a complete
+  stand-in for `data/` and keeps its synthetic kind through the `data` path because of its
+  manifest; CER is computed on printed characters (separators removed) as a corpus rate;
+  letter and region accuracy apply to standard plates only (their n is smaller); ECE uses
+  ten equal-width bins on the top-prediction confidence; bootstrap intervals are paired
+  across recognisers (one index matrix per population); the legacy vote reproduces
+  `pipeline.read_images` exactly (detector confidence 1 for crops). The `.gitignore` rule
+  for generated sets is anchored to the root (`/synthetic/`); unanchored, it had hidden the
+  generator package from git and ruff until caught before commit.
+- Stubbed or skipped, and why: detector mAP through Ultralytics validation on synthetic
+  scenes (ARCHITECTURE §9) is not implemented yet; the `data` set path crops labelled boxes
+  or runs a supplied detector, but no mAP is computed. The CI workflow has not run on
+  GitHub (nothing is pushed). `--set data` has only been exercised on synthetic scene sets.
+- Open questions for the architect: the pseudo-real preset's strength is a guess until real
+  photos exist; calibrating it against real crops is what M6's sweep is for.
+- Next: M2 (CRNN, constrained decoding, calibration, conformal sets, ONNX).
