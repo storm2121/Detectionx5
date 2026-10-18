@@ -41,40 +41,40 @@ difference between unusable output and a correct read.
 
 Two further details mattered more than expected:
 
-- **Two recognisers, not one.** EasyOCR's English model reads the digits far
-  more accurately than its Arabic model does (0.99 vs 0.45 confidence on the
-  same pixels), while the Arabic model is needed for the single letter. Each
+- **Two recognisers, not one.** On the bundled sample, EasyOCR's English model
+  read the digits with far higher confidence than its Arabic model did on the
+  same pixels, while the Arabic model is needed for the single letter. Each
   model is pointed only at the field it is good at.
 - **The letter field needs cropping to its ink; the digit fields must not be.**
   `ب` is a short glyph adrift in a full-height strip, so scaling that strip
-  leaves the letter too small to recognise — cropping to the ink first took it
-  from `د` at 0.26 confidence to `ب` at 0.97. Applying the same crop to the
-  digit fields made them *worse*, so it is deliberately applied to the letter
-  alone.
+  leaves the letter too small to recognise — on the sample, cropping to the ink
+  first turned a low-confidence `د` into a high-confidence `ب`. Applying the
+  same crop to the digit fields made them *worse*, so it is deliberately applied
+  to the letter alone. (These were single-sample observations from development,
+  not benchmarks.)
 
 ## Install
 
-Python 3.10–3.12. The current `numpy<2` requirement does not support Python 3.13
-or newer.
+Python 3.12, managed by [uv](https://docs.astral.sh/uv/). Dependencies are
+declared in `pyproject.toml` and locked in `uv.lock`; on Windows the lock pulls
+a CUDA 12.6 build of PyTorch, on Linux a CPU build.
 
 ```bash
 git clone https://github.com/storm2121/Detectionx5.git
 cd Detectionx5
 
-python -m venv .venv
-source .venv/bin/activate        # Windows: .venv\Scripts\activate
-
-pip install -r requirements.txt
+uv sync                          # creates .venv with Python 3.12 and every group
+uv run plate --help              # the platform command line
 ```
 
-On Windows with several Python versions installed, create the environment with
-`py -3.11 -m venv .venv` to select a compatible interpreter.
+Without uv, `requirements.txt` and `requirements-dev.txt` are generated from the
+lock for pip users:
 
-A virtual environment is strongly recommended. `requirements.txt` pins
-`numpy<2` because much of the ultralytics/pandas stack in circulation is still
-built against the numpy 1.x C ABI; installing into an environment that already
-has numpy 2.x produces `numpy.dtype size changed, may indicate binary
-incompatibility` at import.
+```bash
+python -m venv .venv             # Python 3.12
+source .venv/bin/activate        # Windows: .venv\Scripts\activate
+pip install -r requirements.txt
+```
 
 EasyOCR downloads its recognition models (~100 MB) the first time it runs.
 That is the only network access the project makes, and it happens once.
@@ -109,11 +109,11 @@ worker thread, so the window stays responsive.
 from plate_reader import read_images
 
 result = read_images(["samples/car.jpg"])
-print(result.text)              # '24830-ب-1'
-print(result.plate.digits)      # '24830'
-print(result.plate.letter)      # 'ب'
-print(result.plate.region)      # '1'
-print(result.agreement)         # images that independently agreed
+print(result.text)  # '24830-ب-1'
+print(result.plate.digits)  # '24830'
+print(result.plate.letter)  # 'ب'
+print(result.plate.region)  # '1'
+print(result.agreement)  # images that independently agreed
 ```
 
 ## HTTP API
@@ -207,14 +207,22 @@ are undone inside groups that are meant to be numeric.
 
 ## Detection model
 
-`models/best.pt` — YOLOv10n fine-tuned for 100 epochs on a single `LP` class.
+The numbers in this section are rendered by `uv run plate docs render` from
+[`docs/training_results.csv`](docs/training_results.csv); `uv run plate docs check`
+fails if anyone edits them by hand.
+
+<!-- BEGIN RENDER detector-metrics -->
+`models/best.pt` (version `648b737411ad`): YOLOv10n fine-tuned for 100 epochs on a single `LP` class, trained on a plate dataset plus photos from the firm's experts. The shipped checkpoint is epoch 90, the epoch Ultralytics selected by its fitness score (0.1 x mAP@50 + 0.9 x mAP@50-95). Values are from that epoch's row of the training log.
 
 | Metric | Value |
 |---|---|
-| Precision | 0.958 |
-| Recall | 0.957 |
-| mAP@50 | 0.987 |
-| mAP@50-95 | 0.743 |
+| Precision | 0.956 |
+| Recall | 0.945 |
+| mAP@50 | 0.983 |
+| mAP@50-95 | 0.744 |
+
+Set: the detector's own validation split (data). The training log does not record the split size, and a single validation pass gives no confidence interval, so neither n nor a CI is reported for these four numbers.
+<!-- END RENDER detector-metrics -->
 
 Full per-epoch metrics are in [`docs/training_results.csv`](docs/training_results.csv).
 
@@ -224,10 +232,19 @@ To use your own weights without editing anything:
 PLATE_MODEL=/path/to/weights.pt python cli.py photo.jpg
 ```
 
+## Synthetic baseline
+
+The platform measures itself on deterministic synthetic plates until real labelled
+data exists. These numbers are rendered from `results/eval_synthetic.json`.
+
+<!-- BEGIN RENDER synthetic-baseline -->
+Not measured yet: run `uv run plate eval --set synthetic`. Synthetic results are not real-world accuracy.
+<!-- END RENDER synthetic-baseline -->
+
 ## Configuration
 
-Every setting in [`config.py`](config.py) has a sensible default and can be
-overridden by environment variable:
+Every setting in [`plate_reader/settings.py`](plate_reader/settings.py) (re-exported
+by `config.py`) has a sensible default and can be overridden by environment variable:
 
 | Variable | Default | Purpose |
 |---|---|---|
@@ -235,6 +252,8 @@ overridden by environment variable:
 | `PLATE_OUTPUT_DIR` | `output/` | where `--save-crops` writes |
 | `PLATE_CONF` | `0.25` | detection confidence threshold |
 | `PLATE_GPU` | `0` | set to `1` to run EasyOCR on the GPU |
+| `PLATE_DATA_DIR` | `data/` | the real-data placeholder (see `data/README.md`) |
+| `PLATE_RESULTS_DIR` | `results/` | where evaluation and training write metrics JSON |
 
 ## Layout
 
@@ -248,9 +267,17 @@ plate_reader/
     segment.py          plate isolation, separator detection, field cutting
     preprocess.py       thresholding variants for the OCR ensemble
     ocr.py              EasyOCR backends behind a swappable interface
-    normalize.py        text repair, plate grammar, validation
+    grammar.py          the plate formats as one finite automaton
+    normalize.py        text repair and lenient parsing onto the grammar
+    settings.py         typed PLATE_* configuration
+    docs_render.py      renders README numbers from results; detects drift
+    data/               the real-data layout and its validator
+    cli/                the `plate` command line
     pipeline.py         orchestration and voting
 models/best.pt          fine-tuned detector
+data/                   placeholder for real data (README, layout, detector.yaml)
+docs/                   ADRs, training log, insert-your-own-data guide
+tools/repo_guards.py    pre-commit and CI guards
 samples/car.jpg         sample image
 tests/                  pytest suite
 ```
@@ -294,10 +321,13 @@ distinct photos of the same car are still needed to assess real-world agreement.
 
 Worth being straight about:
 
-- **OCR accuracy is not benchmarked.** The pipeline is verified end-to-end on
-  the bundled sample and the segmentation logic is covered by tests, but there
-  is no labelled evaluation set, so no accuracy figure is claimed. The
-  detector's metrics above come from its own validation split.
+- <!-- BEGIN RENDER ocr-benchmark-status -->
+**OCR accuracy is not benchmarked on real data.** No labelled real evaluation set exists yet, so no real-world accuracy figure is claimed. `docs/insert_your_own_data.md` explains where real photos and labels go.
+<!-- END RENDER ocr-benchmark-status -->
+  The pipeline is verified end-to-end on the bundled sample and the segmentation
+  logic is covered by tests. The detector's metrics above come from its own
+  validation split. Every synthetic number in this README is labelled as
+  synthetic: synthetic results are not real-world accuracy.
 - **The `WW` temporary format has no separator bars**, so it takes the
   whole-plate fallback path and is read less reliably.
 - Plates that are heavily skewed, motion-blurred, or badly lit will fail
@@ -311,8 +341,9 @@ Worth being straight about:
 ## Credits and licence
 
 - Detection architecture: [YOLOv10](https://github.com/THU-MIG/yolov10) (THU-MIG), AGPL-3.0
-- Training dataset: [Moroccan License Plate Detection](https://universe.roboflow.com/storm-i5hxc/moroccan-license-plate-detection-pyfe7) via Roboflow, CC BY 4.0
+- Detector training data: a plate dataset plus photos from the firm's experts
 - OCR: [EasyOCR](https://github.com/JaidedAI/EasyOCR), Apache-2.0
+- Synthetic-plate fonts: SIL Open Font License 1.1 (see `plate_reader/synthetic/fonts/`)
 
 Licensed under **AGPL-3.0** — see [LICENSE](LICENSE). This is required rather
 than chosen: the fine-tuned weights derive from YOLOv10/Ultralytics, which are
