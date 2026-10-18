@@ -4,7 +4,7 @@ Status: accepted (architect, 2026-10-18). Expand during M5 and M6.
 
 ## Context
 
-The desktop GUI is Tkinter. The sibling project (Kashf) uses React, so this project deliberately
+The desktop GUI is Tkinter. The sibling project (Strata) uses React, so this project deliberately
 uses a different front-end stack to broaden demonstrated skills. Plate photos are sensitive, which
 makes on-device inference attractive.
 
