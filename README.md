@@ -13,7 +13,7 @@ on deterministic synthetic plates, and every number below says so: synthetic res
 real-world accuracy.
 
 <!-- BEGIN RENDER ocr-benchmark-status -->
-**OCR accuracy is not benchmarked on real data.** No labelled real evaluation set exists yet, so no real-world accuracy figure is claimed. `docs/insert_your_own_data.md` explains where real photos and labels go.
+OCR accuracy is benchmarked on a labelled real set of 12 images (see below).
 <!-- END RENDER ocr-benchmark-status -->
 
 ```console

@@ -4,9 +4,12 @@ from __future__ import annotations
 
 from enum import StrEnum
 from pathlib import Path
-from typing import Annotated
+from typing import TYPE_CHECKING, Annotated, Any
 
 import typer
+
+if TYPE_CHECKING:
+    from ..eval.sets import Detect
 
 HELP = "Evaluate recognisers (and multi-view fusion) with bootstrap intervals."
 
@@ -22,6 +25,27 @@ class Device(StrEnum):
     auto = "auto"
     cpu = "cpu"
     cuda = "cuda"
+
+
+def _detector_for_photos(settings: Any) -> Detect | None:
+    """The served ONNX detector, for labelled photos that carry no box; None when no model ships."""
+    from ..detector_onnx import OnnxPlateDetector
+    from ..settings import PROJECT_ROOT
+
+    configured = getattr(settings, "detector_model", None)
+    model = Path(configured) if configured else PROJECT_ROOT / "models" / "detector.onnx"
+    if not model.exists():
+        return None
+    detector = OnnxPlateDetector(model)
+
+    def detect(image: Any) -> list[tuple[tuple[int, int, int, int], float]]:
+        boxes, scores = detector.raw_boxes(image)
+        return [
+            ((int(x1), int(y1), int(x2), int(y2)), float(score))
+            for (x1, y1, x2, y2), score in zip(boxes, scores, strict=True)
+        ]
+
+    return detect
 
 
 def command(
@@ -76,7 +100,8 @@ def command(
         eval_set = sets.pseudo_real_set(n)
         result_name = "eval_pseudo_real"
     elif set_name == SetName.data:
-        eval_set = sets.data_set(data_dir or settings.data_dir)
+        detect = _detector_for_photos(settings)
+        eval_set = sets.data_set(data_dir or settings.data_dir, detect=detect)
         result_name = "eval_data" if eval_set.kind == "data" else f"eval_data_{eval_set.kind}"
         if not eval_set.items:
             typer.echo("no labelled photos under data/eval (the placeholder is empty)", err=True)
