@@ -9,6 +9,7 @@ model against it, and the browser runtime must reproduce it within the stated to
 
 from __future__ import annotations
 
+import base64
 import json
 from pathlib import Path
 from typing import Any, Final
@@ -20,11 +21,22 @@ from ..imaging import as_u8
 from ..synthetic.generate import make_crop
 from ..synthetic.splits import SPLIT_SEEDS
 from ..synthetic.writer import encode_png
+from .preprocess import INPUT_HEIGHT, INPUT_WIDTH, to_grey
 from .runtime import CRNNRuntime
 
 FIXTURE_SEED: Final = SPLIT_SEEDS["test"]
 FIXTURE_COUNT: Final = 16
 TOLERANCE: Final = {"logits": 1e-3, "probability": 1e-4}
+
+
+def model_input(image: np.ndarray, height: int = INPUT_HEIGHT, width: int = INPUT_WIDTH) -> str:
+    """The 8-bit grey model input of ``preprocess`` (before scaling), base64-encoded."""
+    grey = to_grey(as_u8(image))
+    shrinking = grey.shape[0] > height or grey.shape[1] > width
+    resized = cv2.resize(
+        grey, (width, height), interpolation=cv2.INTER_AREA if shrinking else cv2.INTER_LINEAR
+    )
+    return base64.b64encode(np.ascontiguousarray(resized).tobytes()).decode("ascii")
 
 
 def write_fixtures(
@@ -51,6 +63,7 @@ def write_fixtures(
             {
                 "image": path.relative_to(root).as_posix(),
                 "truth": sample.tokens,
+                "input": model_input(image),
                 "logits": np.round(logits.astype(np.float64), 6).tolist(),
                 "greedy": greedy.prediction,
                 "beam": [[h.tokens, round(h.probability, 8)] for h in beam.hypotheses],

@@ -27,7 +27,7 @@ from collections import deque
 from collections.abc import Iterable, Iterator, Mapping, Sequence
 from dataclasses import dataclass
 from functools import cached_property
-from typing import Final, Protocol, SupportsInt, runtime_checkable
+from typing import Any, Final, Protocol, SupportsInt, runtime_checkable
 
 DIGITS: Final = "0123456789"
 # The six letters that have actually appeared on Moroccan civilian plates.
@@ -276,6 +276,17 @@ class PlateGrammar:
             if current == DEAD:
                 return DEAD
         return current
+
+    def as_dict(self) -> dict[str, Any]:
+        """The automaton as plain data, for the browser runtime (``plate export web``)."""
+        return {
+            "schema": "detectionx5.grammar/1",
+            "symbols": list(SYMBOLS),
+            "start": self.start,
+            "dead": DEAD,
+            "transitions": [list(row) for row in self._delta],
+            "accepting": [sorted(names) for names in self._accepting],
+        }
 
     def is_accepting(self, state: int) -> bool:
         return state != DEAD and bool(self._accepting[state])

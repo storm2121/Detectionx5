@@ -66,6 +66,15 @@ def fixtures(
     )
 
 
+@app.command("web")
+def web() -> None:
+    """Write the browser runtime's plate automaton and the OpenCV reference cases."""
+    from ..web import write_web_assets
+
+    for path in write_web_assets():
+        typer.echo(f"wrote {path}")
+
+
 @app.command("detector")
 def detector(
     weights: Annotated[Path | None, typer.Option(help="default models/best.pt")] = None,

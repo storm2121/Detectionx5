@@ -22,6 +22,7 @@ from typing import Any, Final
 import cv2
 import numpy as np
 
+from .crnn.parity import model_input
 from .crnn.runtime import file_version
 from .imaging import as_u8
 from .settings import CROP_PADDING
@@ -90,6 +91,7 @@ def write_scene_fixtures(
                     for box, score in zip(boxes, scores, strict=True)
                 ],
                 "crop_box": [int(v) for v in detection.box],
+                "input": model_input(detection.crop),
                 "detector_confidence": round(float(detection.confidence), 6),
                 "weight": view.weight,
                 "prediction": read.prediction,
