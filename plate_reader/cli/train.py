@@ -4,9 +4,12 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Annotated
+from typing import TYPE_CHECKING, Annotated
 
 import typer
+
+if TYPE_CHECKING:
+    from ..synthetic.augment import AugmentConfig
 
 HELP = "Train the CRNN or the detector, and calibrate the CRNN."
 
@@ -16,6 +19,26 @@ app = typer.Typer(no_args_is_help=True)
 def _write_json(payload: object, path: Path) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+
+
+def _augmentation(
+    sweep_file: Path | None, root: Path
+) -> tuple[AugmentConfig, dict[str, object] | None]:
+    """The default augmentation bounds, or the best trial's of a ``plate sweep`` results file."""
+    from ..synthetic.augment import DEFAULT
+
+    if sweep_file is None:
+        return DEFAULT, None
+    from ..training.sweep import scaled_config
+
+    payload = json.loads(sweep_file.read_text(encoding="utf-8"))
+    best = payload["best"]
+    try:
+        shown = sweep_file.resolve().relative_to(root).as_posix()
+    except ValueError:
+        shown = sweep_file.name
+    source = {"file": shown, "trial": best["number"], "multipliers": best["multipliers"]}
+    return scaled_config(best["multipliers"]), source
 
 
 @app.command("crnn")
@@ -37,6 +60,10 @@ def crnn(
         bool, typer.Option(help="fit temperature and conformal thresholds")
     ] = True,
     n_calibration: Annotated[int, typer.Option(min=20)] = 2000,
+    augment_from: Annotated[
+        Path | None,
+        typer.Option(help="a plate sweep results file: train with its best augmentation strengths"),
+    ] = None,
 ) -> None:
     """Pretrain on synthetic crops (curriculum), export ONNX, then calibrate."""
     from ..settings import PROJECT_ROOT, get_settings
@@ -47,6 +74,7 @@ def crnn(
     settings = get_settings()
     models = models_dir or PROJECT_ROOT / "models"
     results = results_dir or settings.results_dir
+    augment, augment_source = _augmentation(augment_from, PROJECT_ROOT)
     config = TrainConfig(
         epochs=epochs,
         epoch_size=epoch_size,
@@ -58,6 +86,7 @@ def crnn(
         seed=seed,
         data_dir=data_dir if data_dir is not None else settings.data_dir,
         checkpoint=models / "checkpoints" / "crnn_best.pt",
+        augment=augment,
     )
     result = train(config, log=typer.echo)
     save_weights(result.model, models / "crnn.pt")
@@ -81,6 +110,7 @@ def crnn(
         ),
     )
     summary = training_summary(config, result)
+    summary["augment_source"] = augment_source
     summary["model_version"] = meta.version
     _write_json(summary, results / "train_crnn.json")
     typer.echo(f"exported {onnx_path} (version {meta.version})")
