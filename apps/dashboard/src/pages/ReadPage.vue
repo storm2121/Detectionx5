@@ -33,8 +33,6 @@ const store = useReadStore()
 const browser = useBrowserStore()
 const service = useServiceStore()
 
-const SAMPLES = ['scene_00.png', 'scene_01.png', 'scene_02.png']
-
 const stored = shallowRef<ReadOut | null>(null)
 const storedError = ref<string | null>(null)
 const loadingStored = ref(false)
@@ -128,15 +126,6 @@ onMounted(() => {
   if (store.mode === 'browser') void browser.prepare()
 })
 
-async function trySamples() {
-  try {
-    await store.loadSamples(SAMPLES)
-  } catch (cause) {
-    store.error = errorMessage(cause)
-    store.status = 'error'
-  }
-}
-
 function boxFor(index: number) {
   return store.result?.views[index]?.box ?? null
 }
@@ -209,13 +198,6 @@ function boxFor(index: number) {
                 @click="readNow()"
               />
               <Button
-                label="Try three synthetic photos"
-                severity="secondary"
-                outlined
-                data-testid="samples-button"
-                @click="trySamples()"
-              />
-              <Button
                 v-if="store.photos.length"
                 label="Clear"
                 severity="secondary"
@@ -284,7 +266,8 @@ function boxFor(index: number) {
           />
         </div>
         <p v-else class="dx-muted">
-          Add photos, or try three synthetic photos of one car, then press Read plate.
+          The plate, its confidence and the plates that cannot be ruled out appear here. Add photos
+          of one car, then press Read plate.
         </p>
       </section>
     </div>

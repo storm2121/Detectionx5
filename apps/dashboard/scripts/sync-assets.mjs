@@ -1,7 +1,6 @@
 // Copies the files the dashboard serves as static assets from the rest of the repository.
-// Generated files land in public/ and are not committed:
-// - public/samples: three synthetic photos of one car (tests/fixtures/parity/scene_*.png),
-//   so the Read page can be tried without photos;
+// Generated files land in public/ and are not committed. No sample photos are copied: the
+// Read page reads the viewer's own photos (ADR 0011).
 // - public/runtime/models: the ONNX detector and CRNN with the CRNN's metadata, for the
 //   in-browser mode, and versions.json (content hashes, as the Python side computes them);
 // - public/runtime/parity: results/parity_fixtures.json and its PNGs, for the parity check.
@@ -42,7 +41,6 @@ function fileVersion(path) {
 }
 
 const fixtures = join(repo, 'tests', 'fixtures', 'parity')
-const samples = copyMatching(fixtures, /^scene_\d+\.png$/, join(pub, 'samples'))
 
 const modelDir = join(repo, 'models')
 const models = copyMatching(
@@ -65,4 +63,4 @@ const results = join(repo, 'results', 'parity_fixtures.json')
 if (existsSync(results))
     copyFileSync(results, join(pub, 'runtime', 'parity', 'parity_fixtures.json'))
 
-console.log(`sync-assets: ${samples} sample scenes, ${models} model files, ${parity} parity images`)
+console.log(`sync-assets: ${models} model files, ${parity} parity images`)

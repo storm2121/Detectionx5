@@ -148,18 +148,6 @@ export const useReadStore = defineStore('read', () => {
     }
   }
 
-  /** The synthetic sample scenes the dashboard ships (copied from tests/fixtures/parity). */
-  async function loadSamples(names: readonly string[]) {
-    clear()
-    const files: File[] = []
-    for (const name of names) {
-      const response = await fetch(`/samples/${name}`)
-      if (!response.ok) throw new Error(`Sample ${name} is missing (run pnpm assets).`)
-      files.push(new File([await response.blob()], name, { type: 'image/png' }))
-    }
-    add(files)
-  }
-
   return {
     photos,
     detect,
@@ -176,6 +164,5 @@ export const useReadStore = defineStore('read', () => {
     clear,
     measured,
     read,
-    loadSamples,
   }
 })

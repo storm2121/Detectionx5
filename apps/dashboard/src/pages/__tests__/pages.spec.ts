@@ -107,6 +107,13 @@ describe('the console', () => {
     wrapper.unmount()
   })
 
+  it('reads only photos the viewer adds: no synthetic sample path', async () => {
+    const { wrapper } = await visit('/read')
+    expect(wrapper.find('[data-testid="samples-button"]').exists()).toBe(false)
+    expect(wrapper.text()).not.toContain('synthetic photos')
+    wrapper.unmount()
+  })
+
   it('shows why a stored read went to review', async () => {
     const { wrapper } = await visit(`/reads/${QUEUED.id}`, [
       { path: `/api/reads/${QUEUED.id}`, body: QUEUED },

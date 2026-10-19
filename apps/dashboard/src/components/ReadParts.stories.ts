@@ -106,7 +106,7 @@ export const PhotoWithBox: Story = {
     components: { PhotoFrame },
     setup: () => ({ read: ACCEPTED }),
     template: `<div style="max-width: 420px">
-      <PhotoFrame src="/samples/scene_02.png" alt="Synthetic street photo" :box="read.views[2].box" badge="View 3" removable>
+      <PhotoFrame src="/runtime/parity/scene_02.png" alt="Synthetic street photo (a parity fixture)" :box="read.views[2].box" badge="View 3" removable>
         scene_02.png
       </PhotoFrame>
     </div>`,
