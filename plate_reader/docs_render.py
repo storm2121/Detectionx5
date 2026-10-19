@@ -172,6 +172,48 @@ def _detector_metrics(ctx: RenderContext) -> str:
     return "\n".join(lines)
 
 
+@block("detector-synthetic")
+def _detector_synthetic(ctx: RenderContext) -> str:
+    payload = ctx.result("eval_detector_synthetic")
+    if payload is None:
+        return (
+            "Not measured yet: `uv run plate synth scenes --out synthetic/scenes-eval` then "
+            "`uv run plate eval-detector --data synthetic/scenes-eval/detector.yaml`. "
+            f"{SYNTHETIC_LABEL.capitalize()}."
+        )
+    metrics = payload.get("metrics", {})
+    info = payload.get("set", {})
+    counts = payload.get("counts", {})
+    images, plates = counts.get("images"), counts.get("plates")
+    with_plates = counts.get("images_with_plates")
+    scope = (
+        f"{images} scenes holding {plates} plates ({images - with_plates} with no plate)"
+        if None not in (images, plates, with_plates)
+        else "the whole split"
+    )
+    data = str(payload.get("data", "synthetic/scenes-eval/detector.yaml"))
+    folder = data.rsplit("/", 1)[0] if "/" in data else "."
+    lines = [
+        f"**{SYNTHETIC_LABEL.capitalize()}.** `models/{payload.get('weights', '?')}` on the "
+        f"`{payload.get('split', '?')}` split of a synthetic street-scene set: {scope}, "
+        f"generator seed {info.get('seed', '?')}, version {info.get('generator_version', '?')}, "
+        f"image size {payload.get('imgsz', '?')}. One Ultralytics validation pass, so no "
+        "interval; procedural scenes say nothing about real photos.",
+        "",
+        "| Metric | Value |",
+        "|---|---|",
+        f"| Precision | {fmt(float(metrics.get('precision', 0.0)))} |",
+        f"| Recall | {fmt(float(metrics.get('recall', 0.0)))} |",
+        f"| mAP@50 | {fmt(float(metrics.get('map50', 0.0)))} |",
+        f"| mAP@50-95 | {fmt(float(metrics.get('map50_95', 0.0)))} |",
+        "",
+        f"Reproduce: `uv run plate synth scenes --n {info.get('n', '?')} --seed "
+        f"{info.get('seed', '?')} --val-fraction {info.get('val_fraction', '?')} --out {folder}` "
+        f"then `uv run plate eval-detector --data {data}`.",
+    ]
+    return "\n".join(lines)
+
+
 @block("ocr-benchmark-status")
 def _ocr_benchmark_status(ctx: RenderContext) -> str:
     real = ctx.result("eval_data")
@@ -497,6 +539,17 @@ def _cv_evidence(ctx: RenderContext) -> str:
                 "pseudo-real tuning split",
                 fmt(float(best.get("pseudo_real_exact_greedy", 0.0))),
                 "`results/sweep.json`",
+            )
+        )
+    detector = ctx.result("eval_detector_synthetic")
+    if detector is not None:
+        metrics = detector.get("metrics", {})
+        rows.append(
+            (
+                "Detector mAP@50 and mAP@50-95 on synthetic street scenes (one pass, no interval)",
+                f"{fmt(float(metrics.get('map50', 0.0)))} and "
+                f"{fmt(float(metrics.get('map50_95', 0.0)))}",
+                "`results/eval_detector_synthetic.json`",
             )
         )
     training = ctx.result("train_crnn")

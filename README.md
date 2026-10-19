@@ -150,7 +150,21 @@ Every number in this section is rendered by `uv run plate docs render` from
 Set: the detector's own validation split (data). The training log does not record the split size, and a single validation pass gives no confidence interval, so neither n nor a CI is reported for these four numbers.
 <!-- END RENDER detector-metrics -->
 
-Full per-epoch metrics are in [`docs/training_results.csv`](docs/training_results.csv).
+Full per-epoch metrics are in [`docs/training_results.csv`](docs/training_results.csv). On
+synthetic street scenes, rendered from `results/eval_detector_synthetic.json`:
+
+<!-- BEGIN RENDER detector-synthetic -->
+**Synthetic results are not real-world accuracy.** `models/best.pt` on the `val` split of a synthetic street-scene set: 150 scenes holding 135 plates (15 with no plate), generator seed 1005, version 1, image size 640. One Ultralytics validation pass, so no interval; procedural scenes say nothing about real photos.
+
+| Metric | Value |
+|---|---|
+| Precision | 0.729 |
+| Recall | 0.948 |
+| mAP@50 | 0.843 |
+| mAP@50-95 | 0.602 |
+
+Reproduce: `uv run plate synth scenes --n 300 --seed 1005 --val-fraction 0.5 --out synthetic/scenes-eval` then `uv run plate eval-detector --data synthetic/scenes-eval/detector.yaml`.
+<!-- END RENDER detector-synthetic -->
 
 ### Recognisers on synthetic plates
 
@@ -333,6 +347,7 @@ parity. Light and dark themes, phone width, axe-checked.
 | `plate read PHOTO...` | read photos with the original reader (EasyOCR) |
 | `plate synth crops / views / scenes / pseudo-real` | write deterministic synthetic sets |
 | `plate eval --set synthetic / pseudo_real / views / data` | evaluate recognisers with bootstrap intervals |
+| `plate eval-detector --data DETECTOR_YAML` | detector precision, recall and mAP through Ultralytics validation |
 | `plate train crnn / calibrate / calibrate-fused / detector` | train and calibrate |
 | `plate export onnx / detector / fixtures / web` | export models, parity fixtures and the browser's assets |
 | `plate sweep` | search augmentation strengths against the pseudo-real set |
@@ -359,8 +374,9 @@ of git: a pre-commit check refuses images, videos and large CSVs under `data/`.
 - The temperature and every conformal threshold (one view, and each number of fused views)
   are refitted on real calibration splits: thresholds hold only for images exchangeable
   with the split they were fitted on.
-- The detector is evaluated, and if need be fine-tuned (`plate train detector`), on real
-  photos; its current figures come from its own validation split.
+- The detector is measured on real photos (`plate eval-detector --data data/detector.yaml`)
+  and, if need be, fine-tuned (`plate train detector`); its current real-photo figures come
+  from its own validation split, and its only independent ones from synthetic scenes.
 - The augmentation sweep's objective moves from the pseudo-real tuning split to a real
   validation split, and the pseudo-real set becomes a robustness check instead of the
   stand-in for the real world.
@@ -370,7 +386,8 @@ of git: a pre-commit check refuses images, videos and large CSVs under `data/`.
 - No real labelled evaluation exists: every recogniser metric, confidence and threshold here
   comes from synthetic data, and synthetic results are not real-world accuracy. The
   pseudo-real set is synthetic too.
-- The detector's figures come from its own validation split, with no interval.
+- The detector's real-photo figures come from its own validation split, and its other
+  figures from one pass over procedural street scenes; neither has an interval.
 - The fonts approximate plate lettering; backgrounds are procedural; the generator draws no
   country band, dealer or damaged plates.
 - Temporary plates are assumed to carry one to six digits until the range is confirmed.

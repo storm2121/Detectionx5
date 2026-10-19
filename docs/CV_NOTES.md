@@ -72,12 +72,14 @@ and synthetic results are not real-world accuracy.
 | Fused sets over 5 views at level 0.95, measured coverage | 0.940 [0.905, 0.970] | `results/calibration_fused.json` |
 | CRNN (constrained beam), exact match on the pseudo-real set | 0.610 [0.553, 0.660] | `results/eval_pseudo_real.json` |
 | Augmentation sweep, best of 8 trials on the pseudo-real tuning split | 0.726 | `results/sweep.json` |
+| Detector mAP@50 and mAP@50-95 on synthetic street scenes (one pass, no interval) | 0.843 and 0.602 | `results/eval_detector_synthetic.json` |
 | CRNN parameters | 1440051 | `results/train_crnn.json` |
 <!-- END RENDER cv-evidence -->
 
 ## What not to claim
 
 - Any real-world accuracy: there is no labelled real evaluation set yet.
-- That the detector's figures are independent: they come from its own validation split.
+- That the detector's real-photo figures are independent: they come from its own
+  validation split. Its only independent figures are on synthetic street scenes.
 - That the augmentation sweep improved the shipped model: its best configuration has not
   been used for a full training.

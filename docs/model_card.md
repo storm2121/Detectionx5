@@ -43,6 +43,22 @@ the platform inherited. The detector was trained on a publicly available plate d
 released under CC BY 4.0, plus photographs from the firm's experts; the dataset is not named
 here at the owner's request and full attribution is available from the author.
 
+Measured independently of its training only on synthetic street scenes it never saw,
+with `plate eval-detector` (Ultralytics validation):
+
+<!-- BEGIN RENDER detector-synthetic -->
+**Synthetic results are not real-world accuracy.** `models/best.pt` on the `val` split of a synthetic street-scene set: 150 scenes holding 135 plates (15 with no plate), generator seed 1005, version 1, image size 640. One Ultralytics validation pass, so no interval; procedural scenes say nothing about real photos.
+
+| Metric | Value |
+|---|---|
+| Precision | 0.729 |
+| Recall | 0.948 |
+| mAP@50 | 0.843 |
+| mAP@50-95 | 0.602 |
+
+Reproduce: `uv run plate synth scenes --n 300 --seed 1005 --val-fraction 0.5 --out synthetic/scenes-eval` then `uv run plate eval-detector --data synthetic/scenes-eval/detector.yaml`.
+<!-- END RENDER detector-synthetic -->
+
 ## Intended use
 
 Reading Moroccan civilian plates (standard and temporary `WW`) from detector crops inside

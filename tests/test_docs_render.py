@@ -199,3 +199,30 @@ def test_the_cv_evidence_block_traces_every_figure_to_a_file(tmp_path: Path) -> 
     assert rows
     assert all(line.rstrip(" |").endswith(".json`") for line in rows)
     assert SYNTHETIC_LABEL.capitalize() in text
+
+
+def test_the_detector_block_renders_from_its_validation(tmp_path: Path) -> None:
+    from plate_reader.docs_render import BLOCKS
+
+    assert BLOCKS["detector-synthetic"](RenderContext(tmp_path)).startswith("Not measured yet")
+    (tmp_path / "results").mkdir()
+    payload = {
+        "weights": "best.pt",
+        "data": "synthetic/scenes-eval/detector.yaml",
+        "split": "val",
+        "imgsz": 640,
+        "set": {"seed": 1005, "n": 40, "val_fraction": 0.5, "generator_version": "1"},
+        "counts": {"images": 20, "plates": 18, "images_with_plates": 18},
+        "metrics": {"precision": 0.75, "recall": 0.875, "map50": 0.8125, "map50_95": 0.5},
+    }
+    target = tmp_path / "results" / "eval_detector_synthetic.json"
+    target.write_text(json.dumps(payload), encoding="utf-8")
+    text = BLOCKS["detector-synthetic"](RenderContext(tmp_path))
+    assert text.startswith(f"**{SYNTHETIC_LABEL.capitalize()}.**")
+    assert "20 scenes holding 18 plates (2 with no plate)" in text
+    assert "| mAP@50 | 0.812 |" in text
+    assert "| mAP@50-95 | 0.500 |" in text
+    assert "--n 40 --seed 1005 --val-fraction 0.5 --out synthetic/scenes-eval" in text
+    del payload["counts"]
+    target.write_text(json.dumps(payload), encoding="utf-8")
+    assert "the whole split" in BLOCKS["detector-synthetic"](RenderContext(tmp_path))

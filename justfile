@@ -61,6 +61,12 @@ eval *args:
     uv run plate eval --set synthetic {{args}}
     uv run plate docs render
 
+# The detector's precision, recall and mAP on synthetic street scenes (Ultralytics validation).
+eval-detector *args:
+    uv run plate synth scenes --n 300 --seed 1005 --val-fraction 0.5 --out synthetic/scenes-eval
+    uv run plate eval-detector --data synthetic/scenes-eval/detector.yaml {{args}}
+    uv run plate docs render
+
 # Train the CRNN on synthetic crops (CUDA when available), export ONNX, calibrate.
 train-crnn *args:
     uv run plate train crnn {{args}}

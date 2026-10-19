@@ -86,7 +86,7 @@ from the set.
 | Recogniser | CRNN trained on synthetic crops | fine-tuned on `data/ocr/train`, validated on `data/ocr/val` |
 | Calibration | temperature fitted on a synthetic split | refitted on `data/ocr/val` |
 | Conformal sets | thresholds for one view and per number of fused views, fitted on synthetic splits | refitted on real calibration crops and real multi-photo sets (`plate train calibrate`, `plate train calibrate-fused`) |
-| Detector | the shipped `models/best.pt`, measured on its own validation split | evaluated on `data/detector`, and retrained if needed with `plate train detector --data data/detector.yaml` |
+| Detector | the shipped `models/best.pt`, measured on its own validation split and on synthetic street scenes | measured on `data/detector` with `plate eval-detector --data data/detector.yaml` (written to `results/eval_detector_data.json`), and retrained if needed with `plate train detector --data data/detector.yaml` |
 | Augmentation sweep | scored on a pseudo-real tuning split | scored on a real validation split; the pseudo-real set becomes a robustness check |
 | Console | Evaluation and Models pages show synthetic and pseudo-real results | the real results appear beside them (the Models page's sim-to-real gap gets its real column) |
 
