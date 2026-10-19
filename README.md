@@ -367,10 +367,12 @@ console with Vite on port 5174.
 fields, calibrated confidence, conformal set, per-view hypotheses, the fusion table, the
 character heatmap; server or in-browser mode with a parity indicator), Jobs
 (folders and videos with live progress), Review queue (confirm, correct, export),
-Evaluation (metrics with intervals, reliability diagrams, letter confusions, fusion by
-number of views, coverage), Models (active models, thresholds, the registry, the training
-curve, the sim-to-real gap, the augmentation sweep), Methods (the equations) and Browser
-parity. Light and dark themes, phone width, axe-checked.
+Evaluation (the labelled real photos first, then the synthetic harness: metrics with
+intervals, reliability diagrams, letter confusions, fusion by number of views, coverage),
+Models (the sim-to-real gap first, then the active models, thresholds, the registry, the
+training curve and the augmentation sweep), Methods (the equations) and Browser parity. Light and dark themes, phone width, axe-checked; screenshots of every page in both
+themes are in [`docs/images`](docs/images), and the design's departures from its brief in
+[`docs/DESIGN_NOTES.md`](docs/DESIGN_NOTES.md).
 
 **The service:**
 

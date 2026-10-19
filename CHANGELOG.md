@@ -123,7 +123,31 @@ All notable changes to this project are recorded here. The format follows
 - M8: the detector's precision gap on synthetic scenes is rendered with its result and
   recorded in the data guide as noted, not acted on (no fine-tuning on synthetic scenes).
 
+- Design pass: the real-photo evaluation leads. A rendered Real photos section in the README
+  and the model card (every recogniser with its interval on the labelled photos, the
+  calibration and conformal sets that do not carry over, the sim-to-real gap), the status
+  line linking to it, and Real photos sections first on the console's Evaluation and Models
+  pages. `plate eval --note` keeps a description of the set in its results;
+  `GET /review/summary` counts reads waiting and corrections ready to export.
+- Design pass: the console redesigned on `docs/DESIGN.md` (ADR 0012): one tokens file for
+  light, dark, reduced transparency and higher contrast; the system type stack with optical
+  sizes and tabular figures; Noto Naskh Arabic for plate letters at the Latin x-height; one
+  accent; a translucent top bar and, at phone width, a tab bar; headless controls that press
+  on pointer-down and move on Motion springs; photos reordered by dragging (1:1, rubber-band,
+  velocity into a settling spring) or by keyboard; the plate shown large with the character
+  heatmap on its columns; Lucide icons; Storybook stories in both themes; screenshots of
+  every page in both themes at 1440 and 390 px in `docs/images`; a bundle check;
+  `docs/DESIGN_NOTES.md`.
+
 ### Changed
+
+- Design pass: the evaluation harness crops labelled photos exactly where the service crops
+  them (the detector's float box padded once, never a box rounded first); the real-photo
+  results were re-run, and the EasyOCR path now agrees with `plate read` on every photo.
+  Results record repository-relative sources and are written with LF.
+- Design pass: `just demo` starts the stack and prints where the console is; the synthetic
+  crops, evaluation and read moved to `just demo-synthetic` (ADR 0011). The Read page reads
+  only the viewer's photos.
 
 - M8: ADR 0010 is accepted; the sweep's tables call trial 0 the default configuration,
   since the shipped weights are a separate question settled by the comparison.
@@ -152,5 +176,7 @@ All notable changes to this project are recorded here. The format follows
 
 ### Removed
 
+- Design pass: PrimeVue and its theme package (replaced by headless controls, ADR 0012), and
+  the console's synthetic sample photos.
 - M0: the credits line naming the detector's original training-data source; the README
   now describes it as a plate dataset plus photos from the firm's experts.
