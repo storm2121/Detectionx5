@@ -4,8 +4,9 @@
     "name": "data",
     "kind": "data",
     "n": 12,
-    "source": "D:/detectionx5/data/eval/labels.csv",
-    "skipped_without_box": 0
+    "source": "data/eval/labels.csv",
+    "skipped_without_box": 0,
+    "note": "small and easy (clean rear shots)"
   },
   "bootstrap": {
     "resamples": 1000,
@@ -19,9 +20,9 @@
       "n": 12,
       "metrics": {
         "exact_match": {
-          "value": 0.0,
+          "value": 0.083333,
           "ci_low": 0.0,
-          "ci_high": 0.0,
+          "ci_high": 0.25,
           "n": 12
         },
         "digits_accuracy": {
@@ -37,9 +38,9 @@
           "n": 11
         },
         "region_accuracy": {
-          "value": 0.090909,
+          "value": 0.181818,
           "ci_low": 0.0,
-          "ci_high": 0.272727,
+          "ci_high": 0.444444,
           "n": 11
         },
         "format_accuracy": {
@@ -55,8 +56,8 @@
           "n": 12
         },
         "cer": {
-          "value": 0.847059,
-          "ci_low": 0.655085,
+          "value": 0.835294,
+          "ci_low": 0.633305,
           "ci_high": 1.0,
           "n": 12
         },
@@ -67,9 +68,9 @@
           "n": 12
         },
         "ece": {
-          "value": 0.25,
+          "value": 0.166667,
           "ci_low": 0.0,
-          "ci_high": 0.5,
+          "ci_high": 0.416667,
           "n": 12
         }
       },
@@ -141,7 +142,7 @@
           "low": 0.9,
           "high": 1.0,
           "n": 3,
-          "accuracy": 0.0,
+          "accuracy": 0.333333,
           "confidence": 1.0
         }
       ],
@@ -221,10 +222,10 @@
         ]
       },
       "latency_ms": {
-        "p50": 1588.452,
-        "p90": 7618.21,
-        "p99": 65890.344,
-        "mean": 8144.116
+        "p50": 1957.975,
+        "p90": 8404.359,
+        "p99": 81170.127,
+        "mean": 9805.291
       },
       "model_version": "easyocr-1.7.2+segmentation",
       "calibrated": false
@@ -233,33 +234,33 @@
       "n": 12,
       "metrics": {
         "exact_match": {
-          "value": 0.083333,
+          "value": 0.25,
           "ci_low": 0.0,
-          "ci_high": 0.25,
+          "ci_high": 0.5,
           "n": 12
         },
         "digits_accuracy": {
-          "value": 0.166667,
-          "ci_low": 0.0,
-          "ci_high": 0.416667,
+          "value": 0.333333,
+          "ci_low": 0.083333,
+          "ci_high": 0.583333,
           "n": 12
         },
         "letter_accuracy": {
-          "value": 0.181818,
-          "ci_low": 0.0,
-          "ci_high": 0.444444,
-          "n": 11
-        },
-        "region_accuracy": {
           "value": 0.272727,
           "ci_low": 0.0,
           "ci_high": 0.545455,
           "n": 11
         },
+        "region_accuracy": {
+          "value": 0.363636,
+          "ci_low": 0.1,
+          "ci_high": 0.666667,
+          "n": 11
+        },
         "format_accuracy": {
-          "value": 0.333333,
-          "ci_low": 0.083333,
-          "ci_high": 0.583333,
+          "value": 0.416667,
+          "ci_low": 0.166667,
+          "ci_high": 0.666667,
           "n": 12
         },
         "read_rate": {
@@ -269,21 +270,21 @@
           "n": 12
         },
         "cer": {
-          "value": 0.247059,
-          "ci_low": 0.147343,
-          "ci_high": 0.380979,
+          "value": 0.235294,
+          "ci_low": 0.125,
+          "ci_high": 0.387583,
           "n": 12
         },
         "mean_confidence": {
-          "value": 0.248775,
-          "ci_low": 0.143839,
-          "ci_high": 0.364621,
+          "value": 0.200162,
+          "ci_low": 0.105881,
+          "ci_high": 0.326165,
           "n": 12
         },
         "ece": {
-          "value": 0.325878,
-          "ci_low": 0.187137,
-          "ci_high": 0.486602,
+          "value": 0.29041,
+          "ci_low": 0.129672,
+          "ci_high": 0.553904,
           "n": 12
         }
       },
@@ -291,30 +292,30 @@
         {
           "low": 0.0,
           "high": 0.1,
-          "n": 2,
+          "n": 4,
           "accuracy": 0.5,
-          "confidence": 0.01869
+          "confidence": 0.048506
         },
         {
           "low": 0.1,
           "high": 0.2,
-          "n": 4,
-          "accuracy": 0.0,
-          "confidence": 0.133043
+          "n": 5,
+          "accuracy": 0.2,
+          "confidence": 0.152898
         },
         {
           "low": 0.2,
           "high": 0.3,
-          "n": 3,
+          "n": 1,
           "accuracy": 0.0,
-          "confidence": 0.250965
+          "confidence": 0.221339
         },
         {
           "low": 0.3,
           "high": 0.4,
-          "n": 1,
-          "accuracy": 0.0,
-          "confidence": 0.397148
+          "n": 0,
+          "accuracy": null,
+          "confidence": null
         },
         {
           "low": 0.4,
@@ -328,7 +329,7 @@
           "high": 0.6,
           "n": 1,
           "accuracy": 0.0,
-          "confidence": 0.56485
+          "confidence": 0.521574
         },
         {
           "low": 0.6,
@@ -342,7 +343,7 @@
           "high": 0.8,
           "n": 1,
           "accuracy": 0.0,
-          "confidence": 0.700852
+          "confidence": 0.700518
         },
         {
           "low": 0.8,
@@ -379,13 +380,13 @@
         ],
         "matrix": [
           [
-            0,
+            1,
             0,
             1,
             0,
             0,
             0,
-            6
+            5
           ],
           [
             0,
@@ -435,10 +436,10 @@
         ]
       },
       "latency_ms": {
-        "p50": 4.12,
-        "p90": 7.423,
-        "p99": 14.184,
-        "mean": 5.419
+        "p50": 5.357,
+        "p90": 13.239,
+        "p99": 151.057,
+        "mean": 19.927
       },
       "model_version": "crnn-5348143705d4-T0.888664",
       "calibrated": false
@@ -447,15 +448,15 @@
       "n": 12,
       "metrics": {
         "exact_match": {
-          "value": 0.25,
-          "ci_low": 0.0,
-          "ci_high": 0.5,
+          "value": 0.333333,
+          "ci_low": 0.083333,
+          "ci_high": 0.583333,
           "n": 12
         },
         "digits_accuracy": {
-          "value": 0.416667,
-          "ci_low": 0.166667,
-          "ci_high": 0.666667,
+          "value": 0.5,
+          "ci_low": 0.25,
+          "ci_high": 0.75,
           "n": 12
         },
         "letter_accuracy": {
@@ -484,20 +485,20 @@
         },
         "cer": {
           "value": 0.247059,
-          "ci_low": 0.11236,
-          "ci_high": 0.423125,
+          "ci_low": 0.101124,
+          "ci_high": 0.426873,
           "n": 12
         },
         "mean_confidence": {
-          "value": 0.724047,
-          "ci_low": 0.552968,
-          "ci_high": 0.860713,
+          "value": 0.687335,
+          "ci_low": 0.514096,
+          "ci_high": 0.835235,
           "n": 12
         },
         "ece": {
-          "value": 0.536166,
-          "ci_low": 0.341245,
-          "ci_high": 0.716199,
+          "value": 0.468299,
+          "ci_low": 0.252751,
+          "ci_high": 0.679368,
           "n": 12
         },
         "coverage": {
@@ -507,9 +508,9 @@
           "n": 12
         },
         "set_size": {
-          "value": 0.083333,
+          "value": 0.0,
           "ci_low": 0.0,
-          "ci_high": 0.25,
+          "ci_high": 0.0,
           "n": 12
         }
       },
@@ -538,51 +539,51 @@
         {
           "low": 0.3,
           "high": 0.4,
-          "n": 0,
-          "accuracy": null,
-          "confidence": null
+          "n": 1,
+          "accuracy": 1.0,
+          "confidence": 0.314218
         },
         {
           "low": 0.4,
           "high": 0.5,
           "n": 1,
           "accuracy": 0.0,
-          "confidence": 0.473673
+          "confidence": 0.412071
         },
         {
           "low": 0.5,
           "high": 0.6,
           "n": 1,
           "accuracy": 0.0,
-          "confidence": 0.50668
+          "confidence": 0.5766
         },
         {
           "low": 0.6,
           "high": 0.7,
-          "n": 1,
-          "accuracy": 1.0,
-          "confidence": 0.627287
-        },
-        {
-          "low": 0.7,
-          "high": 0.8,
           "n": 0,
           "accuracy": null,
           "confidence": null
         },
         {
+          "low": 0.7,
+          "high": 0.8,
+          "n": 2,
+          "accuracy": 0.5,
+          "confidence": 0.774766
+        },
+        {
           "low": 0.8,
           "high": 0.9,
-          "n": 5,
+          "n": 3,
           "accuracy": 0.0,
-          "confidence": 0.827762
+          "confidence": 0.844082
         },
         {
           "low": 0.9,
           "high": 1.0,
           "n": 3,
           "accuracy": 0.666667,
-          "confidence": 0.980705
+          "confidence": 0.954453
         }
       ],
       "letter_confusion": {
@@ -609,8 +610,8 @@
             0,
             1,
             0,
-            0,
             1,
+            0,
             0
           ],
           [
@@ -661,10 +662,10 @@
         ]
       },
       "latency_ms": {
-        "p50": 8.249,
-        "p90": 11.646,
-        "p99": 41.642,
-        "mean": 11.649
+        "p50": 12.533,
+        "p90": 24.645,
+        "p99": 30.906,
+        "mean": 15.097
       },
       "model_version": "crnn-5348143705d4-T0.888664",
       "calibrated": true
@@ -673,9 +674,9 @@
   "comparisons": {
     "crnn-greedy - easyocr": {
       "exact_match_difference": {
-        "value": 0.083333,
+        "value": 0.166667,
         "ci_low": 0.0,
-        "ci_high": 0.25,
+        "ci_high": 0.416667,
         "n": 12
       }
     },
