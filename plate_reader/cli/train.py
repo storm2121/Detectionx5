@@ -143,14 +143,31 @@ def detector(
     epochs: Annotated[int, typer.Option(min=1)] = 100,
     imgsz: Annotated[int, typer.Option(min=64)] = 640,
     batch: Annotated[int, typer.Option(min=1)] = 16,
+    workers: Annotated[
+        int, typer.Option(min=0, help="loader workers (0 loads in the main process)")
+    ] = 8,
     weights: Annotated[str, typer.Option(help="starting weights")] = "yolov10n.pt",
     project: Annotated[Path, typer.Option(help="Ultralytics run folder")] = Path("runs/detector"),
+    device: Annotated[
+        str | None, typer.Option(help="cpu, 0, ... (default: Ultralytics' choice)")
+    ] = None,
+    amp: Annotated[
+        bool, typer.Option(help="mixed precision (its self-check downloads a small model)")
+    ] = True,
 ) -> None:
     """Fine-tune the YOLOv10 detector with Ultralytics (needs real data or synthetic scenes)."""
     from ..training.train_detector import train_detector
 
     summary = train_detector(
-        data, epochs=epochs, imgsz=imgsz, batch=batch, weights=weights, project=project
+        data,
+        epochs=epochs,
+        imgsz=imgsz,
+        batch=batch,
+        workers=workers,
+        weights=weights,
+        project=project,
+        device=device,
+        amp=amp,
     )
     typer.echo(json.dumps(summary, indent=2))
 

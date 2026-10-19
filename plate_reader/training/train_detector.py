@@ -21,9 +21,11 @@ def train_detector(
     epochs: int = 100,
     imgsz: int = 640,
     batch: int = 16,
+    workers: int = 8,
     weights: str = "yolov10n.pt",
     project: Path = Path("runs/detector"),
     device: str | None = None,
+    amp: bool = True,
     results_dir: Path | None = None,
 ) -> dict[str, Any]:
     ultralytics = importlib.import_module("ultralytics")
@@ -33,10 +35,12 @@ def train_detector(
         epochs=epochs,
         imgsz=imgsz,
         batch=batch,
+        workers=workers,
         project=str(project.resolve()),
         name="train",
         exist_ok=True,
         device=device,
+        amp=amp,
         verbose=False,
         plots=False,
     )
