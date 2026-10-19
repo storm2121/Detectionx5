@@ -556,3 +556,48 @@ Never record the name of the original dataset host.
   were not adopted, and adopting them would need the whole chain of re-calibration,
   re-export, parity, evaluations and re-rendering.
 - Next: none; this is the last leg.
+
+### Design and product pass: real photos lead, the harness crops as the service does, the console redesign — partial (in progress) — 2026-10-19
+
+- Built (Part A, product): the Read page reads only the viewer's photos (the synthetic
+  sample button, the store's sample loader and the sample copy step are gone; the e2e tests
+  still upload the parity fixtures, a development path). `just demo` builds and starts the
+  stack and prints where the console is (`tools/wait_ready.py`, which sends nothing);
+  `just demo-synthetic` keeps the synthetic crops, the small evaluation and the synthetic
+  read for CI and development. ADR 0011. The harness crops labelled photos exactly where the
+  service crops them, records repository-relative sources, takes `--note` (a description of
+  the set, kept in the results) and writes results with LF. The README's results open with a
+  rendered Real photos section (every recogniser with its interval, the honest sentence
+  about twelve photos and an easy set, the calibration and sets that do not carry over, the
+  sim-to-real gap), and the synthetic figures sit under "Development and synthetic harness",
+  still labelled; the status line links to the real section. The model card, the CV notes
+  and the data card no longer say that no real set exists. `GET /review/summary` (reads
+  waiting, corrections ready to export) for the console's navigation and export button.
+- The EasyOCR harness discrepancy (item 3). Cause: `_detector_for_photos` truncated the
+  detector's float box to whole pixels before `data_set` padded it, while the service pads
+  the float box (`detections_from_boxes`); the harness's crop was one pixel off the
+  service's on 11 of the 12 photos. Measured per photo (only right or wrong per field was
+  printed, never a plate) with `plate read`'s own path (PyTorch detector, EasyOCR on the CPU,
+  every detection read and voted) against the harness adapter: served path exact 1 of 12,
+  digits 2 of 12, letter 2 of 11, region 2 of 11; harness as committed (truncated box, GPU)
+  exact 0, digits 2, letter 2, region 1, differing only on real_12 (the repository's sample,
+  whose region it read as 7); harness with the served crop, on the GPU and on the CPU: exact 1,
+  digits 2, letter 2, region 2, identical to the served path on every photo. Neither the
+  EasyOCR device (CPU runs EasyOCR's quantised models) nor the CLI's vote across several
+  detections in one photo (one photo has two) changed any read here. The ONNX detector's
+  padded boxes equal the PyTorch detector's on all twelve photos. The low EasyOCR score is
+  the served path's real behaviour on these photos, as the architect's own `plate read`
+  runs show (one exact read, the rest with at most some fields right).
+- Real-set results before and after the fix (`uv run plate eval --set data -r easyocr
+  -r crnn-greedy -r crnn-beam --views 0 --note "small and easy (clean rear shots)"`, 155 s,
+  CUDA for EasyOCR): exact match EasyOCR path 0 of 12 then 1 (8%, 0 to 25), CRNN greedy 1
+  then 3 (25%, 0 to 50), CRNN constrained beam 3 then 4 (33%, 8 to 58); beam digits 42% then
+  50%, letter and region 64% before and after, CER 25% before and after. The CRNN was also
+  hurt by the one-pixel shift. The beam's ECE on the real photos is 47% (25 to 68) and its
+  conformal sets hold none of the twelve truths: the synthetic calibration does not carry
+  over (rendered with the results). Synthetic test set for comparison: the beam 99%.
+- Commands run and results: `uv run pytest -q tests/test_eval.py tests/test_eval_photos.py
+  tests/test_docs_render.py`: 45 passed (the 15 eval tests, 5 new photo tests, the render
+  tests with a new real-photos test); `uv run pytest -q tests/test_service.py`: 15 passed;
+  `uv run plate docs render` then `plate docs check`: in sync; ruff and mypy --strict clean.
+- Part B (the console redesign) is in progress; the rest of this entry follows when it is done.
