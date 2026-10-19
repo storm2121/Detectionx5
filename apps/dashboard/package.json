@@ -14,7 +14,8 @@
     "predev": "node scripts/sync-assets.mjs",
     "dev": "vite",
     "prebuild": "node scripts/sync-assets.mjs",
-    "build": "vue-tsc --build && vite build",
+    "build": "vue-tsc --build && vite build && node scripts/check-bundle.mjs",
+    "bundle": "node scripts/check-bundle.mjs",
     "preview": "vite preview",
     "typecheck": "vue-tsc --build",
     "test": "vitest run",
@@ -25,15 +26,16 @@
     "storybook": "storybook dev --port 6106",
     "prestorybook:build": "node scripts/sync-assets.mjs",
     "storybook:build": "storybook build --output-dir storybook-static --quiet",
-    "e2e": "playwright test"
+    "e2e": "playwright test",
+    "screenshots": "playwright test e2e/screenshots.spec.ts"
   },
   "dependencies": {
-    "@primeuix/themes": "1.2.5",
+    "@lucide/vue": "1.50.0",
     "d3": "7.9.0",
     "katex": "0.16.47",
+    "motion": "13.5.1",
     "onnxruntime-web": "1.22.0",
     "pinia": "3.0.4",
-    "primevue": "4.3.9",
     "vue": "3.5.44",
     "vue-router": "4.5.1"
   },

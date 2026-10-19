@@ -37,3 +37,19 @@ export function sequential(low: string, high: string): (t: number) => string {
   const mix = interpolateRgb(low, high)
   return (t: number) => mix(Math.sqrt(Math.max(0, Math.min(1, t))))
 }
+
+/**
+ * Black or white ink for text over `high` laid at `alpha` on `low` (a ramp cell): whichever
+ * contrasts more with the blended colour, which is never below 4.58:1 for pure black or white.
+ */
+export function inkFor(low: string, high: string, alpha: number): 'dark' | 'light' {
+  const blended = interpolateRgb(low, high)(Math.max(0, Math.min(1, alpha)))
+  return contrast(blended, '#ffffff') >= contrast(blended, '#000000') ? 'light' : 'dark'
+}
+
+/** A custom property's value on `element` (so a themed subtree reads its own tokens). */
+export function tokenOn(element: Element | null, name: string, fallback: string): string {
+  if (!element || typeof getComputedStyle !== 'function') return fallback
+  const value = getComputedStyle(element).getPropertyValue(name).trim()
+  return value || fallback
+}

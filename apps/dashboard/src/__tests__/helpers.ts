@@ -1,5 +1,4 @@
 import { createPinia, setActivePinia, type Pinia } from 'pinia'
-import PrimeVue from 'primevue/config'
 import { vi } from 'vitest'
 import type { Plugin } from 'vue'
 import { createMemoryHistory, type Router } from 'vue-router'
@@ -50,7 +49,7 @@ export function plugins(): { pinia: Pinia; router: Router; list: Plugin[] } {
   return {
     pinia,
     router,
-    list: [pinia, router, [PrimeVue, { theme: 'none' }] as unknown as Plugin],
+    list: [pinia, router] as Plugin[],
   }
 }
 
