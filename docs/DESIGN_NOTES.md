@@ -37,6 +37,9 @@ change itself (PrimeVue out; headless controls, Motion and Lucide in) is ADR 001
   highlight colour, so the palette keeps one accent.
 - **Hairlines.** Borders are one pixel, and half a pixel on screens of two device pixels per
   CSS pixel or more.
+- **Two shadows inside controls.** The segmented control's thumb and the switch's knob carry a
+  one-pixel shadow: they are raised parts of a control, the way the platform draws them. No
+  panel, card or table has a shadow; the floating ones are the tooltip and a lifted photo.
 
 ## Navigation and layout
 
@@ -111,3 +114,28 @@ change itself (PrimeVue out; headless controls, Motion and Lucide in) is ADR 001
 - **The bundle check is new** (`scripts/check-bundle.mjs`, run by `pnpm build`): what a first
   visit downloads must stay inside a gzipped budget set below what the console shipped before
   the redesign, and no component library may come back into the bundle.
+
+## Audit against the brief's §1
+
+What the console had before this pass, and what replaced it:
+
+- **More than one accent** (a teal accent, a separate blue focus ring and info colour, an
+  amber gap colour, a yellow detection box): one blue accent, with success, warning and
+  danger kept for states only.
+- **Rounded cards with shadows on everything**: in-flow panels have a border and no shadow,
+  and most sections are plain headed sections without a box.
+- **Spinners** while content loaded: skeletons shaped like the table, figure or plate on its
+  way; busy buttons say what they are doing.
+- **Decorative and hand-drawn icons** (a logo glyph, an upload arrow, an info circle, sun and
+  moon drawings): Lucide only, each beside its label or with an accessible name.
+- **Three identical cards in a row** (recogniser, detector and service on the Models page):
+  one facts table grouped by component.
+- **A centred drop zone**: left-aligned, as is everything else on the pages.
+- **Generic copy** ("Something went wrong" as an error's title, lowercase status words):
+  errors say what happened and what to do, statuses are sentence case, buttons say what they
+  do ("Read plate", "Export 3 corrections").
+- **Synthetic sample photos in the user flow**: gone (ADR 0011).
+
+A search of the console's source finds no gradient other than the scroll-edge fade and the
+two one-hue confidence ramps, no emoji, no toast, no spinner, and no colour outside the
+tokens file.
