@@ -30,3 +30,32 @@ export function fusionLabel(name: string): string {
 export function setLabel(name: string): string {
   return SET_LABELS[name] ?? name.replace(/^eval_/, '').replace(/_/g, ' ')
 }
+
+const SMALL = [
+  'zero',
+  'one',
+  'two',
+  'three',
+  'four',
+  'five',
+  'six',
+  'seven',
+  'eight',
+  'nine',
+  'ten',
+  'eleven',
+  'twelve',
+  'thirteen',
+  'fourteen',
+  'fifteen',
+  'sixteen',
+  'seventeen',
+  'eighteen',
+  'nineteen',
+  'twenty',
+]
+
+/** A count in words up to twenty, in figures beyond. */
+export function countWords(n: number): string {
+  return Number.isInteger(n) && n >= 0 && n < SMALL.length ? (SMALL[n] ?? String(n)) : String(n)
+}

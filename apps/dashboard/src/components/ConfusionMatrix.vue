@@ -1,21 +1,31 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, nextTick, onMounted, ref, watch } from 'vue'
 
 import type { Confusion } from '@/api/results'
-import { cssVar, readableOn, sequential } from '@/lib/colors'
+import { inkFor, tokenOn } from '@/lib/colors'
 import { percent } from '@/lib/format'
+import { rampOpacity } from '@/lib/readout'
 import { useThemeStore } from '@/stores/theme'
 
+/**
+ * Letter confusions as a table: rows are the true letter, columns the letter read, each cell
+ * the count over a one-hue ramp from the surface to the accent (the overlay's opacity is the
+ * square root of the row's share). A new matrix fades each cell to its new intensity in place.
+ */
 const props = withDefaults(defineProps<{ confusion: Confusion; caption?: string }>(), {
   caption: 'Letter confusion: rows are the true letter, columns the letter read.',
 })
 
 const theme = useThemeStore()
+const root = ref<HTMLElement | null>(null)
+const ramp = ref({ low: '#f0f0f3', high: '#0066cc' })
 
-const palette = computed(() => {
-  void theme.resolved
-  return sequential(cssVar('--dx-heat-low', '#f1f5f9'), cssVar('--dx-heat-high', '#0f766e'))
-})
+function readTokens() {
+  ramp.value = {
+    low: tokenOn(root.value, '--dx-ramp-low', ramp.value.low),
+    high: tokenOn(root.value, '--dx-ramp-high', ramp.value.high),
+  }
+}
 
 const rows = computed(() =>
   props.confusion.rows.map((label, r) => {
@@ -27,8 +37,9 @@ const rows = computed(() =>
       cells: props.confusion.columns.map((column, c) => {
         const count = counts[c] ?? 0
         const rate = total > 0 ? count / total : 0
-        const fill = palette.value(rate)
-        return { column, count, rate, fill, ink: readableOn(fill), diagonal: column === label }
+        const alpha = rampOpacity(rate)
+        const ink = inkFor(ramp.value.low, ramp.value.high, alpha) === 'light'
+        return { column, count, rate, alpha, ink, diagonal: column === label }
       }),
     }
   }),
@@ -47,10 +58,17 @@ const accuracy = computed(() => {
 function columnLabel(column: string) {
   return column === 'none' ? 'none read' : column
 }
+
+onMounted(readTokens)
+watch(
+  () => theme.resolved,
+  () => void nextTick(readTokens),
+)
 </script>
 
 <template>
   <div
+    ref="root"
     class="confusion dx-scroll-x"
     role="region"
     aria-label="Letter confusion matrix"
@@ -76,7 +94,7 @@ function columnLabel(column: string) {
           >
             <span :lang="column === 'none' ? undefined : 'ar'">{{ columnLabel(column) }}</span>
           </th>
-          <th scope="col" class="col">n</th>
+          <th scope="col" class="col total-head">Reads</th>
         </tr>
       </thead>
       <tbody>
@@ -87,11 +105,11 @@ function columnLabel(column: string) {
           <td
             v-for="cell in row.cells"
             :key="cell.column"
-            :style="{ background: cell.fill, color: cell.ink }"
-            :class="{ diagonal: cell.diagonal }"
+            :class="{ diagonal: cell.diagonal, light: cell.ink }"
             :title="`${row.label} read as ${columnLabel(cell.column)}: ${cell.count} (${percent(cell.rate, 1)})`"
           >
-            {{ cell.count }}
+            <span class="fill" :style="{ opacity: cell.alpha }" aria-hidden="true" />
+            <span class="count">{{ cell.count }}</span>
           </td>
           <td class="total">{{ row.total }}</td>
         </tr>
@@ -108,57 +126,82 @@ function columnLabel(column: string) {
 table {
   border-collapse: separate;
   border-spacing: 3px;
-  font-variant-numeric: tabular-nums;
-  font-size: var(--dx-text-sm);
+  font-size: var(--dx-text-dense);
 }
 
 caption {
-  text-align: left;
-  color: var(--dx-text-muted);
   padding-bottom: var(--dx-space-2);
-  font-size: var(--dx-text-sm);
+  color: var(--dx-text-2);
+  font-size: var(--dx-text-footnote);
+  text-align: left;
 }
 
 th {
-  font-weight: 600;
-  color: var(--dx-text-muted);
   padding: 2px 6px;
+  color: var(--dx-text-2);
+  font-weight: var(--dx-weight-label);
 }
 
 .col,
 .rowhead {
-  font-family: var(--dx-font-plate);
-  font-size: var(--dx-text-lg);
   color: var(--dx-text);
+  font-size: var(--dx-text-headline);
 }
 
-.col.none {
-  font-family: var(--dx-font-sans);
-  font-size: var(--dx-text-xs);
-  color: var(--dx-text-muted);
+.col.none,
+.total-head {
+  color: var(--dx-text-2);
+  font-family: var(--dx-font-small);
+  font-size: var(--dx-text-caption);
   white-space: nowrap;
 }
 
 .corner {
-  font-size: var(--dx-text-xs);
+  font-family: var(--dx-font-small);
+  font-size: var(--dx-text-caption);
   white-space: nowrap;
 }
 
 td {
-  min-width: 40px;
-  height: 34px;
-  text-align: center;
+  position: relative;
+  min-width: 2.5rem;
+  height: 2.125rem;
+  overflow: hidden;
   border-radius: 4px;
-  font-weight: 600;
+  background: var(--dx-ramp-low);
+  color: var(--dx-ink-dark);
+  font-weight: var(--dx-weight-label);
+  text-align: center;
+}
+
+td.light {
+  color: var(--dx-ink-light);
+}
+
+.fill {
+  position: absolute;
+  inset: 0;
+  background: var(--dx-ramp-high);
+  transition: opacity 450ms cubic-bezier(0.25, 0.1, 0.1, 1);
+}
+
+.count {
+  position: relative;
 }
 
 td.diagonal {
-  box-shadow: inset 0 0 0 2px var(--dx-text);
+  box-shadow: inset 0 0 0 1.5px var(--dx-text);
 }
 
 td.total {
   background: transparent;
-  color: var(--dx-text-muted);
-  font-weight: 500;
+  color: var(--dx-text-2);
+  font-weight: var(--dx-weight-body);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fill {
+    transition: none;
+  }
 }
 </style>

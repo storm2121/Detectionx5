@@ -2,7 +2,7 @@
 import { computed } from 'vue'
 
 import type { Estimate } from '@/api/results'
-import { fixed, percent } from '@/lib/format'
+import { estimate, fixed, percent } from '@/lib/format'
 
 export interface SweepTrial {
   number: number
@@ -50,14 +50,20 @@ function points(value: number): string {
 
 function difference(trial: SweepTrial): string {
   const d = trial.difference_vs_trial_0
-  if (!d || trial.number === props.sweep.baseline.number) return '–'
+  if (!d || trial.number === props.sweep.baseline.number) return 'reference'
   return `${points(d.value)} (${points(d.ci_low)} to ${points(d.ci_high)})`
+}
+
+function pseudo(trial: SweepTrial): string {
+  const value = percent(trial.pseudo_real_exact_greedy, 1)
+  const ci = trial.pseudo_real_ci
+  return ci ? `${value} (${(ci[0] * 100).toFixed(1)} to ${(ci[1] * 100).toFixed(1)})` : value
 }
 </script>
 
 <template>
   <div class="sweep" data-testid="sweep-table">
-    <p class="dx-small dx-muted">
+    <p class="dx-footnote dx-secondary dx-measure">
       {{ sweep.trials.length }} short
       {{ sweep.init_weights ? 'fine-tunings of the shipped CRNN' : 'trainings' }}
       ({{ sweep.budget.epochs }} epochs of {{ sweep.budget.epoch_size }} synthetic crops each),
@@ -66,8 +72,8 @@ function difference(trial: SweepTrial): string {
       {{ sweep.baseline.number }} uses the shipped configuration, and differences are paired against
       it.
       <template v-if="sweep.shipped_before_fine_tuning">
-        The shipped weights score {{ percent(sweep.shipped_before_fine_tuning.value, 1) }} before
-        any fine-tuning.
+        The shipped weights score {{ estimate(sweep.shipped_before_fine_tuning) }} before any
+        fine-tuning.
       </template>
       {{
         sweep.adopted
@@ -80,10 +86,10 @@ function difference(trial: SweepTrial): string {
         <thead>
           <tr>
             <th scope="col">Trial</th>
-            <th v-for="group in groups" :key="group" scope="col" class="dx-right">{{ group }}</th>
-            <th scope="col" class="dx-right">Pseudo-real</th>
-            <th scope="col" class="dx-right">Versus trial {{ sweep.baseline.number }} (points)</th>
-            <th scope="col" class="dx-right">Synthetic val</th>
+            <th v-for="group in groups" :key="group" scope="col" class="dx-num">{{ group }}</th>
+            <th scope="col">Pseudo-real exact match</th>
+            <th scope="col">Versus trial {{ sweep.baseline.number }}, points</th>
+            <th scope="col" class="dx-num">Synthetic validation, one pass</th>
           </tr>
         </thead>
         <tbody>
@@ -99,19 +105,12 @@ function difference(trial: SweepTrial): string {
                 shipped
               </span>
             </th>
-            <td v-for="group in groups" :key="group" class="dx-right dx-num">
-              {{ fixed(trial.multipliers[group], 2) }}
+            <td v-for="group in groups" :key="group" class="dx-num">
+              ×{{ fixed(trial.multipliers[group], 2) }}
             </td>
-            <td class="dx-right dx-num">
-              <strong>{{ percent(trial.pseudo_real_exact_greedy, 1) }}</strong>
-              <span v-if="trial.pseudo_real_ci" class="dx-muted dx-ci">
-                {{ (trial.pseudo_real_ci[0] * 100).toFixed(1) }}–{{
-                  percent(trial.pseudo_real_ci[1], 1)
-                }}
-              </span>
-            </td>
-            <td class="dx-right dx-num">{{ difference(trial) }}</td>
-            <td class="dx-right dx-num">{{ percent(trial.synthetic_val_exact_greedy, 1) }}</td>
+            <td>{{ pseudo(trial) }}</td>
+            <td>{{ difference(trial) }}</td>
+            <td class="dx-num">{{ percent(trial.synthetic_val_exact_greedy, 1) }}</td>
           </tr>
         </tbody>
       </table>
@@ -125,19 +124,19 @@ function difference(trial: SweepTrial): string {
   gap: var(--dx-space-3);
 }
 
-tr.best th,
-tr.best td {
+tr.best > * {
   background: var(--dx-accent-soft);
 }
 
 .tag {
-  margin-left: 6px;
-  font-size: var(--dx-text-xs);
-  font-weight: 600;
-  color: var(--dx-accent-strong);
+  margin-left: var(--dx-space-1);
+  color: var(--dx-accent);
+  font-family: var(--dx-font-small);
+  font-size: var(--dx-text-caption);
+  font-weight: var(--dx-weight-label);
 }
 
 .tag.muted {
-  color: var(--dx-text-muted);
+  color: var(--dx-text-2);
 }
 </style>

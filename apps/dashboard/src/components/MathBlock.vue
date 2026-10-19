@@ -37,14 +37,19 @@ const html = computed(() =>
 
 <style scoped>
 .math {
+  max-width: 100%;
+  padding: var(--dx-space-3) 0;
   overflow-x: auto;
   overflow-y: hidden;
-  padding: var(--dx-space-2) 0;
-  max-width: 100%;
 }
 
 .math :deep(.katex-display) {
   margin: 0;
+  text-align: left;
+}
+
+.math :deep(.katex-display > .katex) {
+  text-align: left;
 }
 
 .math :deep(.katex) {

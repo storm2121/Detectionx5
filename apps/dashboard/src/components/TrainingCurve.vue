@@ -5,6 +5,7 @@ import { computed, useId } from 'vue'
 import type { TrainingEpoch } from '@/api/results'
 import { percent } from '@/lib/format'
 
+/** Validation exact match by epoch: one series in the accent, the kept epoch marked. */
 const props = defineProps<{ history: TrainingEpoch[]; bestEpoch?: number }>()
 
 const id = useId()
@@ -15,7 +16,7 @@ const M = { top: 14, right: 16, bottom: 36, left: 44 }
 const x = computed(() => {
   const [lo, hi] = extent(props.history, (e) => e.epoch) as [number | undefined, number | undefined]
   return scaleLinear()
-    .domain([lo ?? 0, Math.max((hi ?? 1) as number, (lo ?? 0) + 1)])
+    .domain([lo ?? 0, Math.max(hi ?? 1, (lo ?? 0) + 1)])
     .range([M.left, W - M.right])
 })
 const y = scaleLinear()
@@ -45,22 +46,22 @@ const phases = computed(() => {
 })
 const best = computed(() => props.history.find((e) => e.epoch === props.bestEpoch) ?? null)
 const caption = computed(() => {
-  const base = 'Exact match on the synthetic validation split after each epoch'
+  const base = 'Exact match on the synthetic validation split after each epoch, greedy decoding'
   const later = phases.value[0]
   return later
     ? `${base}; the shaded epochs are the ${later.phase.replace(/_/g, ' ')} phase.`
-    : `${base}.`
+    : `${base}. The ring marks the kept epoch.`
 })
 </script>
 
 <template>
   <figure class="training" data-testid="training-curve">
     <svg :viewBox="`0 0 ${W} ${H}`" role="img" :aria-labelledby="`${id}-t ${id}-d`">
-      <title :id="`${id}-t`">Validation exact match by epoch (greedy decoding)</title>
+      <title :id="`${id}-t`">Validation exact match by epoch</title>
       <desc :id="`${id}-d`">
         {{ history.length }} epochs on synthetic data
         <template v-if="best">
-          ; best epoch {{ best.epoch }} at {{ percent(best.val_exact_greedy, 1) }}
+          ; kept epoch {{ best.epoch }} at {{ percent(best.val_exact_greedy, 1) }}
         </template>
         .
       </desc>
@@ -73,12 +74,12 @@ const caption = computed(() => {
         :width="x(span.to + 0.5) - x(span.from - 0.5)"
         :height="H - M.top - M.bottom"
       />
-      <g class="grid">
+      <g class="grid" aria-hidden="true">
         <line v-for="t in yTicks" :key="t" :x1="M.left" :x2="W - M.right" :y1="y(t)" :y2="y(t)" />
       </g>
-      <g class="axis">
+      <g class="axis" aria-hidden="true">
         <text v-for="t in yTicks" :key="`y${t}`" :x="M.left - 8" :y="y(t) + 4" text-anchor="end">
-          {{ t }}
+          {{ percent(t, 0) }}
         </text>
         <text
           v-for="t in xTicks"
@@ -96,26 +97,26 @@ const caption = computed(() => {
       <path class="curve" :d="path" />
       <circle v-if="best" class="best" :cx="x(best.epoch)" :cy="y(best.val_exact_greedy)" r="5" />
     </svg>
-    <figcaption class="dx-small dx-muted">{{ caption }}</figcaption>
+    <figcaption class="dx-footnote dx-secondary">{{ caption }}</figcaption>
   </figure>
 </template>
 
 <style scoped>
 .training {
-  margin: 0;
   display: grid;
   gap: var(--dx-space-2);
   min-width: 0;
+  margin: 0;
 }
 
 svg {
   width: 100%;
   height: auto;
-  font-family: var(--dx-font-sans);
+  font-family: var(--dx-font-small);
 }
 
 .phase {
-  fill: var(--dx-surface-sunken);
+  fill: var(--dx-surface-inset);
 }
 
 .grid line {
@@ -123,25 +124,26 @@ svg {
 }
 
 .axis text {
+  fill: var(--dx-text-2);
   font-size: 11px;
-  fill: var(--dx-text-muted);
 }
 
 .axis .label {
-  font-weight: 600;
   font-size: 12px;
+  font-weight: 500;
 }
 
 .curve {
   fill: none;
-  stroke: var(--dx-chart-ink);
-  stroke-width: 2.5;
+  stroke: var(--dx-chart-mark);
+  stroke-width: 2;
   stroke-linejoin: round;
+  stroke-linecap: round;
 }
 
 .best {
   fill: var(--dx-surface);
-  stroke: var(--dx-chart-ink);
-  stroke-width: 2.5;
+  stroke: var(--dx-chart-mark);
+  stroke-width: 2;
 }
 </style>

@@ -2,13 +2,13 @@
 import { computed, onMounted, ref } from 'vue'
 
 import type { DetectorEvalResult, EvalResult, TrainingResult } from '@/api/results'
-import ErrorNote from '@/components/ErrorNote.vue'
-import LoadingState from '@/components/LoadingState.vue'
 import SimToRealGap from '@/components/SimToRealGap.vue'
-import StatusPill from '@/components/StatusPill.vue'
 import SweepTable, { type SweepResult } from '@/components/SweepTable.vue'
 import SyntheticNote from '@/components/SyntheticNote.vue'
 import TrainingCurve from '@/components/TrainingCurve.vue'
+import NoticeBlock from '@/components/ui/NoticeBlock.vue'
+import SkeletonBlock from '@/components/ui/SkeletonBlock.vue'
+import StatusLine from '@/components/ui/StatusLine.vue'
 import { bytes, fixed, integer, level, milliseconds, percent, scientific } from '@/lib/format'
 import { fusionLabel } from '@/lib/labels'
 import { useResultsStore } from '@/stores/results'
@@ -22,6 +22,7 @@ const pseudoReal = ref<EvalResult | null>(null)
 const real = ref<EvalResult | null>(null)
 const sweep = ref<SweepResult | null>(null)
 const detectorEval = ref<DetectorEvalResult | null>(null)
+const loaded = ref(false)
 
 const models = computed(() => service.models)
 const metadata = computed(() => models.value?.recognizer.metadata ?? null)
@@ -44,19 +45,17 @@ function isActive(kind: string, version: string) {
 
 onMounted(async () => {
   void service.loadModels(true)
+  const index = await results.loadIndex()
+  const has = (name: string) => index.some((entry) => entry.name === name)
   training.value = await results.load<TrainingResult>('train_crnn')
   synthetic.value = await results.load<EvalResult>('eval_synthetic')
   pseudoReal.value = await results.load<EvalResult>('eval_pseudo_real')
-  const index = await results.loadIndex()
-  if (index.some((entry) => entry.name === 'eval_data')) {
-    real.value = await results.load<EvalResult>('eval_data')
-  }
-  if (index.some((entry) => entry.name === 'sweep')) {
-    sweep.value = await results.load<SweepResult>('sweep')
-  }
-  if (index.some((entry) => entry.name === 'eval_detector_synthetic')) {
+  if (has('eval_data')) real.value = await results.load<EvalResult>('eval_data')
+  if (has('sweep')) sweep.value = await results.load<SweepResult>('sweep')
+  if (has('eval_detector_synthetic')) {
     detectorEval.value = await results.load<DetectorEvalResult>('eval_detector_synthetic')
   }
+  loaded.value = true
 })
 </script>
 
@@ -64,136 +63,162 @@ onMounted(async () => {
   <div class="dx-page">
     <header class="dx-page-head">
       <h1>Models</h1>
-      <p class="dx-lead">
-        What the service runs right now, the registry of exported models, and how the recogniser was
-        trained.
+      <p>
+        How far the recognisers fall from synthetic plates to real photos, what the service runs
+        right now, the registry of exported models, and how the recogniser was trained.
       </p>
     </header>
 
-    <SyntheticNote
-      detail="The recogniser was trained, calibrated and evaluated on synthetic plates only; no real photo has been used to fit or check it."
-    />
-
-    <LoadingState v-if="!models && !service.modelsError" label="Loading models" />
-    <ErrorNote
-      v-else-if="service.modelsError"
-      :message="service.modelsError"
-      title="Models are unavailable"
-    />
-
-    <div v-if="models" class="dx-grid-3">
-      <section class="dx-card" aria-labelledby="rec-title" data-testid="recognizer-card">
-        <div class="dx-card-head">
-          <h2 id="rec-title">Recogniser</h2>
-          <StatusPill tone="ok" label="active" />
-        </div>
-        <dl class="dx-dl">
-          <dt>Name</dt>
-          <dd>{{ models.recognizer.name }}</dd>
-          <dt>Version</dt>
-          <dd>
-            <code data-testid="model-version">{{ models.recognizer.version }}</code>
-          </dd>
-          <template v-if="metadata">
-            <dt>Input</dt>
-            <dd class="dx-num">{{ metadata.input.height }} × {{ metadata.input.width }} grey</dd>
-            <dt>Charset</dt>
-            <dd>
-              {{ metadata.charset.length }} classes, <code>{{ metadata.charset_id }}</code>
-            </dd>
-            <dt>Beam width</dt>
-            <dd class="dx-num">{{ metadata.beam_width }}</dd>
-            <dt>Temperature</dt>
-            <dd class="dx-num">{{ fixed(metadata.temperature, 4) }}</dd>
-            <template v-for="[alpha, threshold] in single" :key="alpha">
-              <dt>Threshold at {{ level(1 - Number(alpha)) }}</dt>
-              <dd class="dx-num">
-                <code>{{ scientific(threshold, 3) }}</code>
-              </dd>
-            </template>
-          </template>
-        </dl>
-      </section>
-
-      <section class="dx-card" aria-labelledby="det-title" data-testid="detector-card">
-        <div class="dx-card-head">
-          <h2 id="det-title">Detector</h2>
-          <StatusPill
-            :tone="models.detector.available ? 'ok' : 'warn'"
-            :label="models.detector.available ? 'active' : 'missing'"
-          />
-        </div>
-        <dl class="dx-dl">
-          <dt>File</dt>
-          <dd>
-            <code>{{ models.detector.path ?? 'none' }}</code>
-          </dd>
-          <dt>Runtime</dt>
-          <dd>ONNX Runtime, NMS-free one-to-one head</dd>
-        </dl>
-        <template v-if="detectorEval">
-          <h3 class="dx-small sub-head">On synthetic street scenes</h3>
-          <dl class="dx-dl" data-testid="detector-eval">
-            <dt>mAP@50</dt>
-            <dd class="dx-num">{{ fixed(detectorEval.metrics.map50, 3) }}</dd>
-            <dt>mAP@50-95</dt>
-            <dd class="dx-num">{{ fixed(detectorEval.metrics.map50_95, 3) }}</dd>
-            <dt>Precision</dt>
-            <dd class="dx-num">{{ fixed(detectorEval.metrics.precision, 3) }}</dd>
-            <dt>Recall</dt>
-            <dd class="dx-num">{{ fixed(detectorEval.metrics.recall, 3) }}</dd>
-          </dl>
-          <p class="dx-small dx-muted note">
-            {{ integer(detectorEval.counts?.images) }} procedural scenes (seed
-            {{ detectorEval.set.seed ?? '?' }}), one Ultralytics validation pass, so no interval.
-            Synthetic results are not real-world accuracy.
-          </p>
-        </template>
-        <p class="dx-small dx-muted note">
-          YOLOv10n, one class. Without a detector the service reads every photo as a plate crop.
-        </p>
-      </section>
-
-      <section class="dx-card" aria-labelledby="svc-title" data-testid="service-card">
-        <div class="dx-card-head">
-          <h2 id="svc-title">Service</h2>
-        </div>
-        <dl class="dx-dl">
-          <dt>Fusion</dt>
-          <dd>{{ fusionLabel(models.fusion) }}</dd>
-          <dt>Served sets</dt>
-          <dd class="dx-num">{{ level(1 - models.alpha) }} level</dd>
-          <dt>Review below</dt>
-          <dd class="dx-num">{{ percent(models.review_threshold, 0) }} confidence</dd>
-        </dl>
-        <p class="dx-small dx-muted note">
-          Reads whose set is empty or holds several plates also go to review.
-        </p>
-      </section>
-    </div>
-
-    <section v-if="fused.length" class="dx-card" aria-labelledby="fused-title">
-      <div class="dx-card-head">
-        <h2 id="fused-title">Thresholds per number of fused views</h2>
+    <section class="dx-section" aria-labelledby="gap-title">
+      <div class="dx-section-head">
+        <h2 id="gap-title">Real photos: the sim-to-real gap</h2>
+        <span class="dx-footnote dx-secondary">exact match, 95% bootstrap intervals</span>
       </div>
+      <SkeletonBlock v-if="!loaded" kind="table" :rows="3" label="Loading the results" />
+      <template v-else-if="synthetic">
+        <p v-if="!real" class="dx-secondary dx-measure">
+          The real column fills in once labelled photos are in <code>data/eval</code> and
+          <code>uv run plate eval --set data</code> has run.
+        </p>
+        <SimToRealGap :synthetic="synthetic" :real="real" :pseudo-real="pseudoReal" />
+      </template>
+    </section>
+
+    <section class="dx-section" aria-labelledby="run-title">
+      <div class="dx-section-head">
+        <h2 id="run-title">What the service runs</h2>
+      </div>
+      <SkeletonBlock v-if="!models && !service.modelsError" kind="table" label="Loading models" />
+      <NoticeBlock
+        v-else-if="service.modelsError"
+        tone="error"
+        title="Models are unavailable"
+        :message="`${service.modelsError} The list returns when the service answers.`"
+      />
+      <div
+        v-if="models"
+        class="dx-scroll-x"
+        role="region"
+        aria-label="Models in service"
+        tabindex="0"
+      >
+        <table class="dx-table facts-table">
+          <tbody data-testid="recognizer-card">
+            <tr class="group">
+              <th scope="rowgroup" colspan="2">
+                Recogniser <StatusLine tone="ok" label="Active" />
+              </th>
+            </tr>
+            <tr>
+              <th scope="row">Name and version</th>
+              <td>
+                {{ models.recognizer.name }},
+                <code data-testid="model-version">{{ models.recognizer.version }}</code>
+              </td>
+            </tr>
+            <template v-if="metadata">
+              <tr>
+                <th scope="row">Input</th>
+                <td>{{ metadata.input.height }} × {{ metadata.input.width }} px, grey</td>
+              </tr>
+              <tr>
+                <th scope="row">Charset</th>
+                <td>
+                  {{ metadata.charset.length }} classes, <code>{{ metadata.charset_id }}</code>
+                </td>
+              </tr>
+              <tr>
+                <th scope="row">Beam and temperature</th>
+                <td>
+                  beam width {{ metadata.beam_width }}, T = {{ fixed(metadata.temperature, 4) }}
+                </td>
+              </tr>
+              <tr v-for="[alpha, threshold] in single" :key="alpha">
+                <th scope="row">One-view threshold at {{ level(1 - Number(alpha)) }}</th>
+                <td>
+                  <code>{{ scientific(threshold, 3) }}</code>
+                </td>
+              </tr>
+            </template>
+          </tbody>
+          <tbody data-testid="detector-card">
+            <tr class="group">
+              <th scope="rowgroup" colspan="2">
+                Detector
+                <StatusLine
+                  :tone="models.detector.available ? 'ok' : 'warn'"
+                  :label="
+                    models.detector.available ? 'Active' : 'Missing: photos are read as crops'
+                  "
+                />
+              </th>
+            </tr>
+            <tr>
+              <th scope="row">File and runtime</th>
+              <td>
+                <code>{{ models.detector.path ?? 'none' }}</code
+                >, ONNX Runtime, YOLOv10n with its NMS-free one-to-one head
+              </td>
+            </tr>
+            <template v-if="detectorEval">
+              <tr>
+                <th scope="row">On synthetic street scenes</th>
+                <td data-testid="detector-eval">
+                  mAP@50 {{ fixed(detectorEval.metrics.map50, 3) }}, mAP@50-95
+                  {{ fixed(detectorEval.metrics.map50_95, 3) }}, precision
+                  {{ fixed(detectorEval.metrics.precision, 3) }}, recall
+                  {{ fixed(detectorEval.metrics.recall, 3) }} on
+                  {{ integer(detectorEval.counts?.images) }} procedural scenes (seed
+                  {{ detectorEval.set.seed ?? '?' }}); one Ultralytics pass, so no interval.
+                  Synthetic results are not real-world accuracy.
+                </td>
+              </tr>
+            </template>
+          </tbody>
+          <tbody data-testid="service-card">
+            <tr class="group">
+              <th scope="rowgroup" colspan="2">Service</th>
+            </tr>
+            <tr>
+              <th scope="row">Fusion</th>
+              <td>{{ fusionLabel(models.fusion) }}</td>
+            </tr>
+            <tr>
+              <th scope="row">Served sets</th>
+              <td>{{ level(1 - models.alpha) }} level</td>
+            </tr>
+            <tr>
+              <th scope="row">Review</th>
+              <td>
+                below {{ percent(models.review_threshold, 0) }} confidence, and every read whose set
+                is empty or holds several plates
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section v-if="fused.length" class="dx-section" aria-labelledby="fused-title">
+      <h2 id="fused-title">Thresholds per number of fused views</h2>
       <div class="dx-scroll-x" role="region" aria-label="Fused thresholds" tabindex="0">
         <table class="dx-table">
           <caption>
             The service applies the threshold of the largest calibrated view count not above the
-            number of photos that proposed a plate (fitted on synthetic multi-view sets).
+            number of photos that proposed a plate. Fitted on synthetic multi-view sets.
           </caption>
           <thead>
             <tr>
               <th scope="col">Views</th>
-              <th v-for="alpha in alphas" :key="alpha" scope="col" class="dx-right">
-                {{ level(1 - Number(alpha)) }}
+              <th v-for="alpha in alphas" :key="alpha" scope="col" class="dx-num">
+                {{ level(1 - Number(alpha)) }} level
               </th>
             </tr>
           </thead>
           <tbody>
             <tr v-for="[views, byAlpha] in fused" :key="views">
-              <th scope="row" class="dx-num">{{ views }}</th>
-              <td v-for="alpha in alphas" :key="alpha" class="dx-right dx-num">
+              <th scope="row">{{ views }} {{ views === '1' ? 'view' : 'views' }}</th>
+              <td v-for="alpha in alphas" :key="alpha" class="dx-num">
                 <code>{{ scientific(byAlpha[alpha], 2) }}</code>
               </td>
             </tr>
@@ -202,12 +227,15 @@ onMounted(async () => {
       </div>
     </section>
 
-    <section v-if="models" class="dx-card" aria-labelledby="reg-title">
-      <div class="dx-card-head">
+    <section v-if="models" class="dx-section" aria-labelledby="reg-title">
+      <div class="dx-section-head">
         <h2 id="reg-title">Registry</h2>
-        <span class="dx-small dx-muted">models/registry.json</span>
+        <span class="dx-footnote dx-secondary">models/registry.json</span>
       </div>
-      <p v-if="registry.models.length === 0" class="dx-muted">The registry is empty.</p>
+      <p v-if="registry.models.length === 0" class="dx-secondary">
+        Exported models are listed here with their version and results;
+        <code>uv run plate registry promote</code> records one.
+      </p>
       <div v-else class="dx-scroll-x" role="region" aria-label="Model registry" tabindex="0">
         <table class="dx-table" data-testid="registry-table">
           <thead>
@@ -215,7 +243,7 @@ onMounted(async () => {
               <th scope="col">Kind</th>
               <th scope="col">Version</th>
               <th scope="col">File</th>
-              <th scope="col" class="dx-right">Size</th>
+              <th scope="col" class="dx-num">Size</th>
               <th scope="col">Recorded results</th>
               <th scope="col">State</th>
             </tr>
@@ -229,12 +257,12 @@ onMounted(async () => {
               <td>
                 <code>{{ model.file }}</code>
               </td>
-              <td class="dx-right dx-num nowrap">{{ bytes(model.bytes) }}</td>
-              <td class="dx-small">{{ Object.keys(model.metrics ?? {}).join(', ') || '–' }}</td>
+              <td class="dx-num">{{ bytes(model.bytes) }}</td>
+              <td>{{ Object.keys(model.metrics ?? {}).join(', ') || '–' }}</td>
               <td>
-                <StatusPill
+                <StatusLine
                   :tone="isActive(model.kind, model.version) ? 'ok' : 'neutral'"
-                  :label="isActive(model.kind, model.version) ? 'active' : 'archived'"
+                  :label="isActive(model.kind, model.version) ? 'Active' : 'Archived'"
                 />
               </td>
             </tr>
@@ -243,83 +271,73 @@ onMounted(async () => {
       </div>
     </section>
 
-    <section v-if="synthetic && pseudoReal" class="dx-card" aria-labelledby="gap-title">
-      <div class="dx-card-head">
-        <h2 id="gap-title">Sim-to-real gap</h2>
-        <span class="dx-small dx-muted">exact match, 95% bootstrap intervals</span>
-      </div>
-      <p class="dx-small dx-muted gap-note">
-        The same recognisers on the synthetic test set and on the pseudo-real set (synthetic plates
-        under heavier degradations, standing in for real photos). Real photos get their own column
-        once a labelled set exists under <code>data/ocr/test</code> and
-        <code>plate eval --set data</code> has run.
-      </p>
-      <SimToRealGap :synthetic="synthetic" :pseudo-real="pseudoReal" :real="real" />
-    </section>
-
-    <section v-if="sweep" class="dx-card" aria-labelledby="sweep-title">
-      <div class="dx-card-head">
-        <h2 id="sweep-title">Domain-randomisation sweep</h2>
-        <span class="dx-small dx-muted">results/sweep.json</span>
-      </div>
-      <SweepTable :sweep="sweep" />
-    </section>
-
-    <section v-if="training" class="dx-card" aria-labelledby="train-title">
-      <div class="dx-card-head">
-        <h2 id="train-title">Training (CRNN)</h2>
-        <span class="dx-small dx-muted"
+    <section v-if="training" class="dx-section" aria-labelledby="train-title">
+      <div class="dx-section-head">
+        <h2 id="train-title">Training of the CRNN</h2>
+        <span class="dx-footnote dx-secondary"
           >model <code>{{ training.model_version }}</code></span
         >
       </div>
+      <SyntheticNote detail="The CRNN was trained and validated on synthetic crops only." />
       <div class="training-layout">
-        <TrainingCurve :history="training.history" :best-epoch="training.best_epoch" />
-        <dl class="dx-dl">
+        <dl class="dx-facts">
           <dt>Parameters</dt>
-          <dd class="dx-num">{{ integer(training.parameters) }}</dd>
+          <dd>{{ integer(training.parameters) }}</dd>
           <dt>Epochs</dt>
-          <dd class="dx-num">{{ training.history.length }}</dd>
-          <dt>Best epoch</dt>
-          <dd class="dx-num">{{ training.best_epoch }}</dd>
-          <dt>Best validation</dt>
-          <dd class="dx-num">{{ percent(training.best_val_exact_greedy, 1) }} exact (greedy)</dd>
-          <dt>Device</dt>
-          <dd>{{ training.device }}</dd>
-          <dt>Wall time</dt>
-          <dd class="dx-num">{{ milliseconds(training.seconds * 1000) }}</dd>
+          <dd>{{ training.history.length }}, kept epoch {{ training.best_epoch }}</dd>
+          <dt>Kept on</dt>
+          <dd>
+            {{ percent(training.best_val_exact_greedy, 1) }} greedy exact match on the synthetic
+            validation split, one pass, no interval
+          </dd>
+          <dt>Device and time</dt>
+          <dd>{{ training.device }}, {{ milliseconds(training.seconds * 1000) }}</dd>
           <dt>Real data</dt>
           <dd>{{ training.fine_tuned_on_real_data ? 'fine-tuned on real crops' : 'none used' }}</dd>
           <dt>Seeds</dt>
-          <dd class="dx-num">
-            train {{ training.train_seed }}, validation {{ training.val_seed }}
-          </dd>
+          <dd>train {{ training.train_seed }}, validation {{ training.val_seed }}</dd>
         </dl>
+        <TrainingCurve :history="training.history" :best-epoch="training.best_epoch" />
       </div>
+    </section>
+
+    <section v-if="sweep" class="dx-section" aria-labelledby="sweep-title">
+      <div class="dx-section-head">
+        <h2 id="sweep-title">Domain-randomisation sweep</h2>
+        <span class="dx-footnote dx-secondary">results/sweep.json</span>
+      </div>
+      <SyntheticNote detail="Trials were scored on pseudo-real crops, which are synthetic." />
+      <SweepTable :sweep="sweep" />
     </section>
   </div>
 </template>
 
 <style scoped>
-.note {
-  margin-top: var(--dx-space-3);
+.facts-table tbody th[scope='row'] {
+  width: 16rem;
+  color: var(--dx-text-2);
+  font-weight: var(--dx-weight-body);
 }
 
-.sub-head {
-  margin: var(--dx-space-4) 0 var(--dx-space-2);
+.facts-table tr.group th {
+  padding-top: var(--dx-space-4);
+  border-bottom: var(--dx-line) solid var(--dx-border-strong);
+  font-size: var(--dx-text-headline);
+  font-weight: var(--dx-weight-title);
 }
 
-.nowrap {
-  white-space: nowrap;
+.facts-table tbody:first-child tr.group th {
+  padding-top: 0;
 }
 
-.gap-note {
-  margin-bottom: var(--dx-space-3);
+.facts-table tr.group :deep(.status) {
+  margin-left: var(--dx-space-2);
 }
 
 .training-layout {
   display: grid;
-  grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr);
-  gap: var(--dx-space-5);
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.6fr);
+  gap: var(--dx-space-6);
   align-items: start;
 }
 

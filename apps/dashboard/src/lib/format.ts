@@ -59,14 +59,19 @@ export function bytes(value: number | null | undefined): string {
   return `${(value / 1024 / 1024).toFixed(1)} MiB`
 }
 
-/** The interval of an estimate, "95.0–100.0%" (or plain numbers with `plain`). */
-export function interval(estimate: Estimate, plain = false, digits = 1): string {
-  if (plain) return `${fixed(estimate.ci_low, 2)}${DASH}${fixed(estimate.ci_high, 2)}`
-  return `${(estimate.ci_low * 100).toFixed(digits)}${DASH}${percent(estimate.ci_high, digits)}`
+/** The interval alone, in words: "(0 to 50)" for rates, "(0.87 to 0.93)" with `plain`. */
+export function interval(value: Estimate, plain = false, digits = 1): string {
+  if (plain) return `(${fixed(value.ci_low, 2)} to ${fixed(value.ci_high, 2)})`
+  return `(${(value.ci_low * 100).toFixed(digits)} to ${(value.ci_high * 100).toFixed(digits)})`
 }
 
-export function estimateValue(estimate: Estimate, plain = false, digits = 1): string {
-  return plain ? fixed(estimate.value, 2) : percent(estimate.value, digits)
+/**
+ * A value with its interval, "25% (0 to 50)": the console never shows a bare point
+ * estimate. `plain` writes a number that is not a rate, "0.90 (0.87 to 0.93)".
+ */
+export function estimate(value: Estimate, plain = false, digits = 1): string {
+  if (plain) return `${fixed(value.value, 2)} ${interval(value, true)}`
+  return `${percent(value.value, digits)} ${interval(value, false, digits)}`
 }
 
 const DATE = new Intl.DateTimeFormat('en-GB', {

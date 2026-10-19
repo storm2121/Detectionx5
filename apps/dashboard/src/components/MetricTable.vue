@@ -2,10 +2,15 @@
 import { computed } from 'vue'
 
 import { LOWER_IS_BETTER, METRIC_LABELS, PLAIN_METRICS, type Estimate } from '@/api/results'
-import { estimateValue, interval } from '@/lib/format'
+import { estimate } from '@/lib/format'
 
 import CiBar from './CiBar.vue'
 
+/**
+ * Metrics by recogniser, every value with its interval in words, `25% (0 to 50)`, at one
+ * precision for the whole table, and the interval drawn beside it. Rows are metrics, columns
+ * recognisers, so a reader compares across a row.
+ */
 const props = withDefaults(
   defineProps<{
     /** Column name -> metric name -> estimate. */
@@ -13,8 +18,10 @@ const props = withDefaults(
     metrics: string[]
     caption: string
     columnLabel?: (name: string) => string
+    /** Decimals of the percentages; whole numbers suit a small set. */
+    digits?: number
   }>(),
-  { columnLabel: (name: string) => name },
+  { columnLabel: (name: string) => name, digits: 1 },
 )
 
 const names = computed(() => Object.keys(props.columns))
@@ -56,50 +63,43 @@ function domain(metric: string): [number, number] {
             <span v-if="LOWER_IS_BETTER.has(metric)" class="hint">lower is better</span>
           </th>
           <td v-for="name in names" :key="name">
-            <template v-if="columns[name]?.[metric]">
-              <div class="cell">
-                <strong class="dx-num">{{
-                  estimateValue(columns[name]![metric]!, PLAIN_METRICS.has(metric))
-                }}</strong>
-                <CiBar :estimate="columns[name]![metric]!" :domain="domain(metric)" />
-              </div>
-              <div class="dx-num ci">
-                95% CI {{ interval(columns[name]![metric]!, PLAIN_METRICS.has(metric)) }}
-              </div>
-            </template>
-            <span v-else class="dx-muted">–</span>
+            <span v-if="columns[name]?.[metric]" class="cell">
+              <span class="value">{{
+                estimate(columns[name]![metric]!, PLAIN_METRICS.has(metric), digits)
+              }}</span>
+              <CiBar :estimate="columns[name]![metric]!" :domain="domain(metric)" />
+            </span>
+            <span v-else class="dx-tertiary">–</span>
           </td>
         </tr>
       </tbody>
     </table>
+    <p class="dx-sr-only">Each value is followed by its 95% bootstrap interval in brackets.</p>
   </div>
 </template>
 
 <style scoped>
 .metrics th[scope='row'] {
-  color: var(--dx-text);
-  font-weight: 600;
+  min-width: 9rem;
   white-space: normal;
-  min-width: 140px;
 }
 
 .hint {
   display: block;
-  font-size: var(--dx-text-xs);
-  font-weight: 400;
-  color: var(--dx-text-muted);
+  color: var(--dx-text-2);
+  font-family: var(--dx-font-small);
+  font-size: var(--dx-text-caption);
+  font-weight: var(--dx-weight-body);
 }
 
 .cell {
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  gap: var(--dx-space-2);
+  gap: var(--dx-space-3);
   white-space: nowrap;
 }
 
-.ci {
-  font-size: var(--dx-text-xs);
-  color: var(--dx-text-muted);
-  white-space: nowrap;
+.value {
+  min-width: 8.5rem;
 }
 </style>

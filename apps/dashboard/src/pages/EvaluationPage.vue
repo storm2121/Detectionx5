@@ -1,6 +1,4 @@
 <script setup lang="ts">
-import Select from 'primevue/select'
-import SelectButton from 'primevue/selectbutton'
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
@@ -8,13 +6,15 @@ import type { CalibrationResult, EvalResult, FusedCalibrationResult } from '@/ap
 import CalibrationCurve from '@/components/CalibrationCurve.vue'
 import ConfusionMatrix from '@/components/ConfusionMatrix.vue'
 import CoverageTable from '@/components/CoverageTable.vue'
-import ErrorNote from '@/components/ErrorNote.vue'
-import LoadingState from '@/components/LoadingState.vue'
 import MetricTable from '@/components/MetricTable.vue'
 import SyntheticNote from '@/components/SyntheticNote.vue'
+import NoticeBlock from '@/components/ui/NoticeBlock.vue'
+import SegmentedControl from '@/components/ui/SegmentedControl.vue'
+import SelectField from '@/components/ui/SelectField.vue'
+import SkeletonBlock from '@/components/ui/SkeletonBlock.vue'
 import { fusedRows, singleViewRows } from '@/lib/coverage'
-import { fixed, interval, percent } from '@/lib/format'
-import { fusionLabel, recognizerLabel, SET_LABELS, setLabel } from '@/lib/labels'
+import { estimate, fixed, interval } from '@/lib/format'
+import { countWords, fusionLabel, recognizerLabel, SET_LABELS, setLabel } from '@/lib/labels'
 import { useResultsStore } from '@/stores/results'
 
 const route = useRoute()
@@ -34,8 +34,21 @@ const METRICS = [
   'coverage',
   'set_size',
 ]
+const REAL_METRICS = [
+  'exact_match',
+  'digits_accuracy',
+  'letter_accuracy',
+  'region_accuracy',
+  'read_rate',
+  'cer',
+  'ece',
+  'coverage',
+]
 
+const indexLoaded = ref(false)
 const available = ref<string[]>([])
+const real = ref<EvalResult | null>(null)
+const realFocus = ref<string>('crnn-beam')
 const chosen = ref<string>(typeof route.query.set === 'string' ? route.query.set : 'eval_synthetic')
 const evaluation = ref<EvalResult | null>(null)
 const loading = ref(false)
@@ -46,24 +59,32 @@ const fused = ref<FusedCalibrationResult | null>(null)
 const setOptions = computed(() =>
   available.value.map((name) => ({ label: setLabel(name), value: name })),
 )
-const recognizers = computed(() => Object.keys(evaluation.value?.recognizers ?? {}))
-const recognizerOptions = computed(() =>
-  recognizers.value.map((name) => ({ label: recognizerLabel(name), value: name })),
-)
-const columns = computed(() =>
+const options = (payload: EvalResult | null) =>
+  Object.keys(payload?.recognizers ?? {}).map((name) => ({
+    label: recognizerLabel(name),
+    value: name,
+  }))
+const columns = (payload: EvalResult | null) =>
   Object.fromEntries(
-    Object.entries(evaluation.value?.recognizers ?? {}).map(([name, r]) => [name, r.metrics]),
-  ),
-)
-const focused = computed(() => evaluation.value?.recognizers[focus.value] ?? null)
-const error = computed(() => results.errors[chosen.value] ?? results.errors.index ?? null)
-
-const comparisons = computed(() =>
-  Object.entries(evaluation.value?.comparisons ?? {}).flatMap(([pair, stats]) => {
+    Object.entries(payload?.recognizers ?? {}).map(([name, r]) => [name, r.metrics]),
+  )
+const comparisons = (payload: EvalResult | null) =>
+  Object.entries(payload?.comparisons ?? {}).flatMap(([pair, stats]) => {
     const difference = stats.exact_match_difference
     return difference ? [{ pair, difference }] : []
-  }),
-)
+  })
+
+const realFocused = computed(() => real.value?.recognizers[realFocus.value] ?? null)
+const realSentence = computed(() => {
+  const set = real.value?.set
+  if (!set) return ''
+  const note = (set as { note?: string }).note
+  const words = countWords(set.n)
+  const head = `${words.charAt(0).toUpperCase()}${words.slice(1)} photos give a wide interval`
+  return note ? `${head}, and the set is ${note}.` : `${head}.`
+})
+const focused = computed(() => evaluation.value?.recognizers[focus.value] ?? null)
+const error = computed(() => results.errors[chosen.value] ?? results.errors.index ?? null)
 
 const fusion = computed(() => {
   const section = evaluation.value?.fusion
@@ -82,14 +103,18 @@ const fusion = computed(() => {
 const singleRows = computed(() => (calibration.value ? singleViewRows(calibration.value) : []))
 const multiRows = computed(() => (fused.value ? fusedRows(fused.value) : []))
 
+function points(value: number, low: number, high: number) {
+  const p = (v: number) => `${v > 0 ? '+' : ''}${(v * 100).toFixed(0)}`
+  return `${p(value)} points (${p(low)} to ${p(high)})`
+}
+
 async function loadSet(name: string) {
   loading.value = true
   evaluation.value = await results.load<EvalResult>(name)
   loading.value = false
+  const names = Object.keys(evaluation.value?.recognizers ?? {})
   if (evaluation.value && !(focus.value in evaluation.value.recognizers)) {
-    focus.value = recognizers.value.includes('crnn-beam')
-      ? 'crnn-beam'
-      : (recognizers.value[0] ?? '')
+    focus.value = names.includes('crnn-beam') ? 'crnn-beam' : (names[0] ?? '')
   }
 }
 
@@ -100,6 +125,10 @@ watch(chosen, (name) => {
 
 onMounted(async () => {
   const index = await results.loadIndex()
+  indexLoaded.value = true
+  if (index.some((entry) => entry.name === 'eval_data')) {
+    real.value = await results.load<EvalResult>('eval_data')
+  }
   available.value = index
     .map((entry) => entry.name)
     .filter((name) => name in SET_LABELS)
@@ -118,214 +147,255 @@ onMounted(async () => {
   <div class="dx-page">
     <header class="dx-page-head">
       <h1>Evaluation</h1>
-      <p class="dx-lead">
-        Every recogniser on the committed evaluation sets, with 95% bootstrap intervals, the
-        reliability of its confidence, its letter confusions, multi-view fusion and the coverage of
-        its conformal sets. The numbers are read from <code>results/*.json</code>; nothing here is
-        typed by hand.
+      <p>
+        Every recogniser on labelled real photos first, then on the synthetic sets the models are
+        developed against, each number with its 95% bootstrap interval. Everything here is read from
+        <code>results/*.json</code>; nothing is typed by hand.
       </p>
     </header>
 
-    <SyntheticNote
-      detail="Every set below is generated by plate_reader.synthetic; the pseudo-real set is synthetic too, with heavier degradations standing in for real photos."
-    />
-
-    <section class="dx-card" aria-labelledby="set-title">
-      <div class="dx-card-head">
-        <h2 id="set-title">Evaluation set</h2>
+    <section class="dx-section" aria-labelledby="real-title" data-testid="real-photos">
+      <div class="dx-section-head">
+        <h2 id="real-title">Real photos</h2>
+        <span v-if="real" class="dx-footnote dx-secondary">data/eval, private</span>
       </div>
-      <SelectButton
-        v-if="setOptions.length"
-        v-model="chosen"
-        :options="setOptions"
-        option-label="label"
-        option-value="value"
-        :allow-empty="false"
-        aria-label="Evaluation set"
-        data-testid="set-choice"
-      />
-      <ErrorNote v-if="error" :message="error" title="Results are unavailable" />
-      <LoadingState v-else-if="loading || !evaluation" label="Loading results" />
-      <p v-else class="dx-small dx-muted set-info">
-        {{ setLabel(chosen) }}: n = {{ evaluation.set.n }} images{{
-          evaluation.set.n_sets
-            ? ` in ${evaluation.set.n_sets} sets of ${evaluation.set.k} views`
-            : ''
-        }}, generator seed {{ evaluation.set.seed }} (version
-        {{ evaluation.set.generator_version }}); {{ evaluation.bootstrap.resamples }}
-        {{ evaluation.bootstrap.method }} bootstrap resamples over {{ evaluation.bootstrap.unit }}s.
+      <SkeletonBlock v-if="!indexLoaded" kind="table" label="Loading the real-photo results" />
+      <template v-else-if="real">
+        <p class="dx-measure dx-secondary">
+          {{ real.set.n }} labelled photos of real cars, each read end to end: the shipped detector
+          finds the plate and the photo is cropped exactly as the service crops it.
+          {{ realSentence }}
+        </p>
+        <MetricTable
+          :columns="columns(real)"
+          :metrics="REAL_METRICS"
+          :column-label="recognizerLabel"
+          :digits="0"
+          :caption="`Real photos, n = ${real.set.n}; letter and region on the standard plates only.`"
+        />
+        <ul v-if="comparisons(real).length" class="comparisons dx-footnote">
+          <li v-for="item in comparisons(real)" :key="item.pair">
+            {{ item.pair.split(' - ').map(recognizerLabel).join(' minus ') }}, exact match:
+            {{ points(item.difference.value, item.difference.ci_low, item.difference.ci_high) }},
+            paired over the same photos
+          </li>
+        </ul>
+        <div class="charts-head">
+          <h3>Calibration and confusions on the real photos</h3>
+          <SelectField
+            v-model="realFocus"
+            :options="options(real)"
+            label="Recogniser"
+            inline
+            data-testid="real-recognizer-choice"
+          />
+        </div>
+        <div v-if="realFocused" class="dx-columns">
+          <CalibrationCurve
+            :bins="realFocused.reliability"
+            :ece="realFocused.metrics.ece?.value ?? null"
+            :title="`Reliability of ${recognizerLabel(realFocus)} on real photos`"
+          />
+          <ConfusionMatrix
+            :confusion="realFocused.letter_confusion"
+            caption="Letters on the real photos: rows are the true letter, columns the letter read."
+          />
+        </div>
+        <p class="dx-footnote dx-secondary dx-measure">
+          The confidence and the conformal sets were calibrated on synthetic plates; on real photos
+          neither holds, which is what these numbers show and why real calibration photos come next.
+        </p>
+      </template>
+      <p v-else class="dx-secondary dx-measure">
+        Results on real photos appear here once labelled photos are in <code>data/eval</code>: run
+        <code>uv run plate eval --set data</code>.
       </p>
     </section>
 
-    <template v-if="evaluation && !loading">
-      <section class="dx-card" aria-labelledby="metrics-title">
-        <div class="dx-card-head">
-          <h2 id="metrics-title">Recognisers</h2>
-        </div>
-        <MetricTable
-          :columns="columns"
-          :metrics="METRICS"
-          :column-label="recognizerLabel"
-          :caption="`${setLabel(chosen)}, one read per image (synthetic).`"
+    <section class="dx-section dev" aria-labelledby="dev-title">
+      <div class="dx-section-head">
+        <h2 id="dev-title">Development and synthetic harness</h2>
+      </div>
+      <SyntheticNote
+        detail="Every set here comes from plate_reader.synthetic; the pseudo-real set is synthetic too, with heavier degradations standing in for real photos."
+      />
+      <div class="set-choice">
+        <SegmentedControl
+          v-if="setOptions.length"
+          v-model="chosen"
+          :options="setOptions"
+          label="Evaluation set"
+          data-testid="set-choice"
         />
-        <ul v-if="comparisons.length" class="comparisons">
-          <li v-for="item in comparisons" :key="item.pair">
-            {{ item.pair.split(' - ').map(recognizerLabel).join(' minus ') }}: exact match
-            difference
-            <strong class="dx-num">{{ fixed(item.difference.value * 100, 1) }} points</strong>
-            <span class="dx-muted dx-num">
-              (paired bootstrap 95% CI {{ fixed(item.difference.ci_low * 100, 1) }} to
-              {{ fixed(item.difference.ci_high * 100, 1) }})</span
-            >
-          </li>
-        </ul>
-      </section>
+        <NoticeBlock
+          v-if="error"
+          tone="error"
+          title="Results are unavailable"
+          :message="`${error} The console reads them from the service; check that it is running.`"
+        />
+        <SkeletonBlock
+          v-else-if="loading || !evaluation"
+          kind="lines"
+          :lines="1"
+          label="Loading results"
+        />
+        <p v-else class="dx-footnote dx-secondary set-info">
+          {{ setLabel(chosen) }}: n = {{ evaluation.set.n }} images{{
+            evaluation.set.n_sets
+              ? ` in ${evaluation.set.n_sets} sets of ${evaluation.set.k} views`
+              : ''
+          }}, generator seed {{ evaluation.set.seed }} (version
+          {{ evaluation.set.generator_version }}); {{ evaluation.bootstrap.resamples }}
+          {{ evaluation.bootstrap.method }} bootstrap resamples over
+          {{ evaluation.bootstrap.unit }}s.
+        </p>
+      </div>
 
-      <section class="dx-card" aria-labelledby="focus-title">
-        <div class="dx-card-head">
-          <h2 id="focus-title">Calibration and confusions</h2>
-          <div class="focus">
-            <span id="focus-label" class="dx-small">Recogniser</span>
-            <Select
+      <template v-if="evaluation && !loading">
+        <div class="dx-section">
+          <h3>Recognisers</h3>
+          <MetricTable
+            :columns="columns(evaluation)"
+            :metrics="METRICS"
+            :column-label="recognizerLabel"
+            :caption="`${setLabel(chosen)}, one read per image; synthetic results are not real-world accuracy.`"
+          />
+          <ul v-if="comparisons(evaluation).length" class="comparisons dx-footnote">
+            <li v-for="item in comparisons(evaluation)" :key="item.pair">
+              {{ item.pair.split(' - ').map(recognizerLabel).join(' minus ') }}, exact match:
+              {{ fixed(item.difference.value * 100, 1) }} points {{ interval(item.difference) }},
+              paired over the same images
+            </li>
+          </ul>
+        </div>
+
+        <div class="dx-section">
+          <div class="charts-head">
+            <h3>Calibration and confusions</h3>
+            <SelectField
               v-model="focus"
-              :options="recognizerOptions"
-              option-label="label"
-              option-value="value"
-              aria-labelledby="focus-label"
+              :options="options(evaluation)"
+              label="Recogniser"
+              inline
               data-testid="recognizer-choice"
             />
           </div>
+          <div v-if="focused" class="dx-columns">
+            <CalibrationCurve
+              :bins="focused.reliability"
+              :ece="focused.metrics.ece?.value ?? null"
+              :title="`Reliability of ${recognizerLabel(focus)}`"
+            />
+            <ConfusionMatrix :confusion="focused.letter_confusion" />
+          </div>
+          <p v-if="focused && !focused.calibrated" class="dx-footnote dx-secondary dx-measure">
+            This recogniser's confidence is not a calibrated probability (EasyOCR's vote share), so
+            its reliability curve is expected to sit off the diagonal.
+          </p>
         </div>
-        <div v-if="focused" class="dx-grid-2">
-          <CalibrationCurve
-            :bins="focused.reliability"
-            :ece="focused.metrics.ece?.value ?? null"
-            :title="`Reliability of ${recognizerLabel(focus)}`"
-          />
-          <ConfusionMatrix :confusion="focused.letter_confusion" />
+
+        <div v-if="fusion" class="dx-section">
+          <h3>Multi-view fusion, {{ recognizerLabel(focus) }}</h3>
+          <div class="dx-scroll-x" role="region" aria-label="Fusion comparison" tabindex="0">
+            <table class="dx-table" data-testid="fusion-comparison">
+              <caption>
+                Exact match of the fused read when the first k views of each of
+                {{
+                  fusion.nSets
+                }}
+                synthetic multi-view sets are fused, with 95% bootstrap intervals over sets.
+              </caption>
+              <thead>
+                <tr>
+                  <th scope="col">Method</th>
+                  <th v-for="k in fusion.k" :key="k" scope="col">
+                    {{ k }} {{ k === 1 ? 'view' : 'views' }}
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="row in fusion.methods" :key="row.method">
+                  <th scope="row">{{ fusionLabel(row.method) }}</th>
+                  <td v-for="(cell, i) in row.cells" :key="i">
+                    {{ cell ? estimate(cell) : '–' }}
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
         </div>
-        <p v-if="focused && !focused.calibrated" class="dx-small dx-muted">
-          This recogniser's confidence is not a calibrated probability (EasyOCR's vote share), so
-          its reliability diagram is expected to be off the diagonal.
+      </template>
+
+      <div v-if="calibration" class="dx-section">
+        <div class="dx-section-head">
+          <h3>Temperature scaling of the CRNN</h3>
+          <span class="dx-footnote dx-secondary"
+            >model <code>{{ calibration.model_version }}</code></span
+          >
+        </div>
+        <p class="dx-footnote dx-secondary dx-measure">
+          Temperature T = {{ fixed(calibration.temperature.temperature, 3) }}, fitted on
+          {{ calibration.splits.calibration?.n }} synthetic calibration crops (negative
+          log-likelihood {{ fixed(calibration.temperature.nll_before, 4) }} before and
+          {{ fixed(calibration.temperature.nll_after, 4) }} after); expected calibration error on
+          the separate test split {{ estimate(calibration.test_split.ece, false, 2) }}.
         </p>
-      </section>
-
-      <section v-if="fusion" class="dx-card" aria-labelledby="fusion-title">
-        <div class="dx-card-head">
-          <h2 id="fusion-title">Multi-view fusion</h2>
-          <span class="dx-small dx-muted">{{ recognizerLabel(focus) }}</span>
+        <div class="dx-columns">
+          <CalibrationCurve
+            :bins="calibration.calibration_split.before.reliability"
+            :ece="calibration.calibration_split.before.ece.value"
+            title="Before temperature scaling (calibration split)"
+          />
+          <CalibrationCurve
+            :bins="calibration.calibration_split.after.reliability"
+            :ece="calibration.calibration_split.after.ece.value"
+            title="After temperature scaling (calibration split)"
+          />
         </div>
-        <div class="dx-scroll-x" role="region" aria-label="Fusion comparison" tabindex="0">
-          <table class="dx-table" data-testid="fusion-comparison">
-            <caption>
-              Exact match of the fused read when the first k views of each of
-              {{
-                fusion.nSets
-              }}
-              synthetic multi-view sets are fused (95% bootstrap intervals over sets).
-            </caption>
-            <thead>
-              <tr>
-                <th scope="col">Method</th>
-                <th v-for="k in fusion.k" :key="k" scope="col">k = {{ k }}</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="row in fusion.methods" :key="row.method">
-                <th scope="row">{{ fusionLabel(row.method) }}</th>
-                <td v-for="(cell, i) in row.cells" :key="i" class="dx-num">
-                  <template v-if="cell">
-                    <strong>{{ percent(cell.value, 1) }}</strong>
-                    <span class="dx-muted dx-ci">{{ interval(cell) }}</span>
-                  </template>
-                  <span v-else class="dx-muted">–</span>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </section>
-    </template>
-
-    <section v-if="calibration" class="dx-card" aria-labelledby="cal-title">
-      <div class="dx-card-head">
-        <h2 id="cal-title">Temperature scaling (CRNN)</h2>
-        <span class="dx-small dx-muted"
-          >model <code>{{ calibration.model_version }}</code></span
-        >
       </div>
-      <p class="dx-small dx-muted">
-        Temperature T = {{ fixed(calibration.temperature.temperature, 3) }} fitted on
-        {{ calibration.splits.calibration?.n }} synthetic calibration crops (negative log-likelihood
-        {{ fixed(calibration.temperature.nll_before, 4) }} before,
-        {{ fixed(calibration.temperature.nll_after, 4) }} after); expected calibration error on the
-        separate test split {{ percent(calibration.test_split.ece.value, 2) }}
-        {{ interval(calibration.test_split.ece, false, 2) }}.
-      </p>
-      <div class="dx-grid-2">
-        <CalibrationCurve
-          :bins="calibration.calibration_split.before.reliability"
-          :ece="calibration.calibration_split.before.ece.value"
-          title="Before temperature scaling (calibration split)"
+
+      <div v-if="calibration || fused" class="dx-section">
+        <h3>Conformal sets</h3>
+        <CoverageTable
+          v-if="singleRows.length"
+          :rows="singleRows"
+          caption="One view: thresholds fitted on the conformal split, coverage on the test split, with a joint bootstrap over both."
         />
-        <CalibrationCurve
-          :bins="calibration.calibration_split.after.reliability"
-          :ece="calibration.calibration_split.after.ece.value"
-          title="After temperature scaling (calibration split)"
+        <CoverageTable
+          v-if="multiRows.length"
+          :rows="multiRows"
+          caption="Fused reads: one threshold per number of views, fitted on separate synthetic multi-view calibration sets."
         />
       </div>
-    </section>
-
-    <section v-if="calibration || fused" class="dx-card" aria-labelledby="conformal-title">
-      <div class="dx-card-head">
-        <h2 id="conformal-title">Conformal sets</h2>
-      </div>
-      <CoverageTable
-        v-if="singleRows.length"
-        :rows="singleRows"
-        caption="One view: thresholds fitted on the conformal split, coverage on the test split (joint bootstrap over both)."
-      />
-      <CoverageTable
-        v-if="multiRows.length"
-        :rows="multiRows"
-        caption="Fused reads: one threshold per number of views, fitted on separate synthetic multi-view calibration sets."
-      />
     </section>
   </div>
 </template>
 
 <style scoped>
-.set-info {
-  margin-top: var(--dx-space-3);
+.dev {
+  padding-top: var(--dx-space-6);
+  border-top: var(--dx-line) solid var(--dx-border);
+}
+
+.set-choice {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--dx-space-3);
+}
+
+.charts-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--dx-space-2) var(--dx-space-4);
 }
 
 .comparisons {
-  margin: var(--dx-space-3) 0 0;
-  padding-left: var(--dx-space-4);
   display: grid;
   gap: var(--dx-space-1);
-  font-size: var(--dx-text-sm);
-}
-
-.focus {
-  display: flex;
-  align-items: center;
-  gap: var(--dx-space-2);
-}
-
-.focus :deep(.p-select) {
-  min-width: 14rem;
-}
-
-@media (max-width: 480px) {
-  .focus {
-    width: 100%;
-    flex-wrap: wrap;
-  }
-
-  .focus :deep(.p-select) {
-    min-width: 0;
-    width: 100%;
-  }
+  margin: 0;
+  padding-left: var(--dx-space-4);
+  color: var(--dx-text-2);
 }
 </style>
