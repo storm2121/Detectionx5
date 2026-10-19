@@ -97,11 +97,12 @@ dashboard-e2e:
     {{pnpm}} exec playwright install chromium
     {{pnpm}} e2e
 
-# Synthetic data, a small evaluation, then the whole stack in Compose and a synthetic read.
+# Synthetic data, a small evaluation, then the whole stack in Compose and a synthetic read
+# of three photos of one car; the console is then on http://localhost:5174.
 demo:
     uv run plate synth crops --n 200 --seed 0
     uv run plate eval --set synthetic --n 50 --views 20 -r crnn-greedy -r crnn-beam --out .cache/demo-results --quiet
-    docker compose up --build -d
+    docker compose up --build -d --wait
     uv run python tools/demo_read.py
 
 # The gate every milestone must pass.
