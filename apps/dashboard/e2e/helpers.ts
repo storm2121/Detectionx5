@@ -21,7 +21,7 @@ interface SceneFixtures {
 /** What the Python pipeline made of the synthetic scenes (results/parity_fixtures.json). */
 export const PARITY = JSON.parse(
   readFileSync(join(REPO, 'results', 'parity_fixtures.json'), 'utf-8'),
-) as { model_version: string; scenes: SceneFixtures }
+) as { model_version: string; fixtures: { image: string }[]; scenes: SceneFixtures }
 
 export const SCENES = PARITY.scenes.views.map((view) => join(REPO, view.image))
 

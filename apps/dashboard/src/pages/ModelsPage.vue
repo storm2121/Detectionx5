@@ -1,10 +1,12 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 
-import type { TrainingResult } from '@/api/results'
+import type { EvalResult, TrainingResult } from '@/api/results'
 import ErrorNote from '@/components/ErrorNote.vue'
 import LoadingState from '@/components/LoadingState.vue'
+import SimToRealGap from '@/components/SimToRealGap.vue'
 import StatusPill from '@/components/StatusPill.vue'
+import SweepTable, { type SweepResult } from '@/components/SweepTable.vue'
 import SyntheticNote from '@/components/SyntheticNote.vue'
 import TrainingCurve from '@/components/TrainingCurve.vue'
 import { bytes, fixed, integer, level, milliseconds, percent, scientific } from '@/lib/format'
@@ -15,6 +17,10 @@ import { useServiceStore } from '@/stores/service'
 const service = useServiceStore()
 const results = useResultsStore()
 const training = ref<TrainingResult | null>(null)
+const synthetic = ref<EvalResult | null>(null)
+const pseudoReal = ref<EvalResult | null>(null)
+const real = ref<EvalResult | null>(null)
+const sweep = ref<SweepResult | null>(null)
 
 const models = computed(() => service.models)
 const metadata = computed(() => models.value?.recognizer.metadata ?? null)
@@ -38,6 +44,15 @@ function isActive(kind: string, version: string) {
 onMounted(async () => {
   void service.loadModels(true)
   training.value = await results.load<TrainingResult>('train_crnn')
+  synthetic.value = await results.load<EvalResult>('eval_synthetic')
+  pseudoReal.value = await results.load<EvalResult>('eval_pseudo_real')
+  const index = await results.loadIndex()
+  if (index.some((entry) => entry.name === 'eval_data')) {
+    real.value = await results.load<EvalResult>('eval_data')
+  }
+  if (index.some((entry) => entry.name === 'sweep')) {
+    sweep.value = await results.load<SweepResult>('sweep')
+  }
 })
 </script>
 
@@ -206,6 +221,28 @@ onMounted(async () => {
       </div>
     </section>
 
+    <section v-if="synthetic && pseudoReal" class="dx-card" aria-labelledby="gap-title">
+      <div class="dx-card-head">
+        <h2 id="gap-title">Sim-to-real gap</h2>
+        <span class="dx-small dx-muted">exact match, 95% bootstrap intervals</span>
+      </div>
+      <p class="dx-small dx-muted gap-note">
+        The same recognisers on the synthetic test set and on the pseudo-real set (synthetic plates
+        under heavier degradations, standing in for real photos). Real photos get their own column
+        once a labelled set exists under <code>data/ocr/test</code> and
+        <code>plate eval --set data</code> has run.
+      </p>
+      <SimToRealGap :synthetic="synthetic" :pseudo-real="pseudoReal" :real="real" />
+    </section>
+
+    <section v-if="sweep" class="dx-card" aria-labelledby="sweep-title">
+      <div class="dx-card-head">
+        <h2 id="sweep-title">Domain-randomisation sweep</h2>
+        <span class="dx-small dx-muted">results/sweep.json</span>
+      </div>
+      <SweepTable :sweep="sweep" />
+    </section>
+
     <section v-if="training" class="dx-card" aria-labelledby="train-title">
       <div class="dx-card-head">
         <h2 id="train-title">Training (CRNN)</h2>
@@ -247,6 +284,10 @@ onMounted(async () => {
 
 .nowrap {
   white-space: nowrap;
+}
+
+.gap-note {
+  margin-bottom: var(--dx-space-3);
 }
 
 .training-layout {

@@ -93,7 +93,7 @@ jobs:
           uv run python -c "import json; d = json.load(open('/tmp/results/eval_synthetic.json', encoding='utf-8')); assert d['label'] == 'synthetic results are not real-world accuracy'; m = d['recognizers']['easyocr']['metrics']['exact_match']; assert m['ci_low'] <= m['value'] <= m['ci_high']; print(m)"
 
   dashboard:
-    name: dashboard (lint, types, build, unit tests, Storybook)
+    name: dashboard (lint, types, build, unit tests, Storybook, browser parity)
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -111,6 +111,12 @@ jobs:
       - run: pnpm build
       - run: pnpm test
       - run: pnpm storybook:build
+      - name: Browser parity (ONNX Runtime Web against results/parity_fixtures.json)
+        run: |
+          pnpm exec playwright install --with-deps chromium
+          DASHBOARD_PORT=4173 pnpm preview &
+          for i in $(seq 60); do curl -sf http://localhost:4173/parity > /dev/null && break; sleep 1; done
+          DASHBOARD_URL=http://localhost:4173 pnpm exec playwright test e2e/parity.spec.ts
 
   dashboard-e2e:
     name: dashboard smoke and accessibility against Compose

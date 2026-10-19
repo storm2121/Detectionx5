@@ -77,7 +77,7 @@ apps/dashboard/test-results/
 apps/dashboard/playwright-report/
 # Copied from tests/fixtures and models/ by scripts/sync-assets.mjs
 apps/dashboard/public/samples/
-apps/dashboard/public/models/
+apps/dashboard/public/runtime/
 
 # Editors
 .vscode/

@@ -1,13 +1,28 @@
-// Copies the assets the dashboard serves as static files from the rest of the repository:
-// the synthetic sample scenes (tests/fixtures/parity/scene_*.png), so the Read page can be
-// tried without photos. Generated files land in public/ and are not committed.
-import { copyFileSync, existsSync, mkdirSync, readdirSync } from 'node:fs'
+// Copies the files the dashboard serves as static assets from the rest of the repository.
+// Generated files land in public/ and are not committed:
+// - public/samples: three synthetic photos of one car (tests/fixtures/parity/scene_*.png),
+//   so the Read page can be tried without photos;
+// - public/runtime/models: the ONNX detector and CRNN with the CRNN's metadata, for the
+//   in-browser mode, and versions.json (content hashes, as the Python side computes them);
+// - public/runtime/parity: results/parity_fixtures.json and its PNGs, for the parity check.
+// The runtime/ prefix keeps these folders from shadowing the console's /models and /parity
+// pages.
+import { createHash } from 'node:crypto'
+import {
+    copyFileSync,
+    existsSync,
+    mkdirSync,
+    readdirSync,
+    readFileSync,
+    writeFileSync,
+} from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const here = dirname(fileURLToPath(import.meta.url))
 const app = join(here, '..')
 const repo = join(app, '..', '..')
+const pub = join(app, 'public')
 
 function copyMatching(sourceDir, pattern, targetDir) {
     if (!existsSync(sourceDir)) return 0
@@ -22,9 +37,32 @@ function copyMatching(sourceDir, pattern, targetDir) {
     return copied
 }
 
-const samples = copyMatching(
-    join(repo, 'tests', 'fixtures', 'parity'),
-    /^scene_\d+\.png$/,
-    join(app, 'public', 'samples'),
+function fileVersion(path) {
+    return createHash('sha256').update(readFileSync(path)).digest('hex').slice(0, 12)
+}
+
+const fixtures = join(repo, 'tests', 'fixtures', 'parity')
+const samples = copyMatching(fixtures, /^scene_\d+\.png$/, join(pub, 'samples'))
+
+const modelDir = join(repo, 'models')
+const models = copyMatching(
+    modelDir,
+    /^(crnn\.onnx|crnn\.json|detector\.onnx)$/,
+    join(pub, 'runtime', 'models'),
 )
-console.log(`sync-assets: ${samples} synthetic sample scenes`)
+if (existsSync(join(modelDir, 'detector.onnx')) && existsSync(join(modelDir, 'crnn.onnx'))) {
+    writeFileSync(
+        join(pub, 'runtime', 'models', 'versions.json'),
+        JSON.stringify({
+            crnn: fileVersion(join(modelDir, 'crnn.onnx')),
+            detector: fileVersion(join(modelDir, 'detector.onnx')),
+        }) + '\n',
+    )
+}
+
+const parity = copyMatching(fixtures, /\.png$/, join(pub, 'runtime', 'parity'))
+const results = join(repo, 'results', 'parity_fixtures.json')
+if (existsSync(results))
+    copyFileSync(results, join(pub, 'runtime', 'parity', 'parity_fixtures.json'))
+
+console.log(`sync-assets: ${samples} sample scenes, ${models} model files, ${parity} parity images`)

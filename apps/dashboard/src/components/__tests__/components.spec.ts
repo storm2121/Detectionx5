@@ -114,7 +114,20 @@ describe('read details', () => {
       global,
     })
     expect(abstained.text()).toContain('no plate found')
-    expect(abstained.find('img.crop').exists()).toBe(false)
+    // The detector boxed something that is not a plate: its crop is still shown.
+    expect(abstained.get('img.crop').attributes('src')).toBe(
+      `/api/reads/${ACCEPTED.id}/views/0/crop`,
+    )
+    const boxless = mount(ViewCard, {
+      props: { view: { ...ACCEPTED.views[0]!, box: null }, readId: ACCEPTED.id },
+      global,
+    })
+    expect(boxless.find('img.crop').exists()).toBe(false)
+    const browser = mount(ViewCard, {
+      props: { view, readId: null, cropSrc: 'data:image/png;base64,AAAA' },
+      global,
+    })
+    expect(browser.get('img.crop').attributes('src')).toBe('data:image/png;base64,AAAA')
   })
 
   it('overlays the detected box in photo pixels', async () => {

@@ -43,6 +43,12 @@ export const routes: RouteRecordRaw[] = [
     meta: { title: 'Methods' },
   },
   {
+    path: '/parity',
+    name: 'parity',
+    component: () => import('@/pages/ParityPage.vue'),
+    meta: { title: 'Browser parity' },
+  },
+  {
     path: '/:pathMatch(.*)*',
     name: 'not-found',
     component: () => import('@/pages/NotFoundPage.vue'),

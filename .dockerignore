@@ -18,4 +18,4 @@ apps/dashboard/storybook-static
 apps/dashboard/test-results
 apps/dashboard/playwright-report
 apps/dashboard/public/samples
-apps/dashboard/public/models
+apps/dashboard/public/runtime

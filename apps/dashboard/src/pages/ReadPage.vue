@@ -12,6 +12,7 @@ import ConformalSet from '@/components/ConformalSet.vue'
 import ErrorNote from '@/components/ErrorNote.vue'
 import FusionTable from '@/components/FusionTable.vue'
 import LoadingState from '@/components/LoadingState.vue'
+import ModeToggle from '@/components/ModeToggle.vue'
 import PhotoDrop from '@/components/PhotoDrop.vue'
 import PhotoFrame from '@/components/PhotoFrame.vue'
 import PlateFields from '@/components/PlateFields.vue'
@@ -22,12 +23,14 @@ import { dateTime, milliseconds, probability } from '@/lib/format'
 import { weakestCharacter } from '@/lib/fusion'
 import { fusionLabel } from '@/lib/labels'
 import { reviewReason, statusTone, symbolLabel } from '@/lib/plate'
+import { useBrowserStore } from '@/stores/browser'
 import { MAX_PHOTOS, useReadStore } from '@/stores/read'
 import { useServiceStore } from '@/stores/service'
 
 const props = defineProps<{ id?: string }>()
 
 const store = useReadStore()
+const browser = useBrowserStore()
 const service = useServiceStore()
 
 const SAMPLES = ['scene_00.png', 'scene_01.png', 'scene_02.png']
@@ -43,6 +46,19 @@ const read = computed(() => (detail.value ? stored.value : store.result))
 const busy = computed(() => (detail.value ? loadingStored.value : store.status === 'reading'))
 const errorText = computed(() => (detail.value ? storedError.value : store.error))
 const threshold = computed(() => service.models?.review_threshold ?? null)
+const inBrowser = computed(() => Boolean(read.value?.id.startsWith('browser-')))
+
+function readNow() {
+  void store.read({
+    alpha: service.models?.alpha ?? 0.05,
+    reviewThreshold: service.models?.review_threshold ?? 0.9,
+    backend: browser.backend ?? 'wasm',
+  })
+}
+
+function cropFor(index: number): string | null {
+  return inBrowser.value ? (store.browserCrops[index] ?? null) : null
+}
 const readViews = computed(() => read.value?.views.filter((v) => v.prediction !== null).length ?? 0)
 
 const verdict = computed(() => {
@@ -109,6 +125,7 @@ watch(
 onMounted(() => {
   void service.loadModels()
   void loadRecent()
+  if (store.mode === 'browser') void browser.prepare()
 })
 
 async function trySamples() {
@@ -177,6 +194,7 @@ function boxFor(index: number) {
             </PhotoFrame>
           </div>
           <div class="controls">
+            <ModeToggle />
             <div class="switch">
               <ToggleSwitch v-model="store.detect" input-id="detect-plates" />
               <label for="detect-plates">Find the plate in each photo</label>
@@ -188,7 +206,7 @@ function boxFor(index: number) {
                 :loading="store.status === 'reading'"
                 :disabled="!store.canRead"
                 data-testid="read-button"
-                @click="store.read()"
+                @click="readNow()"
               />
               <Button
                 label="Try three synthetic photos"
@@ -253,7 +271,8 @@ function boxFor(index: number) {
             <dt>Latency</dt>
             <dd class="dx-num">{{ milliseconds(read.latency_ms) }}</dd>
             <dt>Read</dt>
-            <dd>
+            <dd v-if="inBrowser">read in this browser, not stored</dd>
+            <dd v-else>
               <RouterLink :to="`/reads/${read.id}`"
                 ><code>{{ read.id.slice(0, 8) }}</code></RouterLink
               >
@@ -280,7 +299,13 @@ function boxFor(index: number) {
           </p>
         </div>
         <div class="dx-grid-3">
-          <ViewCard v-for="view in read.views" :key="view.index" :view="view" :read-id="read.id" />
+          <ViewCard
+            v-for="view in read.views"
+            :key="view.index"
+            :view="view"
+            :read-id="inBrowser ? null : read.id"
+            :crop-src="cropFor(view.index)"
+          />
         </div>
       </section>
 

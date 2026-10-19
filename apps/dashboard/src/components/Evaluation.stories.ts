@@ -11,12 +11,15 @@ import calibration from '@results/calibration_crnn.json'
 import fused from '@results/calibration_fused.json'
 import pseudo from '@results/eval_pseudo_real.json'
 import synthetic from '@results/eval_synthetic.json'
+import sweep from '@results/sweep.json'
 import training from '@results/train_crnn.json'
 
 import CalibrationCurve from './CalibrationCurve.vue'
 import ConfusionMatrix from './ConfusionMatrix.vue'
 import CoverageTable from './CoverageTable.vue'
 import MetricTable from './MetricTable.vue'
+import SimToRealGap from './SimToRealGap.vue'
+import SweepTable, { type SweepResult } from './SweepTable.vue'
 import StatusPill from './StatusPill.vue'
 import SyntheticNote from './SyntheticNote.vue'
 import TrainingCurve from './TrainingCurve.vue'
@@ -115,5 +118,22 @@ export const Labels: Story = {
         <StatusPill label="archived" />
       </div>
     </div>`,
+  }),
+}
+
+export const SimToReal: Story = {
+  render: () => ({
+    components: { SimToRealGap },
+    setup: () => ({ synthetic: SYNTHETIC, pseudo: PSEUDO }),
+    template:
+      '<div style="max-width: 760px"><SimToRealGap :synthetic="synthetic" :pseudo-real="pseudo" :real="null" /></div>',
+  }),
+}
+
+export const AugmentationSweep: Story = {
+  render: () => ({
+    components: { SweepTable },
+    setup: () => ({ sweep: sweep as unknown as SweepResult }),
+    template: '<SweepTable :sweep="sweep" />',
   }),
 }

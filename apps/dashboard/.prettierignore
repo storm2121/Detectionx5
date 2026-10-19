@@ -2,7 +2,8 @@ dist
 storybook-static
 node_modules
 public/samples
-public/models
+public/runtime
+src/inference/grammar.json
 playwright-report
 test-results
 pnpm-lock.yaml

@@ -1,7 +1,8 @@
 # The Vue console: built with Node and pnpm, served by nginx, which forwards /api to the
 # plate service (Compose service `api`). The build reads the plate fonts from the synthetic
-# generator, the committed results (for the tests and stories it type-checks) and the
-# synthetic sample scenes from the parity fixtures.
+# generator, the committed results (for the tests and stories it type-checks), the parity
+# fixtures (the samples and the browser parity check) and the ONNX models with the CRNN's
+# metadata, which the in-browser mode loads from the console itself.
 FROM node:22.17.0-alpine AS build
 ENV COREPACK_ENABLE_DOWNLOAD_PROMPT=0
 RUN corepack enable && corepack prepare pnpm@9.15.9 --activate
@@ -12,6 +13,8 @@ COPY apps/dashboard ./
 COPY plate_reader/synthetic/fonts /repo/plate_reader/synthetic/fonts
 COPY results/*.json /repo/results/
 COPY tests/fixtures/parity /repo/tests/fixtures/parity
+COPY tests/fixtures/web /repo/tests/fixtures/web
+COPY models/crnn.onnx models/crnn.json models/detector.onnx /repo/models/
 RUN pnpm build
 
 FROM nginx:1.27-alpine

@@ -38,4 +38,6 @@ export default defineConfig({
     target: 'es2022',
     chunkSizeWarningLimit: 1200,
   },
+  // ONNX Runtime Web loads its WebAssembly from /ort at run time; pre-bundling it breaks that.
+  optimizeDeps: { exclude: ['onnxruntime-web'] },
 })

@@ -8,17 +8,19 @@ import { fixed, percent, probability } from '@/lib/format'
 import StatusPill from './StatusPill.vue'
 
 const props = withDefaults(
-  defineProps<{ view: ViewOut; readId?: string | null; limit?: number }>(),
-  { readId: null, limit: 5 },
+  defineProps<{ view: ViewOut; readId?: string | null; cropSrc?: string | null; limit?: number }>(),
+  { readId: null, cropSrc: null, limit: 5 },
 )
 
 const number = computed(() => props.view.index + 1)
 const readable = computed(() => props.view.prediction !== null)
 const inSet = computed(() => new Set(props.view.prediction_set ?? []))
 const hypotheses = computed(() => props.view.hypotheses.slice(0, props.limit))
-const crop = computed(() =>
-  props.readId && readable.value ? cropUrl(props.readId, props.view.index) : null,
-)
+// The service keeps the crop of every detection, read or not; so does the browser runtime.
+const crop = computed(() => {
+  if (props.cropSrc) return props.cropSrc
+  return props.readId && props.view.box ? cropUrl(props.readId, props.view.index) : null
+})
 </script>
 
 <template>

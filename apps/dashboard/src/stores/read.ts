@@ -6,6 +6,17 @@ import type { ReadOut } from '@/api/types'
 
 export const MAX_PHOTOS = 10
 
+export type ReadMode = 'server' | 'browser'
+const MODE_KEY = 'dx-read-mode'
+
+function readMode(): ReadMode {
+  try {
+    return window.localStorage.getItem(MODE_KEY) === 'browser' ? 'browser' : 'server'
+  } catch {
+    return 'server'
+  }
+}
+
 export interface Photo {
   id: string
   file: File
@@ -32,6 +43,9 @@ export const useReadStore = defineStore('read', () => {
   const error = ref<string | null>(null)
   const result = shallowRef<ReadOut | null>(null)
   const rejected = ref(0)
+  const mode = ref<ReadMode>(readMode())
+  /** Crop images of an in-browser read (a stored read's crops come from the service). */
+  const browserCrops = ref<(string | null)[]>([])
 
   const canRead = computed(() => photos.value.length > 0 && status.value !== 'reading')
 
@@ -88,15 +102,44 @@ export const useReadStore = defineStore('read', () => {
     }
   }
 
-  async function read() {
+  function setMode(next: ReadMode) {
+    mode.value = next
+    result.value = null
+    status.value = 'idle'
+    try {
+      window.localStorage.setItem(MODE_KEY, next)
+    } catch {
+      // storage blocked: the choice lasts for this page only
+    }
+  }
+
+  async function read(
+    options: { alpha?: number; reviewThreshold?: number; backend?: 'webgpu' | 'wasm' } = {},
+  ) {
     if (!canRead.value) return
     status.value = 'reading'
     error.value = null
     try {
-      result.value = await api.read(
-        photos.value.map((p) => p.file),
-        detect.value,
-      )
+      if (mode.value === 'browser') {
+        const { readFiles } = await import('@/inference/browserRead')
+        const out = await readFiles(
+          photos.value.map((p) => p.file),
+          {
+            backend: options.backend ?? 'wasm',
+            detect: detect.value,
+            alpha: options.alpha ?? 0.05,
+            reviewThreshold: options.reviewThreshold ?? 0.9,
+          },
+        )
+        browserCrops.value = out.crops
+        result.value = out.read
+      } else {
+        browserCrops.value = []
+        result.value = await api.read(
+          photos.value.map((p) => p.file),
+          detect.value,
+        )
+      }
       status.value = 'done'
     } catch (cause) {
       error.value = errorMessage(cause)
@@ -124,7 +167,10 @@ export const useReadStore = defineStore('read', () => {
     error,
     result,
     rejected,
+    mode,
+    browserCrops,
     canRead,
+    setMode,
     add,
     remove,
     clear,
