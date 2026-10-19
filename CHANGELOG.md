@@ -82,6 +82,21 @@ All notable changes to this project are recorded here. The format follows
   three synthetic photos of one car with the Python pipeline's boxes, per-view reads and
   fused read in `results/parity_fixtures.json` (the console's samples).
 
+- M6: the in-browser mode: the detector and the CRNN run in the console through ONNX
+  Runtime Web (WebGPU when available, WebAssembly otherwise) with TypeScript ports of
+  OpenCV's `cvtColor` and `resize` (byte-exact against reference cases written by OpenCV),
+  Ultralytics' letterbox, the detector's padding and de-duplication, the constrained beam
+  search, the beam posterior and conformal sets, `math.fsum`, the alignment and the
+  probabilistic fusion; the Read page's Server or In this browser toggle with a parity
+  indicator; `/parity`, which reads every fixture of `results/parity_fixtures.json` in the
+  browser; a Playwright parity test in CI against `vite preview`.
+- M6: `plate export web` (the plate automaton for the browser, `grammar.json`, with a drift
+  test, and OpenCV reference cases); the parity fixtures record the CRNN's 8-bit input.
+- M6: `plate sweep`, an Optuna search over augmentation strengths that fine-tunes the
+  shipped CRNN per trial and scores a separate pseudo-real tuning split with paired
+  bootstrap intervals, writing `results/sweep.json` (rendered in the model card); the
+  Models page shows the sim-to-real gap and the sweep.
+
 ### Changed
 
 - M5: the fused conformal threshold is chosen by the number of views that proposed a plate,

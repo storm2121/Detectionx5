@@ -56,3 +56,27 @@ tooling; a demo that works without a server and never uploads a photo.
 - Accessibility is checked by tests: Playwright runs axe (WCAG 2.1 A and AA) on every
   page in both themes at desktop and phone width and fails on any violation, and checks that
   no page scrolls sideways.
+
+## Implementation notes (M6, executing agent)
+
+- The in-browser runtime (`apps/dashboard/src/inference`) ports every step the Python
+  pipeline takes between a decoded photo and a read: Ultralytics' letterbox, OpenCV's
+  `cvtColor` and `resize` (INTER_LINEAR with OpenCV's fixed-point weights and the rounding of
+  its SIMD vertical pass, INTER_AREA with exact block averages and float area weights), the
+  detector's padding, cropping and de-duplication, the temperature log-softmax, the
+  grammar-constrained prefix beam search, the beam posterior and conformal set, CPython's
+  `math.fsum`, the Levenshtein alignment and the probabilistic fusion. The pixel operations
+  are checked byte for byte against reference cases written by OpenCV
+  (`tests/fixtures/web/opencv_cases.json`); everything else against
+  `results/parity_fixtures.json`, which now records the CRNN's 8-bit input for every crop.
+- The plate automaton reaches the browser as `src/inference/grammar.json`, exported by
+  `plate export web`; a Python test fails when the committed copy differs from the grammar.
+- ONNX Runtime Web (pinned at 1.22) runs WebGPU when the browser offers an adapter and the
+  single-threaded WebAssembly backend otherwise (a static page without cross-origin
+  isolation cannot use threads). Its WebAssembly binary is bundled by Vite; the models and
+  the parity fixtures are copied into the console's static files at build time, so a read in
+  the browser needs no service and uploads nothing.
+- Parity is visible, not assumed: switching the Read page to the in-browser mode runs the
+  fixtures on the chosen backend and shows the outcome next to the toggle; `/parity` lists
+  every fixture with its largest differences; the Playwright parity test fails CI when any
+  fixture is out of the tolerances the fixtures state.

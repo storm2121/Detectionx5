@@ -196,6 +196,12 @@ reliability diagrams, letter confusions, conformal coverage), the models and the
 and tests it and builds its Storybook; `just dashboard-e2e` runs the Playwright smoke and
 accessibility checks against the running stack.
 
+The Read page can also read **in the browser**: the detector and the recogniser run through
+ONNX Runtime Web (WebGPU when available, WebAssembly otherwise) with TypeScript ports of the
+pipeline's image operations, decoders and fusion, so no photo leaves the device. Switching
+to that mode runs the parity fixtures in the browser and shows the outcome next to the
+toggle; `/parity` lists every fixture, and CI fails when any is out of tolerance.
+
 Host ports are chosen so the stack does not clash with other projects on the same machine:
 
 | Service | Host port |
@@ -394,7 +400,9 @@ Calibration and conformal sets of the fused read (each number of views has its o
 ### Pseudo-real stand-in
 
 A heavier augmentation preset stands in for the gap between synthetic and real photos
-until real labelled data exists. Rendered from `results/eval_pseudo_real.json`.
+until real labelled data exists. Rendered from `results/eval_pseudo_real.json`. The
+console's Models page draws the gap per recogniser, and `plate sweep` searches the
+augmentation strengths that narrow it (results in the model card).
 
 <!-- BEGIN RENDER pseudo-real-baseline -->
 **Synthetic results are not real-world accuracy.** Set: pseudo_real (`pseudo_real`), n = 300, generator seed 1006; values with 95% bootstrap intervals over images (1000 resamples).

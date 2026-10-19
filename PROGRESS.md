@@ -355,3 +355,67 @@ Never record the name of the original dataset host.
   restarted and the builds and checks then succeeded.
 - Open questions for the architect: none.
 - Next: M6.
+
+### M6: in-browser inference, parity, sim-to-real page, domain-randomisation sweep — done — 2026-10-19
+
+- Built: `apps/dashboard/src/inference`, the in-browser runtime: ONNX Runtime Web 1.22
+  (WebGPU when the browser offers an adapter, single-threaded WebAssembly otherwise) running
+  `models/detector.onnx` and `models/crnn.onnx` from the console's own static files, with
+  TypeScript ports of every step between a decoded PNG and a read: Ultralytics' letterbox,
+  OpenCV's BGR-to-grey conversion and `resize` (INTER_LINEAR with OpenCV's fixed-point
+  weights and the rounding of its SIMD vertical pass, INTER_AREA with exact block averages,
+  float area weights and the area-flavoured bilinear weights), the detector's padding,
+  cropping and de-duplication, the temperature log-softmax, the grammar-constrained prefix
+  beam search, the beam posterior and conformal set, the threshold per number of proposing
+  views, CPython's `math.fsum`, the Levenshtein alignment and the probabilistic fusion with
+  per-character posteriors. The Read page has a Server or In this browser toggle; switching
+  runs the parity fixtures on the chosen backend and shows the outcome as the parity
+  indicator; a browser read has the service's response shape, so every component draws it,
+  and it is marked as not stored. `/parity` reads every fixture in the browser and lists the
+  largest differences. The Models page shows the sim-to-real gap (synthetic test set against
+  the pseudo-real set per recogniser, with a column for real photos once `eval_data`
+  exists) and the augmentation sweep. Python side: `plate export web` writes the automaton
+  (`src/inference/grammar.json`, with a drift test) and OpenCV reference cases
+  (`tests/fixtures/web/opencv_cases.json`); the parity fixtures record the CRNN's 8-bit
+  input of every crop and scene view; `plate sweep` (Optuna TPE, 4.x) scales five groups of
+  augmentation bounds per trial, fine-tunes the shipped CRNN briefly on crops generated with
+  them, and scores a new pseudo-real tuning split (seed 1009) with paired bootstrap
+  intervals; `TrainConfig` takes the augmentation preset, initial weights and whether data
+  workers persist.
+- Commands run and results:
+  - `pnpm test`: 8 files, 105 passed (62 of them in `src/inference`: the 40 OpenCV reference cases,
+    including 24 random shapes, byte for byte; the constrained beam of all 16 crop fixtures
+    from their logits; the fusion of the scene set; `fsum` against CPython's values).
+  - Browser parity in Chromium (WebAssembly backend, `vite preview`): 20 of 20 fixtures
+    within tolerance; largest CRNN input difference 0 grey levels, largest logit difference
+    3.9e-6, largest probability difference 3.6e-7, largest box difference 4.9e-5 px,
+    largest detector score difference 8.6e-7; about 6 s for all fixtures.
+  - `pnpm exec playwright test e2e/parity.spec.ts` against `vite preview`: 2 passed (the
+    parity page passes every fixture; the in-browser mode reads the three sample photos to
+    the Python pipeline's plate and set with no request to `/api/read`).
+  - `uv run plate sweep`: 8 trials on `cuda` (about 20 minutes), `results/sweep.json` written and rendered in `docs/model_card.md`. Synthetic: the shipped weights score 0.692 [0.663, 0.719] on the 1000 tuning crops; fine-tuning with the shipped configuration (trial 0) gives 0.664 [0.635, 0.692]; the best trial (geometry x1.94, photometry x1.51, noise x1.48, clutter x0.59) gives 0.726 [0.698, 0.750], a paired difference to trial 0 of 0.062 [0.041, 0.085]; synthetic validation stays at about 0.98 for every trial.
+  - `uv run pytest tests/test_web.py tests/test_sweep.py tests/test_docs_render.py`: passed.
+  - `docker compose build api worker dashboard`, `docker compose --profile tracing up -d --wait`, then `pnpm e2e` (Playwright, desktop and phone): 38 passed (the 34 smoke, accessibility, read and review tests plus the two parity tests on each viewport).
+  - `just check`: green; console lint, build, 105 unit tests and Storybook; pytest 226 passed and 1 skipped, coverage 93.9% on `plate_reader`; `plate docs check` and `plate data validate` clean.
+- Decisions: the sweep fine-tunes the shipped CRNN per trial instead of training from
+  scratch (a from-scratch CRNN needs several full epochs before its accuracy carries any
+  signal, and the first from-scratch attempt scored zero at the sweep's budget); it scores a
+  separate pseudo-real tuning split so the evaluation set never steers a choice it later
+  measures; the best configuration is recorded, not adopted, because adopting it means a
+  full retraining and re-calibration. OpenCV 5's INTER_LINEAR applies its SIMD rounding to
+  every pixel of a row (found by the reference cases: the scalar tail rounding of OpenCV 4
+  would be one grey level off at some widths), and its BGR-to-grey conversion uses 15-bit
+  weights. ONNX Runtime Web's WebAssembly binary is bundled by Vite instead of copied, and
+  threads are off because a static page has no cross-origin isolation. The models and
+  fixtures are served under `/runtime/`: copied to `/models` and `/parity` they shadowed the
+  console's pages of the same names, and nginx answered those addresses with a redirect to
+  port 80 (found by the Compose smoke run, eight failures on exactly those two pages; nginx
+  no longer tries folders for page addresses). ADR 0006 implementation notes (M6), ADR 0010.
+- Stubbed or skipped, and why: WebGPU could not be exercised here (headless Chromium offers
+  no adapter); the backend selector and the parity check run on it when a browser does. The
+  first sweep run crashed when a data worker imported a module that was being edited; a
+  second crashed on Windows persistent data workers between trials (fixed by not keeping
+  workers alive in the sweep's trainings); the third completed.
+- Open questions for the architect: whether to retrain the CRNN with the sweep's best
+  configuration (it changes the shipped model, every calibration and every result).
+- Next: M7.
