@@ -28,10 +28,38 @@ def layout(tmp_path: Path) -> DataLayout:
     return layout
 
 
-def test_repository_placeholder_is_valid_and_empty() -> None:
-    report = validate_data(ROOT / "data")
+def _tracked_data_files() -> list[str]:
+    import shutil
+    import subprocess
+
+    git = shutil.which("git")
+    if git is None or not (ROOT / ".git").exists():
+        pytest.skip("not a git checkout")
+    listed = subprocess.run(
+        [git, "ls-files", "data"], cwd=ROOT, capture_output=True, text=True, check=True
+    )
+    return [line for line in listed.stdout.splitlines() if line]
+
+
+def test_repository_placeholder_is_valid_and_empty(tmp_path: Path) -> None:
+    """What the repository ships under data/ is the empty placeholder, whatever is local.
+
+    Real photos may sit in a working copy (they are gitignored); the committed files, laid
+    out on their own, must still be the valid, empty layout, and the local folder must
+    validate too.
+    """
+    tracked = _tracked_data_files()
+    assert tracked
+    allowed = {"README.md", "detector.yaml", ".gitkeep"}
+    assert all(Path(name).name in allowed for name in tracked), tracked
+    for name in tracked:
+        target = tmp_path / name
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_bytes((ROOT / name).read_bytes())
+    report = validate_data(tmp_path / "data")
     assert report.ok(strict=True)
     assert report.is_empty
+    assert validate_data(ROOT / "data").ok()
 
 
 def test_missing_folder_is_an_error(tmp_path: Path) -> None:
