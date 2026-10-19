@@ -5,6 +5,9 @@ real-world accuracy.
 
 ## What data the platform uses today
 
+- **A small private set of labelled real photos** under `data/eval` (gitignored and
+  never committed), used for evaluation only: nothing is trained, calibrated or tuned
+  on it. Its metrics, and only its metrics, are in `results/eval_data.json`.
 - **Synthetic plates** from `plate_reader/synthetic/`: standard and temporary plates
   rendered from the plate grammar with open-licensed fonts, composed onto procedural
   bodywork or street scenes and degraded by documented, strength-scaled augmentations
@@ -56,9 +59,10 @@ seeded from `(seed, kind, index, view)`, so no two splits share a sample.
 
 ## Known gaps
 
-The conformal thresholds, the temperature and every reported metric come from synthetic
-splits. They describe the synthetic distribution only; real photos will need their own
-calibration and evaluation, which `docs/insert_your_own_data.md` describes.
+The conformal thresholds and the temperature come from synthetic splits, and so does
+every metric except the real-photo evaluation. They describe the synthetic distribution
+only: on the real photos neither the confidence nor the sets hold, so real photos need
+their own calibration, which `docs/insert_your_own_data.md` describes.
 
 ## Privacy
 

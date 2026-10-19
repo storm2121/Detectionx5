@@ -61,10 +61,12 @@ and synthetic results are not real-world accuracy.
 ## The figures
 
 <!-- BEGIN RENDER cv-evidence -->
-**Synthetic results are not real-world accuracy.** Values with 95% bootstrap intervals where the source records one.
+**Synthetic results are not real-world accuracy.** Every row is synthetic except those from `results/eval_data.json`, which are real photos. Values with 95% bootstrap intervals where the source records one.
 
 | Claim | Value | Source |
 |---|---|---|
+| CRNN (constrained beam), exact match on 12 labelled real photos | 0.333 [0.083, 0.583] | `results/eval_data.json` |
+| EasyOCR baseline, exact match on the same real photos | 0.083 [0.000, 0.250] | `results/eval_data.json` |
 | CRNN (constrained beam), exact match on the synthetic test set | 0.990 [0.980, 1.000] | `results/eval_synthetic.json` |
 | EasyOCR baseline, exact match on the same set | 0.353 [0.297, 0.407] | `results/eval_synthetic.json` |
 | CRNN (constrained beam), expected calibration error | 0.009 [0.002, 0.017] | `results/eval_synthetic.json` |
@@ -82,7 +84,10 @@ and synthetic results are not real-world accuracy.
 
 ## What not to claim
 
-- Any real-world accuracy: there is no labelled real evaluation set yet.
+- A precise real-world accuracy: the only real evaluation is a small private set of
+  photos (the real-photo rows above), so its intervals are wide and its photos easy.
+- That the calibrated confidence or the conformal sets hold on real photos: both were
+  fitted on synthetic splits, and the real-photo evaluation shows they do not carry over.
 - That the detector's real-photo figures are independent: they come from its own
   validation split. Its only independent figures are on synthetic street scenes.
 - That the augmentation sweep improved the shipped model: the full training with its best

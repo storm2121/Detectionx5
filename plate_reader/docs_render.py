@@ -229,6 +229,74 @@ def _detector_synthetic(ctx: RenderContext) -> str:
     return "\n".join(lines)
 
 
+RECOGNIZER_NAMES: Final = {
+    "easyocr": "EasyOCR path",
+    "crnn-greedy": "CRNN, greedy",
+    "crnn-beam": "CRNN, constrained beam",
+    "crnn-beam-unconstrained": "CRNN, unconstrained beam",
+}
+RECOGNIZER_PROSE: Final = {
+    "easyocr": "the EasyOCR path",
+    "crnn-greedy": "the CRNN with greedy decoding",
+    "crnn-beam": "the CRNN with the constrained beam",
+    "crnn-beam-unconstrained": "the CRNN with the unconstrained beam",
+}
+_SMALL_NUMBERS: Final = [
+    "zero",
+    "one",
+    "two",
+    "three",
+    "four",
+    "five",
+    "six",
+    "seven",
+    "eight",
+    "nine",
+    "ten",
+    "eleven",
+    "twelve",
+    "thirteen",
+    "fourteen",
+    "fifteen",
+    "sixteen",
+    "seventeen",
+    "eighteen",
+    "nineteen",
+    "twenty",
+]
+
+
+def pct(value: float) -> str:
+    """A rate as a whole per cent: twelve images cannot carry a decimal."""
+    return f"{round(100 * float(value))}%"
+
+
+def pct_ci(metric: Mapping[str, Any]) -> str:
+    """``25% (0 to 50)``: the point estimate never appears without its interval."""
+    value = metric.get("value")
+    if value is None:
+        return "n/a"
+    low, high = metric.get("ci_low"), metric.get("ci_high")
+    if low is None or high is None:
+        return pct(value)
+    return f"{pct(value)} ({round(100 * float(low))} to {round(100 * float(high))})"
+
+
+def count_words(n: int) -> str:
+    return _SMALL_NUMBERS[n] if 0 <= n < len(_SMALL_NUMBERS) else str(n)
+
+
+def _best_recognizer(payload: Mapping[str, Any]) -> tuple[str, Mapping[str, Any]] | None:
+    best: tuple[str, Mapping[str, Any]] | None = None
+    for name, entry in payload.get("recognizers", {}).items():
+        metric = entry.get("metrics", {}).get("exact_match")
+        if metric is None:
+            continue
+        if best is None or float(metric["value"]) > float(best[1]["value"]):
+            best = (name, metric)
+    return best
+
+
 @block("ocr-benchmark-status")
 def _ocr_benchmark_status(ctx: RenderContext) -> str:
     real = ctx.result("eval_data")
@@ -239,7 +307,103 @@ def _ocr_benchmark_status(ctx: RenderContext) -> str:
             "where real photos and labels go."
         )
     n = real.get("set", {}).get("n", "?")
-    return f"OCR accuracy is benchmarked on a labelled real set of {n} images (see below)."
+    line = f"[OCR accuracy is benchmarked on a labelled real set of {n} images](#real-photos)."
+    best = _best_recognizer(real)
+    if best is not None:
+        name, metric = best
+        line += (
+            f" The best recogniser, {RECOGNIZER_PROSE.get(name, name)}, reads "
+            f"{pct_ci(metric)} of them exactly, end to end with the shipped detector."
+        )
+    return line
+
+
+@block("real-photos")
+def _real_photos(ctx: RenderContext) -> str:
+    real = ctx.result("eval_data")
+    if real is None:
+        return (
+            "No labelled real photos yet: put them under `data/eval` "
+            "(`docs/insert_your_own_data.md`) and run `uv run plate eval --set data`."
+        )
+    info = real.get("set", {})
+    boot = real.get("bootstrap", {})
+    n = int(info.get("n", 0))
+    level = round(float(boot.get("confidence", 0.95)) * 100)
+    note = str(info.get("note") or "").strip()
+    honest = f"{count_words(n).capitalize()} photos give a wide interval"
+    honest += f", and the set is {note}." if note else "."
+    skipped = int(info.get("skipped_without_box", 0) or 0)
+    letter_n = None
+    lines = [
+        f"Set: data (`{info.get('source', 'data/eval/labels.csv')}`, private and not in the "
+        f"repository), n = {n} labelled photos of real cars, each read end to end: the shipped "
+        "detector finds the plate and the photo is cropped exactly as the service crops it"
+        + (f" ({skipped} photos without a detected plate were left out)" if skipped else "")
+        + f". Values with {level}% bootstrap intervals over photos "
+        f"({boot.get('resamples', '?')} resamples). {honest}",
+        "",
+        "| Recogniser | Version | Exact match | Digits | Letter | Region | Character error rate |",
+        "|---|---|---|---|---|---|---|",
+    ]
+    for name, entry in real.get("recognizers", {}).items():
+        metrics = entry.get("metrics", {})
+        letter_n = metrics.get("letter_accuracy", {}).get("n", letter_n)
+        lines.append(
+            f"| {RECOGNIZER_NAMES.get(name, name)} | `{entry.get('model_version', '?')}` | "
+            f"{pct_ci(metrics.get('exact_match', {}))} | "
+            f"{pct_ci(metrics.get('digits_accuracy', {}))} | "
+            f"{pct_ci(metrics.get('letter_accuracy', {}))} | "
+            f"{pct_ci(metrics.get('region_accuracy', {}))} | "
+            f"{pct_ci(metrics.get('cer', {}))} |"
+        )
+    if letter_n is not None and letter_n != n:
+        lines += [
+            "",
+            f"Letter and region are scored on the {letter_n} standard plates; a temporary plate "
+            "has neither. A lower character error rate is better.",
+        ]
+    beam = real.get("recognizers", {}).get("crnn-beam", {}).get("metrics", {})
+    if "ece" in beam and "coverage" in beam:
+        lines += [
+            "",
+            "Calibration does not carry over: the constrained beam's confidence, temperature-"
+            f"scaled on synthetic plates, has an expected calibration error of {pct_ci(beam['ece'])} "
+            "on these photos, and its conformal sets, whose thresholds were fitted on synthetic "
+            f"splits, hold the true plate for {pct_ci(beam['coverage'])} of them. Both must be "
+            "refitted on real calibration photos before a confidence or a set is trusted.",
+        ]
+    synthetic = ctx.result("eval_synthetic")
+    if synthetic is not None:
+        s_n = synthetic.get("set", {}).get("n", "?")
+        lines += [
+            "",
+            "The sim-to-real gap: exact match of the same recognisers on the synthetic test set "
+            f"and on these photos. {SYNTHETIC_LABEL.capitalize()}; the synthetic column is the "
+            "development harness's, shown only to measure the gap.",
+            "",
+            f"| Recogniser | Synthetic test set (n = {s_n}) | Real photos (n = {n}) | Gap |",
+            "|---|---|---|---|",
+        ]
+        for name, entry in real.get("recognizers", {}).items():
+            r = entry.get("metrics", {}).get("exact_match")
+            s_entry = synthetic.get("recognizers", {}).get(name, {})
+            s = s_entry.get("metrics", {}).get("exact_match")
+            if r is None or s is None:
+                continue
+            gap = round(100 * (float(s["value"]) - float(r["value"])))
+            lines.append(
+                f"| {RECOGNIZER_NAMES.get(name, name)} | {pct_ci(s)} | {pct_ci(r)} | "
+                f"{gap} points lower on real photos |"
+            )
+    names = " ".join(f"-r {name}" for name in real.get("recognizers", {}))
+    quoted = f' --note "{note}"' if note else ""
+    lines += [
+        "",
+        f"Reproduce (with the photos in place): `uv run plate eval --set data {names} "
+        f"--views 0{quoted}`.",
+    ]
+    return "\n".join(lines)
 
 
 def _recognizer_table(payload: Mapping[str, Any]) -> list[str]:
@@ -551,6 +715,17 @@ def _cv_evidence(ctx: RenderContext) -> str:
     """The figures behind docs/CV_NOTES.md, each with the results file it comes from."""
     rows: list[tuple[str, str, str]] = []
 
+    real = ctx.result("eval_data")
+    if real is not None:
+        n = real.get("set", {}).get("n", "?")
+        for name, claim in (
+            ("crnn-beam", f"CRNN (constrained beam), exact match on {n} labelled real photos"),
+            ("easyocr", "EasyOCR baseline, exact match on the same real photos"),
+        ):
+            metric = real.get("recognizers", {}).get(name, {}).get("metrics", {}).get("exact_match")
+            if metric is not None:
+                rows.append((claim, fmt_ci(metric), "`results/eval_data.json`"))
+
     synthetic = ctx.result("eval_synthetic")
     pseudo = ctx.result("eval_pseudo_real")
     if synthetic is not None:
@@ -679,8 +854,9 @@ def _cv_evidence(ctx: RenderContext) -> str:
     if not rows:
         return f"No results yet. {SYNTHETIC_LABEL.capitalize()}."
     lines = [
-        f"**{SYNTHETIC_LABEL.capitalize()}.** Values with 95% bootstrap intervals where the source "
-        "records one.",
+        f"**{SYNTHETIC_LABEL.capitalize()}.** Every row is synthetic except those from "
+        "`results/eval_data.json`, which are real photos. Values with 95% bootstrap intervals "
+        "where the source records one.",
         "",
         "| Claim | Value | Source |",
         "|---|---|---|",

@@ -6,6 +6,7 @@ import csv
 import json
 import shutil
 from pathlib import Path
+from typing import Any
 
 import pytest
 from typer.testing import CliRunner
@@ -314,3 +315,52 @@ def test_the_training_and_sweep_blocks_follow_the_shipped_augmentation(tmp_path:
     assert "a full training with the configuration of trial 3" in BLOCKS["augmentation-sweep"](
         RenderContext(tmp_path)
     )
+
+
+def _estimate(value: float, low: float, high: float, n: int = 12) -> dict[str, Any]:
+    return {"value": value, "ci_low": low, "ci_high": high, "n": n}
+
+
+def test_the_real_photos_block_leads_with_intervals_the_note_and_the_gap(tmp_path: Path) -> None:
+    from plate_reader.docs_render import BLOCKS, RenderContext
+
+    ctx = RenderContext(root=tmp_path)
+    assert "No labelled real photos yet" in BLOCKS["real-photos"](ctx)
+    assert "not benchmarked on real data" in BLOCKS["ocr-benchmark-status"](ctx)
+    metrics = {
+        "exact_match": _estimate(0.25, 0.0, 0.5),
+        "digits_accuracy": _estimate(0.5, 0.25, 0.75),
+        "letter_accuracy": _estimate(0.6364, 0.3333, 0.9091, 11),
+        "region_accuracy": _estimate(0.6364, 0.3333, 0.9091, 11),
+        "cer": _estimate(0.25, 0.1, 0.43),
+        "ece": _estimate(0.47, 0.25, 0.68),
+        "coverage": _estimate(0.0, 0.0, 0.0),
+    }
+    ctx._json_cache["eval_data"] = {
+        "set": {
+            "n": 12,
+            "source": "data/eval/labels.csv",
+            "note": "small and easy (clean rear shots)",
+        },
+        "bootstrap": {"confidence": 0.95, "resamples": 1000},
+        "recognizers": {"crnn-beam": {"model_version": "crnn-x", "metrics": metrics}},
+    }
+    ctx._json_cache["eval_synthetic"] = {
+        "set": {"n": 300},
+        "recognizers": {"crnn-beam": {"metrics": {"exact_match": _estimate(0.99, 0.98, 1.0, 300)}}},
+    }
+    status = BLOCKS["ocr-benchmark-status"](ctx)
+    assert status.startswith(
+        "[OCR accuracy is benchmarked on a labelled real set of 12 images](#real-photos)."
+    )
+    assert "25% (0 to 50)" in status
+    block = BLOCKS["real-photos"](ctx)
+    assert "| CRNN, constrained beam | `crnn-x` | 25% (0 to 50) | 50% (25 to 75) |" in block
+    assert (
+        "Twelve photos give a wide interval, and the set is small and easy (clean rear shots)."
+        in block
+    )
+    assert "scored on the 11 standard plates" in block
+    assert "| CRNN, constrained beam | 99% (98 to 100) | 25% (0 to 50) | 74 points lower" in block
+    assert "Synthetic results are not real-world accuracy" in block
+    assert "hold the true plate for 0% (0 to 0)" in block

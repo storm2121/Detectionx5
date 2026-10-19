@@ -120,6 +120,33 @@ The rule, fixed before the comparison ran: adopt the new weights only if the pai
 
 ## Evaluation
 
+On labelled photos of real cars, read end to end with the shipped detector and cropped
+as the service crops them (`results/eval_data.json`; the photos stay private):
+
+<!-- BEGIN RENDER real-photos -->
+Set: data (`data/eval/labels.csv`, private and not in the repository), n = 12 labelled photos of real cars, each read end to end: the shipped detector finds the plate and the photo is cropped exactly as the service crops it. Values with 95% bootstrap intervals over photos (1000 resamples). Twelve photos give a wide interval, and the set is small and easy (clean rear shots).
+
+| Recogniser | Version | Exact match | Digits | Letter | Region | Character error rate |
+|---|---|---|---|---|---|---|
+| EasyOCR path | `easyocr-1.7.2+segmentation` | 8% (0 to 25) | 17% (0 to 42) | 18% (0 to 42) | 18% (0 to 44) | 84% (63 to 100) |
+| CRNN, greedy | `crnn-5348143705d4-T0.888664` | 25% (0 to 50) | 33% (8 to 58) | 27% (0 to 55) | 36% (10 to 67) | 24% (12 to 39) |
+| CRNN, constrained beam | `crnn-5348143705d4-T0.888664` | 33% (8 to 58) | 50% (25 to 75) | 64% (33 to 91) | 64% (33 to 91) | 25% (10 to 43) |
+
+Letter and region are scored on the 11 standard plates; a temporary plate has neither. A lower character error rate is better.
+
+Calibration does not carry over: the constrained beam's confidence, temperature-scaled on synthetic plates, has an expected calibration error of 47% (25 to 68) on these photos, and its conformal sets, whose thresholds were fitted on synthetic splits, hold the true plate for 0% (0 to 0) of them. Both must be refitted on real calibration photos before a confidence or a set is trusted.
+
+The sim-to-real gap: exact match of the same recognisers on the synthetic test set and on these photos. Synthetic results are not real-world accuracy; the synthetic column is the development harness's, shown only to measure the gap.
+
+| Recogniser | Synthetic test set (n = 300) | Real photos (n = 12) | Gap |
+|---|---|---|---|
+| EasyOCR path | 35% (30 to 41) | 8% (0 to 25) | 27 points lower on real photos |
+| CRNN, greedy | 99% (98 to 100) | 25% (0 to 50) | 74 points lower on real photos |
+| CRNN, constrained beam | 99% (98 to 100) | 33% (8 to 58) | 66 points lower on real photos |
+
+Reproduce (with the photos in place): `uv run plate eval --set data -r easyocr -r crnn-greedy -r crnn-beam --views 0 --note "small and easy (clean rear shots)"`.
+<!-- END RENDER real-photos -->
+
 Calibration and conformal coverage, on three disjoint synthetic splits:
 
 <!-- BEGIN RENDER crnn-calibration -->
@@ -188,8 +215,9 @@ Set coverage is the share of truths inside the conformal set at the level fixed 
 
 ## Limitations
 
-- Trained and measured on synthetic plates only. The pseudo-real set is still synthetic;
-  it only shows how quickly accuracy falls under harder conditions.
+- Trained and calibrated on synthetic plates only, and measured on real photos only
+  through a small private set, whose intervals are wide. The pseudo-real set is still
+  synthetic; it only shows how quickly accuracy falls under harder conditions.
 - The conformal guarantee assumes the calibration and test images are exchangeable. Real
   photos are not exchangeable with synthetic ones, so the stated coverage does not carry
   over to real data until the thresholds are refitted on real labelled crops.

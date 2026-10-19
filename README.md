@@ -8,12 +8,12 @@ whose corrections become training data. A Vue console shows every step, and can 
 models in the browser so that a photo never leaves the device. Everything runs locally: no
 API key, no network call at inference time.
 
-**There is no labelled real data yet.** The platform trains, calibrates and measures itself
-on deterministic synthetic plates, and every number below says so: synthetic results are not
-real-world accuracy.
+The models are trained and calibrated on deterministic synthetic plates, and a small private
+set of labelled real photos measures them end to end. Every synthetic number says so:
+synthetic results are not real-world accuracy.
 
 <!-- BEGIN RENDER ocr-benchmark-status -->
-OCR accuracy is benchmarked on a labelled real set of 12 images (see below).
+[OCR accuracy is benchmarked on a labelled real set of 12 images](#real-photos). The best recogniser, the CRNN with the constrained beam, reads 33% (8 to 58) of them exactly, end to end with the shipped detector.
 <!-- END RENDER ocr-benchmark-status -->
 
 ```console
@@ -27,6 +27,7 @@ $ just demo        # the whole stack in Compose; prints where the console is
 - [Architecture](#architecture)
 - [How a read works](#how-a-read-works)
 - [Results](#results)
+- [Development and synthetic harness](#development-and-synthetic-harness)
 - [Run it](#run-it)
 - [Insert your own data](#insert-your-own-data)
 - [What changes once real data arrives](#what-changes-once-real-data-arrives)
@@ -131,9 +132,38 @@ The equations, their assumptions and their tests are in
 
 ## Results
 
-Every number in this section is rendered by `uv run plate docs render` from
+Every number in this section and the next is rendered by `uv run plate docs render` from
 [`docs/training_results.csv`](docs/training_results.csv) and `results/*.json`;
 `uv run plate docs check` fails if a number is edited by hand or drifts from its source.
+
+### Real photos
+
+Labelled photos of real cars, read the way the service reads them, rendered from
+`results/eval_data.json`. The photos themselves stay private and out of git.
+
+<!-- BEGIN RENDER real-photos -->
+Set: data (`data/eval/labels.csv`, private and not in the repository), n = 12 labelled photos of real cars, each read end to end: the shipped detector finds the plate and the photo is cropped exactly as the service crops it. Values with 95% bootstrap intervals over photos (1000 resamples). Twelve photos give a wide interval, and the set is small and easy (clean rear shots).
+
+| Recogniser | Version | Exact match | Digits | Letter | Region | Character error rate |
+|---|---|---|---|---|---|---|
+| EasyOCR path | `easyocr-1.7.2+segmentation` | 8% (0 to 25) | 17% (0 to 42) | 18% (0 to 42) | 18% (0 to 44) | 84% (63 to 100) |
+| CRNN, greedy | `crnn-5348143705d4-T0.888664` | 25% (0 to 50) | 33% (8 to 58) | 27% (0 to 55) | 36% (10 to 67) | 24% (12 to 39) |
+| CRNN, constrained beam | `crnn-5348143705d4-T0.888664` | 33% (8 to 58) | 50% (25 to 75) | 64% (33 to 91) | 64% (33 to 91) | 25% (10 to 43) |
+
+Letter and region are scored on the 11 standard plates; a temporary plate has neither. A lower character error rate is better.
+
+Calibration does not carry over: the constrained beam's confidence, temperature-scaled on synthetic plates, has an expected calibration error of 47% (25 to 68) on these photos, and its conformal sets, whose thresholds were fitted on synthetic splits, hold the true plate for 0% (0 to 0) of them. Both must be refitted on real calibration photos before a confidence or a set is trusted.
+
+The sim-to-real gap: exact match of the same recognisers on the synthetic test set and on these photos. Synthetic results are not real-world accuracy; the synthetic column is the development harness's, shown only to measure the gap.
+
+| Recogniser | Synthetic test set (n = 300) | Real photos (n = 12) | Gap |
+|---|---|---|---|
+| EasyOCR path | 35% (30 to 41) | 8% (0 to 25) | 27 points lower on real photos |
+| CRNN, greedy | 99% (98 to 100) | 25% (0 to 50) | 74 points lower on real photos |
+| CRNN, constrained beam | 99% (98 to 100) | 33% (8 to 58) | 66 points lower on real photos |
+
+Reproduce (with the photos in place): `uv run plate eval --set data -r easyocr -r crnn-greedy -r crnn-beam --views 0 --note "small and easy (clean rear shots)"`.
+<!-- END RENDER real-photos -->
 
 ### Detection model
 
@@ -150,8 +180,18 @@ Every number in this section is rendered by `uv run plate docs render` from
 Set: the detector's own validation split (data). The training log does not record the split size, and a single validation pass gives no confidence interval, so neither n nor a CI is reported for these four numbers.
 <!-- END RENDER detector-metrics -->
 
-Full per-epoch metrics are in [`docs/training_results.csv`](docs/training_results.csv). On
-synthetic street scenes, rendered from `results/eval_detector_synthetic.json`:
+Full per-epoch metrics are in [`docs/training_results.csv`](docs/training_results.csv).
+
+## Development and synthetic harness
+
+The figures the models are developed, trained and calibrated against: deterministic
+synthetic plates and scenes, every split with its own seed, every metric with a bootstrap
+interval. Synthetic results are not real-world accuracy; they say how the models behave on the
+generator's distribution, and the real photos above say how far that is from the street.
+
+### The detector on synthetic street scenes
+
+Rendered from `results/eval_detector_synthetic.json`:
 
 <!-- BEGIN RENDER detector-synthetic -->
 **Synthetic results are not real-world accuracy.** `models/best.pt` on the `val` split of a synthetic street-scene set: 150 scenes holding 135 plates (15 with no plate), generator seed 1005, version 1, image size 640. One Ultralytics validation pass, so no interval; procedural scenes say nothing about real photos.
@@ -370,9 +410,9 @@ of git: a pre-commit check refuses images, videos and large CSVs under `data/`.
 
 ## What changes once real data arrives
 
-- `uv run plate eval --set data` measures every recogniser on the real test split; the
-  console and the docs then show real results next to the synthetic ones, and the
-  statement that OCR accuracy is not benchmarked on real data can go.
+- `uv run plate eval --set data` measures every recogniser on the labelled photos in
+  `data/eval`, end to end with the shipped detector. This has happened on a small private
+  set ([Real photos](#real-photos)); a larger set narrows the intervals and is the next step.
 - `plate train crnn` fine-tunes the CRNN on `data/ocr/train`, and the review queue's exports
   keep adding to that split.
 - The temperature and every conformal threshold (one view, and each number of fused views)
@@ -387,8 +427,12 @@ of git: a pre-commit check refuses images, videos and large CSVs under `data/`.
 
 ## Honesty and limitations
 
-- No real labelled evaluation exists: every recogniser metric, confidence and threshold here
-  comes from synthetic data, and synthetic results are not real-world accuracy. The
+- The only real labelled evaluation is a small private set of photos of real cars
+  ([Real photos](#real-photos)). Its intervals are wide and its photos are easy ones, so it
+  measures the size of the sim-to-real gap rather than a precise real-world accuracy.
+- Every confidence and every conformal threshold is still fitted on synthetic data, and
+  synthetic results are not real-world accuracy: on the real photos the calibrated confidence
+  and the conformal sets do not hold (both are rendered with the real results). The
   pseudo-real set is synthetic too.
 - The detector's real-photo figures come from its own validation split, and its other
   figures from one pass over procedural street scenes; neither has an interval.
