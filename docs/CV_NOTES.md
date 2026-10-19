@@ -48,9 +48,11 @@ and synthetic results are not real-world accuracy.
   `tests/fixtures/web/opencv_cases.json`), `apps/dashboard/e2e/parity.spec.ts` (every
   fixture of `results/parity_fixtures.json` within its stated tolerance, in CI).
 - **Domain randomisation.** "Searched augmentation strengths with Optuna against a
-  pseudo-real tuning split, with paired bootstrap differences between trials." Code:
-  `plate_reader/training/sweep.py`. Tests: `tests/test_sweep.py`. Results:
-  `results/sweep.json`, rendered in `docs/model_card.md`.
+  pseudo-real tuning split, with paired bootstrap differences between trials, then trained
+  the winner in full and kept it only under an adoption rule fixed in advance." Code:
+  `plate_reader/training/sweep.py`, `plate_reader/eval/compare.py`. Tests:
+  `tests/test_sweep.py`, `tests/test_compare.py`. Results: `results/sweep.json` and
+  `results/crnn_comparison.json`, rendered in `docs/model_card.md`.
 - **Engineering hygiene.** "Kept every documented number rendered from its source and
   checked in CI, with mypy --strict, a coverage gate, repository guards and ADRs." Code:
   `plate_reader/docs_render.py`, `tools/repo_guards.py`, `.github/workflows/ci.yml`,
@@ -73,6 +75,8 @@ and synthetic results are not real-world accuracy.
 | CRNN (constrained beam), exact match on the pseudo-real set | 0.610 [0.553, 0.660] | `results/eval_pseudo_real.json` |
 | Augmentation sweep, best of 8 trials on the pseudo-real tuning split | 0.726 | `results/sweep.json` |
 | Detector mAP@50 and mAP@50-95 on synthetic street scenes (one pass, no interval) | 0.843 and 0.602 | `results/eval_detector_synthetic.json` |
+| Retrained CRNN minus the previous weights, exact match on the synthetic test split | 0.0030 [-0.0005, 0.0065] | `results/crnn_comparison.json` |
+| The same paired difference on the pseudo-real set | 0.0630 [0.0465, 0.0790] | `results/crnn_comparison.json` |
 | CRNN parameters | 1440051 | `results/train_crnn.json` |
 <!-- END RENDER cv-evidence -->
 
@@ -81,5 +85,6 @@ and synthetic results are not real-world accuracy.
 - Any real-world accuracy: there is no labelled real evaluation set yet.
 - That the detector's real-photo figures are independent: they come from its own
   validation split. Its only independent figures are on synthetic street scenes.
-- That the augmentation sweep improved the shipped model: its best configuration has not
-  been used for a full training.
+- That the augmentation sweep improved the shipped model: the full training with its best
+  configuration did not meet the adoption rule, so the shipped weights are the original
+  ones (the comparison is in the model card).

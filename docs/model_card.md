@@ -33,7 +33,7 @@ edited by hand. Synthetic results are not real-world accuracy.
 - Version: the first twelve hexadecimal digits of the ONNX file's SHA-256.
 
 <!-- BEGIN RENDER crnn-training -->
-`models/crnn.onnx` (version `5348143705d4`, 5.8 MB, 1440051 parameters): trained on synthetic crops only, 24 epochs of 20000 freshly generated crops each on `cuda`, in 1139.4 s. The kept epoch is 18, chosen by greedy exact match on the synthetic validation split (0.995). Fine-tuned on real data: no. Synthetic results are not real-world accuracy.
+`models/crnn.onnx` (version `5348143705d4`, 5.8 MB, 1440051 parameters): trained on synthetic crops only, 24 epochs of 20000 freshly generated crops each on `cuda`, in 1139.4 s. The kept epoch is 18, chosen by greedy exact match on the synthetic validation split (0.995). Fine-tuned on real data: no. Augmentation: the generator's default degradation bounds. Synthetic results are not real-world accuracy.
 <!-- END RENDER crnn-training -->
 
 ## The detector
@@ -55,6 +55,8 @@ with `plate eval-detector` (Ultralytics validation):
 | Recall | 0.948 |
 | mAP@50 | 0.843 |
 | mAP@50-95 | 0.602 |
+
+Precision is below recall by 0.219: on these scenes the detector proposes boxes that are not plates more often than it misses a plate. The gap is noted and not acted on: the detector is not fine-tuned on synthetic scenes, and only a labelled set of real photos can say whether it matters.
 
 Reproduce: `uv run plate synth scenes --n 300 --seed 1005 --val-fraction 0.5 --out synthetic/scenes-eval` then `uv run plate eval-detector --data synthetic/scenes-eval/detector.yaml`.
 <!-- END RENDER detector-synthetic -->
@@ -79,11 +81,12 @@ then the model has never seen a real plate.
 pseudo-real set: every trial scales five groups of augmentation bounds, fine-tunes the
 shipped CRNN briefly on crops generated with them, and scores exact match on a pseudo-real
 tuning split with its own seed (never the pseudo-real evaluation set). Short fine-tunings
-rank configurations; the shipped model is not retrained with the winner until a full
-training with it has been evaluated. Rendered from `results/sweep.json`.
+rank configurations; a full training with the winner is then compared with the weights in
+service, on the same crops and under a rule fixed before it runs (ADR 0010). Rendered from
+`results/sweep.json`.
 
 <!-- BEGIN RENDER augmentation-sweep -->
-**Synthetic results are not real-world accuracy.** 8 trials, each fine-tuning `crnn.pt` for 3 epochs of 10000 synthetic crops on `cuda`, scored by greedy exact match on 1000 pseudo-real tuning crops (seed 1009) with 95% bootstrap intervals; trial 0 is the shipped configuration, and differences are paired against it over the same crops. The shipped weights score 0.692 [0.663, 0.719] before any fine-tuning. The shipped CRNN keeps the default configuration until a full training with the best one is evaluated.
+**Synthetic results are not real-world accuracy.** 8 trials, each fine-tuning `crnn.pt` for 3 epochs of 10000 synthetic crops on `cuda`, scored by greedy exact match on 1000 pseudo-real tuning crops (seed 1009) with 95% bootstrap intervals; trial 0 is the default configuration, and differences are paired against it over the same crops. The weights the trials started from score 0.692 [0.663, 0.719] before any fine-tuning. A full training with the best configuration was compared with the shipped weights and did not replace them; the comparison follows.
 
 | Trial | geometry | photometry | blur | noise | clutter | Pseudo-real exact match | Difference to the shipped configuration | Synthetic validation |
 |---|---|---|---|---|---|---|---|---|
@@ -94,8 +97,26 @@ training with it has been evaluated. Rendered from `results/sweep.json`.
 | 1 | 1.07 | 1.35 | 1.15 | 1.06 | 0.90 | 0.698 [0.669, 0.725] | 0.034 [0.014, 0.053] | 0.985 |
 | 2 | 1.22 | 0.92 | 1.72 | 1.90 | 0.85 | 0.690 [0.662, 0.718] | 0.026 [0.005, 0.049] | 0.980 |
 | 7 | 0.72 | 1.46 | 0.94 | 1.10 | 0.51 | 0.673 [0.645, 0.702] | 0.009 [-0.013, 0.033] | 0.975 |
-| 0 (shipped) | 1.00 | 1.00 | 1.00 | 1.00 | 1.00 | 0.664 [0.635, 0.692] | reference | 0.985 |
+| 0 (default) | 1.00 | 1.00 | 1.00 | 1.00 | 1.00 | 0.664 [0.635, 0.692] | reference | 0.985 |
 <!-- END RENDER augmentation-sweep -->
+
+### The best configuration, trained in full
+
+`plate train crnn --augment-from results/sweep.json` repeats the shipped recipe from scratch
+with the best trial's bounds, calibrates the result like the shipped model, and
+`plate compare-crnn` reads both models with the served decoder on the same crops. Rendered
+from `results/crnn_comparison.json`:
+
+<!-- BEGIN RENDER crnn-comparison -->
+**Synthetic results are not real-world accuracy.** Before: `crnn-5348143705d4-T0.888664`. Retrained: `crnn-3d1b26202da9-T0.800804` (trained from scratch with the shipped recipe, 24 epochs of 20000 crops, and the augmentation of sweep trial 5). Both read through the grammar-constrained beam with their own calibrated temperature, on the same 2000 crops per set; differences are a paired percentile bootstrap (1000 resamples, 95% intervals).
+
+| Set | Before | Retrained | Retrained minus before | Right only before | Right only retrained |
+|---|---|---|---|---|---|
+| Synthetic test split (decides) | 0.9945 [0.9915, 0.9975] | 0.9975 [0.9950, 0.9995] | 0.0030 [-0.0005, 0.0065] | 3 | 9 |
+| Pseudo-real set (reported only) | 0.6675 [0.6465, 0.6885] | 0.7305 [0.7120, 0.7500] | 0.0630 [0.0465, 0.0790] | 64 | 190 |
+
+The rule, fixed before the comparison ran: adopt the new weights only if the paired difference in exact match (new minus old) on the synthetic test split has a bootstrap interval entirely above zero. Outcome: the previous weights stay in service; the retrained ones are not committed, and the shipped CRNN, its calibration and every other result are unchanged.
+<!-- END RENDER crnn-comparison -->
 
 ## Evaluation
 
@@ -198,5 +219,7 @@ uv run plate eval --set views
 uv run plate export fixtures       # parity fixtures for the PyTorch, ONNX and browser runtimes
 uv run plate export web            # the automaton and OpenCV reference cases for the browser
 uv run plate sweep                 # the augmentation sweep
+uv run plate train crnn --augment-from results/sweep.json --models-dir .cache/crnn-sweep/models --results-dir .cache/crnn-sweep/results
+uv run plate compare-crnn --old models/crnn.onnx --new .cache/crnn-sweep/models/crnn.onnx --new-summary .cache/crnn-sweep/results/train_crnn.json
 uv run plate docs render
 ```

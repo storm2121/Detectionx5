@@ -1,0 +1,104 @@
+{
+ "schema": "detectionx5.compare_crnn/1",
+ "label": "synthetic results are not real-world accuracy",
+ "metric": "exact match of the grammar-constrained beam (the served decoder)",
+ "old": {
+  "file": "models/crnn.onnx",
+  "version": "crnn-5348143705d4-T0.888664"
+ },
+ "new": {
+  "file": ".cache/crnn-sweep/models/crnn.onnx",
+  "version": "crnn-3d1b26202da9-T0.800804",
+  "training": {
+   "epochs": 24,
+   "epoch_size": 20000,
+   "seconds": 796.5,
+   "best_epoch": 21,
+   "best_val_exact_greedy": 0.998,
+   "augment_source": {
+    "file": "results/sweep.json",
+    "trial": 5,
+    "multipliers": {
+     "geometry": 1.9416,
+     "photometry": 1.5139,
+     "blur": 0.948,
+     "noise": 1.4754,
+     "clutter": 0.5891
+    }
+   }
+  }
+ },
+ "bootstrap": {
+  "resamples": 1000,
+  "confidence": 0.95,
+  "seed": 0,
+  "unit": "crop",
+  "method": "percentile",
+  "paired": true
+ },
+ "sets": {
+  "synthetic": {
+   "set": {
+    "name": "synthetic",
+    "kind": "synthetic",
+    "n": 2000,
+    "seed": 1005,
+    "generator_version": "1",
+    "source": "plate_reader.synthetic"
+   },
+   "old": {
+    "value": 0.9945,
+    "ci_low": 0.991488,
+    "ci_high": 0.9975,
+    "n": 2000
+   },
+   "new": {
+    "value": 0.9975,
+    "ci_low": 0.995,
+    "ci_high": 0.9995,
+    "n": 2000
+   },
+   "difference": {
+    "value": 0.003,
+    "ci_low": -0.0005,
+    "ci_high": 0.0065,
+    "n": 2000
+   },
+   "only_old_right": 3,
+   "only_new_right": 9
+  },
+  "pseudo_real": {
+   "set": {
+    "name": "pseudo_real",
+    "kind": "pseudo_real",
+    "n": 2000,
+    "seed": 1006,
+    "generator_version": "1",
+    "source": "plate_reader.synthetic (pseudo-real preset)"
+   },
+   "old": {
+    "value": 0.6675,
+    "ci_low": 0.646487,
+    "ci_high": 0.688512,
+    "n": 2000
+   },
+   "new": {
+    "value": 0.7305,
+    "ci_low": 0.712,
+    "ci_high": 0.75,
+    "n": 2000
+   },
+   "difference": {
+    "value": 0.063,
+    "ci_low": 0.0465,
+    "ci_high": 0.079012,
+    "n": 2000
+   },
+   "only_old_right": 64,
+   "only_new_right": 190
+  }
+ },
+ "deciding_set": "synthetic",
+ "rule": "adopt the new weights only if the paired difference in exact match (new minus old) on the synthetic test split has a bootstrap interval entirely above zero",
+ "adopt": false
+}

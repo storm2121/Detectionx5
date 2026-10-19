@@ -163,6 +163,8 @@ synthetic street scenes, rendered from `results/eval_detector_synthetic.json`:
 | mAP@50 | 0.843 |
 | mAP@50-95 | 0.602 |
 
+Precision is below recall by 0.219: on these scenes the detector proposes boxes that are not plates more often than it misses a plate. The gap is noted and not acted on: the detector is not fine-tuned on synthetic scenes, and only a labelled set of real photos can say whether it matters.
+
 Reproduce: `uv run plate synth scenes --n 300 --seed 1005 --val-fraction 0.5 --out synthetic/scenes-eval` then `uv run plate eval-detector --data synthetic/scenes-eval/detector.yaml`.
 <!-- END RENDER detector-synthetic -->
 
@@ -201,7 +203,7 @@ Multi-view sets (exact match of the fused read; n = 100 sets, bootstrap over set
 ### The CRNN: training and calibration
 
 <!-- BEGIN RENDER crnn-training -->
-`models/crnn.onnx` (version `5348143705d4`, 5.8 MB, 1440051 parameters): trained on synthetic crops only, 24 epochs of 20000 freshly generated crops each on `cuda`, in 1139.4 s. The kept epoch is 18, chosen by greedy exact match on the synthetic validation split (0.995). Fine-tuned on real data: no. Synthetic results are not real-world accuracy.
+`models/crnn.onnx` (version `5348143705d4`, 5.8 MB, 1440051 parameters): trained on synthetic crops only, 24 epochs of 20000 freshly generated crops each on `cuda`, in 1139.4 s. The kept epoch is 18, chosen by greedy exact match on the synthetic validation split (0.995). Fine-tuned on real data: no. Augmentation: the generator's default degradation bounds. Synthetic results are not real-world accuracy.
 <!-- END RENDER crnn-training -->
 
 <!-- BEGIN RENDER crnn-calibration -->
@@ -272,7 +274,8 @@ Calibration and conformal sets of the fused read (each number of views has its o
 A heavier augmentation preset stands in for the gap between synthetic and real photos until
 real labelled data exists. Rendered from `results/eval_pseudo_real.json`. The console's
 Models page draws the gap per recogniser, and `plate sweep` searches the augmentation
-strengths that narrow it (its results are in the [model card](docs/model_card.md)).
+strengths that narrow it; its best configuration was then trained in full and compared
+with the shipped weights (both in the [model card](docs/model_card.md)).
 
 <!-- BEGIN RENDER pseudo-real-baseline -->
 **Synthetic results are not real-world accuracy.** Set: pseudo_real (`pseudo_real`), n = 300, generator seed 1006; values with 95% bootstrap intervals over images (1000 resamples).
@@ -351,6 +354,7 @@ parity. Light and dark themes, phone width, axe-checked.
 | `plate train crnn / calibrate / calibrate-fused / detector` | train and calibrate |
 | `plate export onnx / detector / fixtures / web` | export models, parity fixtures and the browser's assets |
 | `plate sweep` | search augmentation strengths against the pseudo-real set |
+| `plate compare-crnn --old A.onnx --new B.onnx` | two CRNNs on the same crops, paired, with the adoption rule |
 | `plate registry promote / list` | the model registry |
 | `plate data validate / init` | check or create the real-data layout |
 | `plate docs render / check` | render and check every documented number |

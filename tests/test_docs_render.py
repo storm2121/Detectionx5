@@ -186,7 +186,7 @@ def test_the_sweep_block_renders_from_results(tmp_path: Path) -> None:
     assert SYNTHETIC_LABEL.capitalize() in text
     rows = [line for line in text.splitlines() if line.startswith("| 0") or line.startswith("| 1")]
     assert rows[0].startswith("| 1 (best) | 1.50 | 0.75 | 0.625")
-    assert rows[1].startswith("| 0 (shipped) | 1.00 | 1.00 | 0.500 | reference")
+    assert rows[1].startswith("| 0 (default) | 1.00 | 1.00 | 0.500 | reference")
     assert "keeps the default configuration" in text
 
 
@@ -226,3 +226,91 @@ def test_the_detector_block_renders_from_its_validation(tmp_path: Path) -> None:
     del payload["counts"]
     target.write_text(json.dumps(payload), encoding="utf-8")
     assert "the whole split" in BLOCKS["detector-synthetic"](RenderContext(tmp_path))
+    assert "Precision is below recall by 0.125" in text
+    payload["metrics"]["precision"] = 0.9
+    target.write_text(json.dumps(payload), encoding="utf-8")
+    assert "Precision is below recall" not in BLOCKS["detector-synthetic"](RenderContext(tmp_path))
+
+
+def _estimate(value: float, low: float, high: float) -> dict[str, float]:
+    return {"value": value, "ci_low": low, "ci_high": high, "n": 2000}
+
+
+def test_the_comparison_block_states_the_rule_and_the_outcome(tmp_path: Path) -> None:
+    from plate_reader.docs_render import BLOCKS
+
+    assert BLOCKS["crnn-comparison"](RenderContext(tmp_path)).startswith("No comparison yet")
+    (tmp_path / "results").mkdir()
+    payload = {
+        "old": {"version": "crnn-aaa-T1"},
+        "new": {
+            "version": "crnn-bbb-T1",
+            "training": {"epochs": 24, "epoch_size": 20000, "augment_source": {"trial": 5}},
+        },
+        "bootstrap": {"resamples": 1000, "confidence": 0.95},
+        "sets": {
+            "synthetic": {
+                "set": {"n": 2000},
+                "old": _estimate(0.99, 0.985, 0.994),
+                "new": _estimate(0.995, 0.992, 0.998),
+                "difference": _estimate(0.005, 0.002, 0.008),
+                "only_old_right": 3,
+                "only_new_right": 13,
+            },
+            "pseudo_real": {
+                "set": {"n": 2000},
+                "old": _estimate(0.6, 0.58, 0.62),
+                "new": _estimate(0.7, 0.68, 0.72),
+                "difference": _estimate(0.1, 0.08, 0.12),
+                "only_old_right": 40,
+                "only_new_right": 240,
+            },
+        },
+        "rule": "adopt only if the interval lies above zero",
+        "adopt": True,
+    }
+    target = tmp_path / "results" / "crnn_comparison.json"
+    target.write_text(json.dumps(payload), encoding="utf-8")
+    text = BLOCKS["crnn-comparison"](RenderContext(tmp_path))
+    assert text.startswith(f"**{SYNTHETIC_LABEL.capitalize()}.**")
+    assert "augmentation of sweep trial 5" in text
+    assert "| Synthetic test split (decides) | 0.9900 [0.9850, 0.9940] |" in text
+    assert "| 0.0050 [0.0020, 0.0080] | 3 | 13 |" in text
+    assert "Outcome: the retrained weights replaced the previous ones, which stay" in text
+    payload["adopt"] = False
+    target.write_text(json.dumps(payload), encoding="utf-8")
+    assert "the previous weights stay in service" in BLOCKS["crnn-comparison"](
+        RenderContext(tmp_path)
+    )
+
+
+def test_the_training_and_sweep_blocks_follow_the_shipped_augmentation(tmp_path: Path) -> None:
+    from plate_reader.docs_render import BLOCKS
+
+    (tmp_path / "results").mkdir()
+    trial = {
+        "number": 0,
+        "multipliers": {"geometry": 1.0},
+        "pseudo_real_exact_greedy": 0.5,
+        "synthetic_val_exact_greedy": 0.75,
+    }
+    best = {**trial, "number": 3, "multipliers": {"geometry": 1.5}}
+    sweep = {"budget": {}, "groups": {"geometry": []}, "baseline": trial, "best": best}
+    sweep["trials"] = [trial, best]
+    (tmp_path / "results" / "sweep.json").write_text(json.dumps(sweep), encoding="utf-8")
+    summary = {"config": {"epochs": 24, "epoch_size": 20000}, "best_val_exact_greedy": 0.99}
+    path = tmp_path / "results" / "train_crnn.json"
+    path.write_text(json.dumps(summary), encoding="utf-8")
+    assert "Augmentation: the generator's default degradation bounds." in BLOCKS["crnn-training"](
+        RenderContext(tmp_path)
+    )
+    (tmp_path / "results" / "crnn_comparison.json").write_text("{}", encoding="utf-8")
+    assert "did not replace them" in BLOCKS["augmentation-sweep"](RenderContext(tmp_path))
+    summary["augment_source"] = {"trial": 3, "multipliers": {"geometry": 1.5}}
+    path.write_text(json.dumps(summary), encoding="utf-8")
+    assert "trial 3 of the augmentation sweep (geometry x1.50)" in BLOCKS["crnn-training"](
+        RenderContext(tmp_path)
+    )
+    assert "a full training with the configuration of trial 3" in BLOCKS["augmentation-sweep"](
+        RenderContext(tmp_path)
+    )

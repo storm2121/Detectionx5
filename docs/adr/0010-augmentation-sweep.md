@@ -1,7 +1,7 @@
 # ADR 0010: the augmentation sweep fine-tunes and scores a separate pseudo-real split
 
-Status: proposed by the executing agent (M6, 2026-10-19); the choice of whether to adopt the
-best configuration is the architect's.
+Status: accepted (architect, M8, 2026-10-19), with the adoption rule below; proposed by the
+executing agent in M6.
 
 ## Context
 
@@ -35,3 +35,17 @@ that maximised it would report a number it had been tuned on.
 The sweep is cheap enough to run on one GPU in about half an hour and answers a narrower
 question than a from-scratch search: which degradations help the shipped model transfer
 further. Once real photos exist, the objective should move to their validation split.
+
+## Outcome (M8)
+
+The architect asked for the best configuration to be trained in full and kept only if it
+is better. `plate train crnn --augment-from results/sweep.json` trained it from scratch with
+the shipped recipe and calibrated it the same way; `plate compare-crnn` then read the
+synthetic test split and the pseudo-real set with both models through the served decoder,
+on the same crops, with a paired bootstrap. The rule was fixed before the comparison ran:
+the new weights replace the old ones only if the paired difference in exact match on the
+synthetic test split has an interval entirely above zero; the pseudo-real set is reported,
+not used to decide. The interval on the synthetic test split included zero, so the shipped
+weights stayed and nothing that depends on them changed. The pseudo-real difference is in
+`results/crnn_comparison.json` and the model card; whether the rule should weigh it is a
+question for the architect, not something the comparison settles.

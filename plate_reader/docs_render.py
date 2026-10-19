@@ -172,6 +172,20 @@ def _detector_metrics(ctx: RenderContext) -> str:
     return "\n".join(lines)
 
 
+def _precision_gap(metrics: Mapping[str, Any]) -> list[str]:
+    """The detector's precision gap on synthetic scenes, as a paragraph (or nothing)."""
+    gap = float(metrics.get("recall", 0.0)) - float(metrics.get("precision", 0.0))
+    if gap <= 0:
+        return []
+    return [
+        f"Precision is below recall by {fmt(gap)}: on these scenes the detector proposes boxes "
+        "that are not plates more often than it misses a plate. The gap is noted and not acted "
+        "on: the detector is not fine-tuned on synthetic scenes, and only a labelled set of real "
+        "photos can say whether it matters.",
+        "",
+    ]
+
+
 @block("detector-synthetic")
 def _detector_synthetic(ctx: RenderContext) -> str:
     payload = ctx.result("eval_detector_synthetic")
@@ -207,6 +221,7 @@ def _detector_synthetic(ctx: RenderContext) -> str:
         f"| mAP@50 | {fmt(float(metrics.get('map50', 0.0)))} |",
         f"| mAP@50-95 | {fmt(float(metrics.get('map50_95', 0.0)))} |",
         "",
+        *_precision_gap(metrics),
         f"Reproduce: `uv run plate synth scenes --n {info.get('n', '?')} --seed "
         f"{info.get('seed', '?')} --val-fraction {info.get('val_fraction', '?')} --out {folder}` "
         f"then `uv run plate eval-detector --data {data}`.",
@@ -349,6 +364,96 @@ def _pseudo_real_baseline(ctx: RenderContext) -> str:
     return _synthetic_block(ctx, "eval_pseudo_real", "uv run plate eval --set pseudo_real")
 
 
+def _augmentation_text(summary: Mapping[str, Any]) -> str:
+    source = summary.get("augment_source") or {}
+    multipliers = source.get("multipliers") or {}
+    if not multipliers:
+        return "the generator's default degradation bounds"
+    scaled = ", ".join(f"{group} x{fmt(float(m), 2)}" for group, m in multipliers.items())
+    return (
+        f"the default bounds scaled as in trial {source.get('trial', '?')} of the augmentation "
+        f"sweep ({scaled})"
+    )
+
+
+def _sweep_outcome(ctx: RenderContext, best: Mapping[str, Any]) -> str:
+    training = ctx.result("train_crnn") or {}
+    trial = (training.get("augment_source") or {}).get("trial")
+    if trial is not None and trial == best.get("number"):
+        return (
+            f"The shipped CRNN is a full training with the configuration of trial {trial}; "
+            "its comparison with the weights it replaced follows."
+        )
+    if ctx.result("crnn_comparison") is not None:
+        return (
+            "A full training with the best configuration was compared with the shipped weights "
+            "and did not replace them; the comparison follows."
+        )
+    return (
+        "The shipped CRNN keeps the default configuration until a full training with the best "
+        "one is evaluated."
+    )
+
+
+COMPARISON_SETS: Final = {
+    "synthetic": "Synthetic test split (decides)",
+    "pseudo_real": "Pseudo-real set (reported only)",
+}
+
+
+@block("crnn-comparison")
+def _crnn_comparison(ctx: RenderContext) -> str:
+    payload = ctx.result("crnn_comparison")
+    if payload is None:
+        return (
+            "No comparison yet: `uv run plate compare-crnn --old OLD.onnx --new NEW.onnx`. "
+            f"{SYNTHETIC_LABEL.capitalize()}."
+        )
+    old, new = payload.get("old", {}), payload.get("new", {})
+    training = new.get("training") or {}
+    trial = (training.get("augment_source") or {}).get("trial", "?")
+    sets = payload.get("sets", {})
+    boot = payload.get("bootstrap", {})
+    first: dict[str, Any] = next(iter(sets.values()), {})
+    n = first.get("set", {}).get("n", "?")
+    how = (
+        f"trained from scratch with the shipped recipe, {training.get('epochs', '?')} epochs of "
+        f"{training.get('epoch_size', '?')} crops, and the augmentation of sweep trial {trial}"
+        if training
+        else "the candidate"
+    )
+    level = fmt(100 * float(boot.get("confidence", 0.95)), 0)
+    lines = [
+        f"**{SYNTHETIC_LABEL.capitalize()}.** Before: `{old.get('version', '?')}`. Retrained: "
+        f"`{new.get('version', '?')}` ({how}). Both read through the grammar-constrained beam "
+        f"with their own calibrated temperature, on the same {n} crops per set; differences are "
+        f"a paired percentile bootstrap ({boot.get('resamples', '?')} resamples, {level}% "
+        "intervals).",
+        "",
+        "| Set | Before | Retrained | Retrained minus before | Right only before | Right only retrained |",
+        "|---|---|---|---|---|---|",
+    ]
+    for key, entry in sets.items():
+        lines.append(
+            f"| {COMPARISON_SETS.get(key, key)} | {fmt_ci(entry['old'], 4)} "
+            f"| {fmt_ci(entry['new'], 4)} | {fmt_ci(entry['difference'], 4)} "
+            f"| {entry.get('only_old_right', '?')} "
+            f"| {entry.get('only_new_right', '?')} |"
+        )
+    verdict = (
+        "the retrained weights replaced the previous ones, which stay in the registry as history"
+        if payload.get("adopt")
+        else "the previous weights stay in service; the retrained ones are not committed, and the "
+        "shipped CRNN, its calibration and every other result are unchanged"
+    )
+    lines += [
+        "",
+        f"The rule, fixed before the comparison ran: {payload.get('rule', '?')}. "
+        f"Outcome: {verdict}.",
+    ]
+    return "\n".join(lines)
+
+
 @block("crnn-training")
 def _crnn_training(ctx: RenderContext) -> str:
     summary = ctx.result("train_crnn")
@@ -368,6 +473,7 @@ def _crnn_training(ctx: RenderContext) -> str:
             "chosen by greedy exact match on the synthetic validation split "
             f"({fmt(float(summary.get('best_val_exact_greedy', 0.0)))}). "
             f"Fine-tuned on real data: {'yes' if summary.get('fine_tuned_on_real_data') else 'no'}. "
+            f"Augmentation: {_augmentation_text(summary)}. "
             f"{SYNTHETIC_LABEL.capitalize()}.",
         ]
     )
@@ -394,20 +500,15 @@ def _augmentation_sweep(ctx: RenderContext) -> str:
         f"{budget.get('tune_size', '?')} pseudo-real tuning crops (seed "
         f"{payload.get('splits', {}).get('tuning', {}).get('seed', '?')}) with 95% "
         "bootstrap intervals; trial "
-        f"{baseline.get('number', '?')} is the shipped configuration, and differences are "
+        f"{baseline.get('number', '?')} is the default configuration, and differences are "
         "paired against it over the same crops. "
         + (
-            f"The shipped weights score {fmt_ci(payload['shipped_before_fine_tuning'])} "
-            "before any fine-tuning. "
+            f"The weights the trials started from score "
+            f"{fmt_ci(payload['shipped_before_fine_tuning'])} before any fine-tuning. "
             if payload.get("shipped_before_fine_tuning")
             else ""
         )
-        + (
-            "The best configuration is in use."
-            if payload.get("adopted")
-            else "The shipped CRNN keeps the default configuration until a full training with "
-            "the best one is evaluated."
-        ),
+        + _sweep_outcome(ctx, best),
         "",
         "| Trial | "
         + " | ".join(groups)
@@ -424,7 +525,7 @@ def _augmentation_sweep(ctx: RenderContext) -> str:
         if trial.get("number") == best.get("number"):
             tag = " (best)"
         elif trial.get("number") == baseline.get("number"):
-            tag = " (shipped)"
+            tag = " (default)"
         multipliers = trial.get("multipliers", {})
         low_high = trial.get("pseudo_real_ci")
         score = fmt(float(trial["pseudo_real_exact_greedy"]))
@@ -552,6 +653,20 @@ def _cv_evidence(ctx: RenderContext) -> str:
                 "`results/eval_detector_synthetic.json`",
             )
         )
+    comparison = ctx.result("crnn_comparison")
+    if comparison is not None:
+        for key, claim in (
+            (
+                "synthetic",
+                "Retrained CRNN minus the previous weights, exact match on the synthetic test split",
+            ),
+            ("pseudo_real", "The same paired difference on the pseudo-real set"),
+        ):
+            entry = comparison.get("sets", {}).get(key)
+            if entry is not None:
+                rows.append(
+                    (claim, fmt_ci(entry["difference"], 4), "`results/crnn_comparison.json`")
+                )
     training = ctx.result("train_crnn")
     if training is not None:
         rows.append(

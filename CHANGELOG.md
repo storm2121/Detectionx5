@@ -113,7 +113,20 @@ All notable changes to this project are recorded here. The format follows
   `--workers` and `--amp/--no-amp`. Opt-in tests (`PLATE_TEST_MODELS=1`) run Ultralytics
   validation and one training epoch on tiny synthetic scene sets on the CPU.
 
+- M8: `plate train crnn --augment-from results/sweep.json` trains with the best sweep
+  trial's augmentation bounds and records them in `train_crnn.json`; `plate compare-crnn`
+  reads two exported CRNNs with the served decoder on the same crops of the synthetic test
+  split and the pseudo-real set and writes `results/crnn_comparison.json` with paired
+  bootstrap differences and an adoption rule fixed in advance, rendered in the model card
+  and the CV notes. The full training with the sweep's best configuration did not meet the
+  rule on the synthetic test split, so the shipped CRNN is unchanged.
+- M8: the detector's precision gap on synthetic scenes is rendered with its result and
+  recorded in the data guide as noted, not acted on (no fine-tuning on synthetic scenes).
+
 ### Changed
+
+- M8: ADR 0010 is accepted; the sweep's tables call trial 0 the default configuration,
+  since the shipped weights are a separate question settled by the comparison.
 
 - M5: the fused conformal threshold is chosen by the number of views that proposed a plate,
   not the number of photos (a photo proposing nothing contributes nothing to the fusion; no
