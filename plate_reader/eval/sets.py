@@ -20,6 +20,7 @@ import cv2
 from ..detector import pad_box
 from ..imaging import Image, as_u8
 from ..normalize import parse_plate
+from ..settings import PROJECT_ROOT
 from ..synthetic.generate import GENERATOR_VERSION, make_crop, make_pseudo_real, make_views
 from ..synthetic.splits import SPLIT_SEEDS
 
@@ -94,6 +95,18 @@ def view_sets(n_sets: int, k: int, seed: int | None = None) -> EvalSet:
     return EvalSet("views", "synthetic", items, info)
 
 
+def repository_path(path: Path) -> str:
+    """``path`` relative to the repository, so a results file records no machine's layout.
+
+    A folder outside the repository keeps only its last two parts behind a marker.
+    """
+    resolved = path.resolve()
+    try:
+        return resolved.relative_to(PROJECT_ROOT).as_posix()
+    except ValueError:
+        return "<outside the repository>/" + "/".join(resolved.parts[-2:])
+
+
 def _folder_kind(root: Path) -> SetKind:
     manifest = root / "manifest.json"
     if manifest.exists():
@@ -113,17 +126,24 @@ def crops_folder_set(labels_csv: Path, name: str | None = None) -> EvalSet:
                 raise ValueError(f"{labels_csv}: unreadable row {row}; run plate data validate")
             items.append(EvalItem(row["crop_path"], as_u8(image), plate.tokens))
     kind = _folder_kind(labels_csv.parent)
-    return EvalSet(name or labels_csv.parent.name, kind, items, {"source": labels_csv.as_posix()})
+    info = {"source": repository_path(labels_csv)}
+    return EvalSet(name or labels_csv.parent.name, kind, items, info)
 
 
+#: The served detections of one photo: each crop box exactly as the service cuts it (the
+#: detector's float box padded, clipped and de-duplicated) with the detector's score.
 Detect = Callable[[Image], list[tuple[tuple[int, int, int, int], float]]]
 
 
 def data_set(data_dir: Path, detect: Detect | None = None) -> EvalSet:
-    """``data/eval/labels.csv``: crop the labelled box, or run ``detect`` when it is absent.
+    """``data/eval/labels.csv``: crop the labelled box, or the served detection when it is absent.
 
-    Labelled boxes are padded exactly as the detector pads its own boxes, so the recogniser
-    sees the crop it would see in production.
+    A labelled box is tight, so it is padded exactly as the detector pads its own raw boxes.
+    A box from ``detect`` is already the served crop and is cut as it is: padding it again,
+    or padding a box rounded to whole pixels first, shifts the crop by a pixel, and the
+    EasyOCR path's separator search is sensitive to a pixel at these sizes. Either way the
+    recogniser sees the crop it would see in production, and the most confident detection
+    is the one the service reads.
     """
     labels = data_dir / "eval" / "labels.csv"
     items: list[EvalItem] = []
@@ -137,21 +157,24 @@ def data_set(data_dir: Path, detect: Detect | None = None) -> EvalSet:
             image = as_u8(photo)
             h, w = image.shape[:2]
             box_fields = [row[k].strip() for k in ("x1", "y1", "x2", "y2")]
+            meta: dict[str, Any]
             if all(box_fields):
-                box = tuple(float(v) for v in box_fields)
+                x1, y1, x2, y2 = pad_box([float(v) for v in box_fields], w, h)
+                meta = {"box": "label"}
             elif detect is not None:
                 found = detect(image)
                 if not found:
                     skipped += 1
                     continue
-                box = tuple(float(v) for v in max(found, key=lambda f: f[1])[0])
+                (x1, y1, x2, y2), score = max(found, key=lambda f: f[1])
+                meta = {"box": "detector", "detector_confidence": float(score)}
             else:
                 skipped += 1
                 continue
-            x1, y1, x2, y2 = pad_box(box, w, h)
-            items.append(EvalItem(f"data/{number:06d}", image[y1:y2, x1:x2].copy(), plate.tokens))
+            crop = image[y1:y2, x1:x2].copy()
+            items.append(EvalItem(f"data/{number:06d}", crop, plate.tokens, meta=meta))
     kind = _folder_kind(data_dir)
-    info = {"source": labels.as_posix(), "skipped_without_box": skipped}
+    info = {"source": repository_path(labels), "skipped_without_box": skipped}
     return EvalSet("data", kind, items, info)
 
 
@@ -162,6 +185,7 @@ __all__ = [
     "crops_folder_set",
     "data_set",
     "pseudo_real_set",
+    "repository_path",
     "synthetic_set",
     "view_sets",
 ]

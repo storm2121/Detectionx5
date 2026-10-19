@@ -237,7 +237,9 @@ def build_payload(
 
 def write_payload(payload: Mapping[str, Any], path: Path) -> Path:
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    # LF on every platform, so re-running an unchanged evaluation reproduces the file.
+    text = json.dumps(payload, ensure_ascii=False, indent=2) + "\n"
+    path.write_text(text, encoding="utf-8", newline="\n")
     return path
 
 

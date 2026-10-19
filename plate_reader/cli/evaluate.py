@@ -28,7 +28,12 @@ class Device(StrEnum):
 
 
 def _detector_for_photos(settings: Any) -> Detect | None:
-    """The served ONNX detector, for labelled photos that carry no box; None when no model ships."""
+    """The served ONNX detector, for labelled photos that carry no box; None when no model ships.
+
+    It returns the service's own crop boxes (``detect_image``: the float box padded, clipped
+    and de-duplicated), never a raw box rounded to whole pixels, so the harness reads the
+    pixels the service reads.
+    """
     from ..detector_onnx import OnnxPlateDetector
     from ..settings import PROJECT_ROOT
 
@@ -39,10 +44,12 @@ def _detector_for_photos(settings: Any) -> Detect | None:
     detector = OnnxPlateDetector(model)
 
     def detect(image: Any) -> list[tuple[tuple[int, int, int, int], float]]:
-        boxes, scores = detector.raw_boxes(image)
         return [
-            ((int(x1), int(y1), int(x2), int(y2)), float(score))
-            for (x1, y1, x2, y2), score in zip(boxes, scores, strict=True)
+            (
+                (int(d.box[0]), int(d.box[1]), int(d.box[2]), int(d.box[3])),
+                float(d.confidence),
+            )
+            for d in detector.detect_image(image)
         ]
 
     return detect
@@ -77,6 +84,10 @@ def command(
     cache: Annotated[
         bool, typer.Option(help="reuse cached reads of slow recognisers (.cache/reads)")
     ] = True,
+    note: Annotated[
+        str | None,
+        typer.Option(help="what the set is, in words; kept in the results and shown beside them"),
+    ] = None,
 ) -> None:
     from ..eval import harness, recognizers, report, sets
     from ..eval.cache import ReadCache
@@ -113,6 +124,8 @@ def command(
         view_set = eval_set
         result_name = "eval_views"
 
+    if note:
+        eval_set.info["note"] = note.strip()
     payload = harness.build_payload(
         eval_set,
         built,
