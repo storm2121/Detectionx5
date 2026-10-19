@@ -93,3 +93,13 @@ from the set.
 Every number in the README keeps its set label (synthetic, pseudo-real or data), its n,
 its bootstrap interval and its model version, so real and synthetic results can never be
 confused.
+
+## Collect calibration photos before any fine-tuning
+
+The recogniser's temperature and conformal thresholds were fitted on synthetic plates, and the
+real-photos block in the README shows that neither carried over to real photos: the calibrated
+confidence was far off and the prediction sets missed the true plate. So before fine-tuning on
+real crops, collect and label real photos first and split them into three disjoint sets:
+fine-tuning, calibration (for the temperature and the conformal thresholds) and test (reported
+once, with its interval). Fine-tuning on the only real photos you have, then calibrating and
+testing on the same photos, would make every number meaningless.

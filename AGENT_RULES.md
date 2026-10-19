@@ -74,8 +74,8 @@ conflict, write an ADR and stop for review.
 
 ## 6. Definition of done for the whole rebuild
 
-On a clean clone with an empty `data/` folder, `just demo` generates synthetic plates, trains a
-small CRNN (or loads the committed one), runs the evaluation harness with CIs, exports ONNX, passes
-parity tests, and brings up API, worker, Redis, Postgres, dashboard and observability in Compose;
+On a clean clone with an empty `data/` folder, `just demo` brings up API, worker, Redis, Postgres, dashboard and observability in Compose and
+prints where the console is; `just demo-synthetic` additionally generates synthetic plates, runs
+the evaluation harness with CIs, exports ONNX and passes parity tests, for CI and development;
 CI is green; the README's numbers render from results; `docs/insert_your_own_data.md` explains
 exactly where real photos and labels go and what changes once they exist.
