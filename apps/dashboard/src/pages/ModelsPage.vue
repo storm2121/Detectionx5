@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 
-import type { EvalResult, TrainingResult } from '@/api/results'
+import type { DetectorEvalResult, EvalResult, TrainingResult } from '@/api/results'
 import ErrorNote from '@/components/ErrorNote.vue'
 import LoadingState from '@/components/LoadingState.vue'
 import SimToRealGap from '@/components/SimToRealGap.vue'
@@ -21,6 +21,7 @@ const synthetic = ref<EvalResult | null>(null)
 const pseudoReal = ref<EvalResult | null>(null)
 const real = ref<EvalResult | null>(null)
 const sweep = ref<SweepResult | null>(null)
+const detectorEval = ref<DetectorEvalResult | null>(null)
 
 const models = computed(() => service.models)
 const metadata = computed(() => models.value?.recognizer.metadata ?? null)
@@ -52,6 +53,9 @@ onMounted(async () => {
   }
   if (index.some((entry) => entry.name === 'sweep')) {
     sweep.value = await results.load<SweepResult>('sweep')
+  }
+  if (index.some((entry) => entry.name === 'eval_detector_synthetic')) {
+    detectorEval.value = await results.load<DetectorEvalResult>('eval_detector_synthetic')
   }
 })
 </script>
@@ -127,6 +131,24 @@ onMounted(async () => {
           <dt>Runtime</dt>
           <dd>ONNX Runtime, NMS-free one-to-one head</dd>
         </dl>
+        <template v-if="detectorEval">
+          <h3 class="dx-small sub-head">On synthetic street scenes</h3>
+          <dl class="dx-dl" data-testid="detector-eval">
+            <dt>mAP@50</dt>
+            <dd class="dx-num">{{ fixed(detectorEval.metrics.map50, 3) }}</dd>
+            <dt>mAP@50-95</dt>
+            <dd class="dx-num">{{ fixed(detectorEval.metrics.map50_95, 3) }}</dd>
+            <dt>Precision</dt>
+            <dd class="dx-num">{{ fixed(detectorEval.metrics.precision, 3) }}</dd>
+            <dt>Recall</dt>
+            <dd class="dx-num">{{ fixed(detectorEval.metrics.recall, 3) }}</dd>
+          </dl>
+          <p class="dx-small dx-muted note">
+            {{ integer(detectorEval.counts?.images) }} procedural scenes (seed
+            {{ detectorEval.set.seed ?? '?' }}), one Ultralytics validation pass, so no interval.
+            Synthetic results are not real-world accuracy.
+          </p>
+        </template>
         <p class="dx-small dx-muted note">
           YOLOv10n, one class. Without a detector the service reads every photo as a plate crop.
         </p>
@@ -280,6 +302,10 @@ onMounted(async () => {
 <style scoped>
 .note {
   margin-top: var(--dx-space-3);
+}
+
+.sub-head {
+  margin: var(--dx-space-4) 0 var(--dx-space-2);
 }
 
 .nowrap {

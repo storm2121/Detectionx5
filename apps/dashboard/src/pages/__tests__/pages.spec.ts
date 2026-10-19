@@ -6,6 +6,7 @@ import { ACCEPTED, fakeFetch, plugins, png, QUEUED } from '@/__tests__/helpers'
 import { setFetch } from '@/api/client'
 import calibration from '@results/calibration_crnn.json'
 import fused from '@results/calibration_fused.json'
+import detectorEval from '@results/eval_detector_synthetic.json'
 import evaluation from '@results/eval_synthetic.json'
 import training from '@results/train_crnn.json'
 import { useReadStore } from '@/stores/read'
@@ -49,7 +50,13 @@ const common = [
   { path: '/api/reads', body: { items: [], total: 0, limit: 8, offset: 0 } },
   {
     path: '/api/results',
-    body: ['eval_synthetic', 'calibration_crnn', 'calibration_fused', 'train_crnn'].map((name) => ({
+    body: [
+      'eval_synthetic',
+      'calibration_crnn',
+      'calibration_fused',
+      'train_crnn',
+      'eval_detector_synthetic',
+    ].map((name) => ({
       name,
       schema: null,
       label: 'synthetic results are not real-world accuracy',
@@ -59,6 +66,7 @@ const common = [
   { path: '/api/results/calibration_crnn', body: calibration },
   { path: '/api/results/calibration_fused', body: fused },
   { path: '/api/results/train_crnn', body: training },
+  { path: '/api/results/eval_detector_synthetic', body: detectorEval },
 ]
 
 afterEach(() => setFetch(null))
@@ -145,6 +153,12 @@ describe('the console', () => {
     expect(wrapper.get('[data-testid="model-version"]').text()).toBe('crnn-test')
     expect(wrapper.find('[data-testid="registry-table"]').text()).toContain('active')
     expect(wrapper.find('[data-testid="training-curve"]').exists()).toBe(true)
+    const detector = wrapper.get('[data-testid="detector-eval"]').text()
+    expect(detector).toContain(detectorEval.metrics.map50.toFixed(3))
+    expect(detector).toContain('mAP@50-95')
+    expect(wrapper.get('[data-testid="detector-card"]').text()).toContain(
+      'Synthetic results are not real-world accuracy.',
+    )
     wrapper.unmount()
   })
 

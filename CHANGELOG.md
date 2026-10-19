@@ -105,6 +105,13 @@ All notable changes to this project are recorded here. The format follows
   the data guide lists what real data changes.
 - M7: `just demo` waits for a healthy stack and reads three synthetic photos of one car;
   `tools/demo_read.py` waits for health and prints the console's address.
+- M7: `plate eval-detector`, the detector's precision, recall, mAP@50 and mAP@50-95
+  through Ultralytics validation on a labelled set, with the set's provenance and counts;
+  `results/eval_detector_synthetic.json` (synthetic street scenes) is rendered in the
+  README, the model card and the CV notes and shown on the console's Models page;
+  `just eval-detector` reproduces it. `plate train detector` takes `--device`,
+  `--workers` and `--amp/--no-amp`. Opt-in tests (`PLATE_TEST_MODELS=1`) run Ultralytics
+  validation and one training epoch on tiny synthetic scene sets on the CPU.
 
 ### Changed
 

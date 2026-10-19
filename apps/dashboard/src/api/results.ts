@@ -172,6 +172,20 @@ export interface TrainingResult {
   model_version: string
 }
 
+/** `plate eval-detector`: one Ultralytics validation pass, so no interval. */
+export interface DetectorEvalResult {
+  schema: string
+  label: string
+  weights: string
+  data: string
+  split: string
+  imgsz: number
+  set: { kind?: string; seed?: number; n?: number; generator_version?: string }
+  counts?: { images: number | null; plates: number | null; images_with_plates: number | null }
+  metrics: { precision: number; recall: number; map50: number; map50_95: number }
+  interval: string
+}
+
 /** Metrics where lower is better; the tables say so next to the name. */
 export const LOWER_IS_BETTER = new Set(['cer', 'ece', 'set_size'])
 
