@@ -40,7 +40,16 @@ from .config import ServiceSettings, get_service_settings
 from .db import Database, migrate
 from .engine import Engine
 from .models import Job
-from .schemas import ExportOut, JobOut, JobRequest, ReadOut, ReadPage, ReviewDecision, ReviewItemOut
+from .schemas import (
+    ExportOut,
+    JobOut,
+    JobRequest,
+    ReadOut,
+    ReadPage,
+    ReviewDecision,
+    ReviewItemOut,
+    ReviewSummary,
+)
 from .store import Store
 from .uploads import VIDEO_SUFFIXES, read_photo
 
@@ -186,6 +195,14 @@ def create_app(
         request: Request, limit: Annotated[int, Query(ge=1, le=200)] = 50
     ) -> list[ReviewItemOut]:
         return store_of(request).review_queue(limit)
+
+    @app.get("/review/summary", response_model=ReviewSummary)
+    def review_summary(request: Request) -> ReviewSummary:
+        """How many reads wait for review and how many corrections are ready to export."""
+        store = store_of(request)
+        return ReviewSummary(
+            pending=store.pending_count(), ready_to_export=store.export_ready_count()
+        )
 
     @app.post("/review/export", response_model=ExportOut)
     def review_export(request: Request) -> ExportOut:

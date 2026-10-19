@@ -152,6 +152,7 @@ def test_review_round_trip_exports_a_labelled_crop(service: Any) -> None:
     assert read["prediction_set"] == ["12 WW", "13 WW"]
     queue = service.client.get("/review/queue").json()
     assert [item["read_id"] for item in queue] == [read["id"]]
+    assert service.client.get("/review/summary").json() == {"pending": 1, "ready_to_export": 0}
     crop = service.client.get(queue[0]["crops"][0])
     assert crop.status_code == 200
     assert crop.headers["content-type"] == "image/png"
@@ -167,6 +168,7 @@ def test_review_round_trip_exports_a_labelled_crop(service: Any) -> None:
     assert decided["corrected_plate"] == "13 WW"
     assert service.client.get("/review/queue").json() == []
     assert service.client.get(f"/reads/{read['id']}").json()["status"] == "reviewed"
+    assert service.client.get("/review/summary").json() == {"pending": 0, "ready_to_export": 1}
 
     export = service.client.post("/review/export").json()
     assert export["exported"] == 1
@@ -182,6 +184,7 @@ def test_review_round_trip_exports_a_labelled_crop(service: Any) -> None:
     assert report.errors == []
     # Exported once only.
     assert service.client.post("/review/export").json()["exported"] == 0
+    assert service.client.get("/review/summary").json() == {"pending": 0, "ready_to_export": 0}
 
 
 def test_confirming_a_read_and_unreadable_photos(service: Any) -> None:

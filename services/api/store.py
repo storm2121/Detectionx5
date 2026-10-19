@@ -184,6 +184,21 @@ class Store:
                 or 0
             )
 
+    def export_ready_count(self) -> int:
+        """Reviewed reads whose crops have not been exported yet."""
+        with self.db.session() as session:
+            return int(
+                session.scalar(
+                    select(func.count())
+                    .select_from(ReviewItem)
+                    .where(
+                        ReviewItem.status.in_(("corrected", "confirmed")),
+                        ReviewItem.exported_at.is_(None),
+                    )
+                )
+                or 0
+            )
+
     def review_queue(self, limit: int) -> list[ReviewItemOut]:
         with self.db.session() as session:
             items = session.scalars(

@@ -144,6 +144,13 @@ class ExportOut(BaseModel):
     files: list[str]
 
 
+class ReviewSummary(BaseModel):
+    """What the console's navigation and export button count."""
+
+    pending: int = Field(description="reads waiting for a person")
+    ready_to_export: int = Field(description="reviewed reads not exported yet")
+
+
 class JobRequest(BaseModel):
     kind: Literal["folder", "video"]
     path: str = Field(description="relative to PLATE_JOBS_ROOT")
@@ -176,6 +183,7 @@ __all__ = [
     "ReviewDecision",
     "ReviewItemOut",
     "ReviewState",
+    "ReviewSummary",
     "ViewOut",
     "display",
 ]
