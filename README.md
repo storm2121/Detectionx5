@@ -18,7 +18,7 @@ OCR accuracy is benchmarked on a labelled real set of 12 images (see below).
 
 ```console
 $ uv run plate read samples/car.jpg
-$ just demo        # synthetic data, a small evaluation, the whole stack, one synthetic read
+$ just demo        # the whole stack in Compose; prints where the console is
 ```
 
 ## Contents
@@ -301,7 +301,7 @@ worker are torch-free (ONNX Runtime).
 git clone https://github.com/storm2121/Detectionx5.git
 cd Detectionx5
 just setup             # .venv with every dependency group, git hooks
-just demo              # synthetic data, a small evaluation, docker compose up, one synthetic read
+just demo              # docker compose up, then prints where the console is
 ```
 
 `docker compose up --build -d` starts the API, the worker, Redis, PostgreSQL, the
@@ -323,9 +323,9 @@ Without Docker, `just api` serves the API on port 8100 with SQLite under `storag
 `just worker` runs a job worker against Redis on port 6380, and `just dashboard` serves the
 console with Vite on port 5174.
 
-**The console** (http://localhost:5174): Read (drop photos or try three synthetic photos of
-one car; boxes, fields, calibrated confidence, conformal set, per-view hypotheses, the fusion
-table, the character heatmap; server or in-browser mode with a parity indicator), Jobs
+**The console** (http://localhost:5174): Read (drop one to ten photos of one car; boxes,
+fields, calibrated confidence, conformal set, per-view hypotheses, the fusion table, the
+character heatmap; server or in-browser mode with a parity indicator), Jobs
 (folders and videos with live progress), Review queue (confirm, correct, export),
 Evaluation (metrics with intervals, reliability diagrams, letter confusions, fusion by
 number of views, coverage), Models (active models, thresholds, the registry, the training
@@ -434,6 +434,7 @@ access the project makes.
 just check            # ruff, mypy --strict, the repository guards, the console's checks,
                       # pytest with the coverage gate, plate docs check, plate data validate
 just dashboard-e2e    # Playwright smoke, accessibility and parity checks against the stack
+just demo-synthetic   # synthetic crops, a small evaluation, the stack and a synthetic read
 ```
 
 CI runs lint and guards, mypy, the test suite with coverage, a small synthetic evaluation, the

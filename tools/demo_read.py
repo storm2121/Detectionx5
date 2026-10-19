@@ -1,13 +1,13 @@
-"""Send synthetic photos to a running service and print the read (the demo and smoke check).
+"""Send synthetic photos to a running service and print the read (`just demo-synthetic`).
 
     uv run python tools/demo_read.py                    # http://localhost:8100
     uv run python tools/demo_read.py --url http://host:port --views 3 --crop
 
-By default it sends several synthetic street photos of one car (``make_scene_views``)
-through the detector, so the read is a fused one; ``--crop`` sends synthetic plate crops
-with ``detect=false``. It waits for the service to report healthy first (``--wait``
-seconds). Everything sent is generated, so the printed read is a synthetic result, which is
-not real-world accuracy.
+A development and CI smoke check, not part of the user flow (ADR 0011). By default it sends
+several synthetic street photos of one car (``make_scene_views``) through the detector, so
+the read is a fused one; ``--crop`` sends synthetic plate crops with ``detect=false``. It
+waits for the service to report healthy first (``--wait`` seconds). Everything sent is
+generated, so the printed read is a synthetic result, which is not real-world accuracy.
 """
 
 from __future__ import annotations
@@ -15,8 +15,6 @@ from __future__ import annotations
 import argparse
 import json
 import sys
-import time
-import urllib.error
 import urllib.request
 import uuid
 from collections.abc import Sequence
@@ -26,6 +24,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 from plate_reader.synthetic import encode_png, make_scene_views, make_views  # noqa: E402
+from tools.wait_ready import wait_healthy  # noqa: E402
 
 
 def multipart(files: list[tuple[str, bytes]]) -> tuple[bytes, str]:
@@ -40,23 +39,6 @@ def multipart(files: list[tuple[str, bytes]]) -> tuple[bytes, str]:
         )
     body = b"".join(parts) + f"--{boundary}--\r\n".encode()
     return body, f"multipart/form-data; boundary={boundary}"
-
-
-def wait_healthy(url: str, seconds: float) -> dict[str, object]:
-    """Poll ``/health`` until it answers ``ok`` or the time runs out."""
-    deadline = time.monotonic() + seconds
-    last: Exception | None = None
-    while True:
-        try:
-            with urllib.request.urlopen(f"{url}/health", timeout=5) as response:
-                health = json.loads(response.read().decode())
-                if health.get("status") == "ok":
-                    return dict(health)
-        except (urllib.error.URLError, ConnectionError, TimeoutError, ValueError) as exc:
-            last = exc
-        if time.monotonic() >= deadline:
-            raise SystemExit(f"the service at {url} did not become healthy: {last}")
-        time.sleep(2)
 
 
 def main(argv: Sequence[str] | None = None) -> int:

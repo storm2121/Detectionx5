@@ -103,9 +103,15 @@ dashboard-e2e:
     {{pnpm}} exec playwright install chromium
     {{pnpm}} e2e
 
-# Synthetic data, a small evaluation, then the whole stack in Compose and a synthetic read
-# of three photos of one car; the console is then on http://localhost:5174.
+# Nothing synthetic is generated or read (ADR 0011); the console is http://localhost:5174.
+# The whole stack in Compose, then where the console is once it answers.
 demo:
+    docker compose up --build -d --wait
+    uv run python tools/wait_ready.py
+
+# Synthetic results are not real-world accuracy.
+# For CI and development: synthetic crops, a small evaluation, the stack, a synthetic read.
+demo-synthetic:
     uv run plate synth crops --n 200 --seed 0
     uv run plate eval --set synthetic --n 50 --views 20 -r crnn-greedy -r crnn-beam --out .cache/demo-results --quiet
     docker compose up --build -d --wait
