@@ -156,3 +156,35 @@ def test_cli_check_and_render(repo: Path) -> None:
     result = runner.invoke(app, ["docs", "check", "--root", str(repo)])
     assert result.exit_code == 1
     assert runner.invoke(app, ["docs", "render", "--root", str(repo)]).exit_code == 0
+
+
+def test_the_sweep_block_renders_from_results(tmp_path: Path) -> None:
+    from plate_reader.docs_render import BLOCKS
+
+    ctx = RenderContext(tmp_path)
+    assert BLOCKS["augmentation-sweep"](ctx).startswith("Not run yet")
+    (tmp_path / "results").mkdir()
+    trial = {
+        "number": 0,
+        "multipliers": {"geometry": 1.0, "blur": 1.0},
+        "pseudo_real_exact_greedy": 0.5,
+        "synthetic_val_exact_greedy": 0.75,
+    }
+    better = {**trial, "number": 1, "multipliers": {"geometry": 1.5, "blur": 0.75}}
+    better["pseudo_real_exact_greedy"] = 0.625
+    payload = {
+        "budget": {"epochs": 3, "epoch_size": 4000, "tune_size": 300, "device": "cuda"},
+        "splits": {"tuning": {"seed": 1009}},
+        "groups": {"geometry": ["perspective"], "blur": ["gaussian_sigma"]},
+        "baseline": trial,
+        "best": better,
+        "trials": [trial, better],
+        "adopted": False,
+    }
+    (tmp_path / "results" / "sweep.json").write_text(json.dumps(payload), encoding="utf-8")
+    text = BLOCKS["augmentation-sweep"](RenderContext(tmp_path))
+    assert SYNTHETIC_LABEL.capitalize() in text
+    rows = [line for line in text.splitlines() if line.startswith("| 0") or line.startswith("| 1")]
+    assert rows[0].startswith("| 1 (best) | 1.50 | 0.75 | 0.625")
+    assert rows[1].startswith("| 0 (shipped) | 1.00 | 1.00 | 0.500 | reference")
+    assert "keeps the default configuration" in text

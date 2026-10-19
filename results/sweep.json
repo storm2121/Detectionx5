@@ -1,0 +1,333 @@
+{
+ "schema": "detectionx5.sweep/1",
+ "label": "synthetic results are not real-world accuracy",
+ "generator_version": "1",
+ "objective": "exact match (greedy) on the pseudo-real tuning split after a short fine-tuning",
+ "init_weights": "crnn.pt",
+ "shipped_before_fine_tuning": {
+  "value": 0.692,
+  "ci_low": 0.663,
+  "ci_high": 0.719,
+  "n": 1000
+ },
+ "bootstrap": {
+  "resamples": 1000,
+  "confidence": 0.95,
+  "seed": 0,
+  "unit": "pseudo-real tuning crop",
+  "method": "percentile",
+  "paired": true
+ },
+ "splits": {
+  "train": {
+   "seed": 1001
+  },
+  "tuning": {
+   "seed": 1009,
+   "n": 1000
+  }
+ },
+ "budget": {
+  "trials": 8,
+  "epochs": 3,
+  "epoch_size": 10000,
+  "batch_size": 128,
+  "lr": 0.0005,
+  "tune_size": 1000,
+  "val_size": 200,
+  "workers": 6,
+  "seed": 0,
+  "device": "cuda"
+ },
+ "groups": {
+  "geometry": [
+   "perspective",
+   "rotation_deg",
+   "scale_jitter"
+  ],
+  "photometry": [
+   "brightness",
+   "contrast",
+   "gamma",
+   "colour_cast"
+  ],
+  "blur": [
+   "motion_blur_px",
+   "gaussian_sigma",
+   "downscale"
+  ],
+  "noise": [
+   "noise_sigma",
+   "jpeg_min_quality"
+  ],
+  "clutter": [
+   "shadow_prob",
+   "shadow_depth",
+   "dirt_prob",
+   "dirt_blobs",
+   "glare_prob",
+   "occlusion_prob",
+   "occlusion_frac"
+  ]
+ },
+ "bounds": [
+  0.5,
+  2.0
+ ],
+ "sampler": "optuna TPE",
+ "baseline": {
+  "number": 0,
+  "multipliers": {
+   "geometry": 1.0,
+   "photometry": 1.0,
+   "blur": 1.0,
+   "noise": 1.0,
+   "clutter": 1.0
+  },
+  "pseudo_real_exact_greedy": 0.664,
+  "pseudo_real_ci": [
+   0.634975,
+   0.692025
+  ],
+  "difference_vs_trial_0": {
+   "value": 0.0,
+   "ci_low": 0.0,
+   "ci_high": 0.0,
+   "n": 1000
+  },
+  "synthetic_val_exact_greedy": 0.985,
+  "seconds": 151.0
+ },
+ "best": {
+  "number": 5,
+  "multipliers": {
+   "geometry": 1.9416,
+   "photometry": 1.5139,
+   "blur": 0.948,
+   "noise": 1.4754,
+   "clutter": 0.5891
+  },
+  "pseudo_real_exact_greedy": 0.726,
+  "pseudo_real_ci": [
+   0.698,
+   0.750025
+  ],
+  "difference_vs_trial_0": {
+   "value": 0.062,
+   "ci_low": 0.040975,
+   "ci_high": 0.085,
+   "n": 1000
+  },
+  "synthetic_val_exact_greedy": 0.985,
+  "seconds": 133.3
+ },
+ "best_config": {
+  "perspective": 0.19416,
+  "rotation_deg": 11.6496,
+  "scale_jitter": 0.155328,
+  "brightness": 0.45416999999999996,
+  "contrast": 0.6055600000000001,
+  "gamma": 0.5298649999999999,
+  "colour_cast": 0.181668,
+  "shadow_prob": 0.29455,
+  "shadow_depth": 0.324005,
+  "dirt_prob": 0.29455,
+  "dirt_blobs": 24,
+  "glare_prob": 0.0,
+  "occlusion_prob": 0.08836499999999999,
+  "occlusion_frac": 0.047127999999999996,
+  "motion_blur_px": 6.635999999999999,
+  "gaussian_sigma": 1.3272,
+  "downscale": 0.5214,
+  "noise_sigma": 17.7048,
+  "jpeg_min_quality": 5
+ },
+ "trials": [
+  {
+   "number": 0,
+   "multipliers": {
+    "geometry": 1.0,
+    "photometry": 1.0,
+    "blur": 1.0,
+    "noise": 1.0,
+    "clutter": 1.0
+   },
+   "pseudo_real_exact_greedy": 0.664,
+   "pseudo_real_ci": [
+    0.634975,
+    0.692025
+   ],
+   "difference_vs_trial_0": {
+    "value": 0.0,
+    "ci_low": 0.0,
+    "ci_high": 0.0,
+    "n": 1000
+   },
+   "synthetic_val_exact_greedy": 0.985,
+   "seconds": 151.0
+  },
+  {
+   "number": 1,
+   "multipliers": {
+    "geometry": 1.07,
+    "photometry": 1.3476,
+    "blur": 1.1531,
+    "noise": 1.0642,
+    "clutter": 0.8996
+   },
+   "pseudo_real_exact_greedy": 0.698,
+   "pseudo_real_ci": [
+    0.668975,
+    0.725
+   ],
+   "difference_vs_trial_0": {
+    "value": 0.034,
+    "ci_low": 0.014,
+    "ci_high": 0.053025,
+    "n": 1000
+   },
+   "synthetic_val_exact_greedy": 0.985,
+   "seconds": 153.5
+  },
+  {
+   "number": 2,
+   "multipliers": {
+    "geometry": 1.2242,
+    "photometry": 0.9171,
+    "blur": 1.7214,
+    "noise": 1.9017,
+    "clutter": 0.8508
+   },
+   "pseudo_real_exact_greedy": 0.69,
+   "pseudo_real_ci": [
+    0.661975,
+    0.718
+   ],
+   "difference_vs_trial_0": {
+    "value": 0.026,
+    "ci_low": 0.005,
+    "ci_high": 0.049025,
+    "n": 1000
+   },
+   "synthetic_val_exact_greedy": 0.98,
+   "seconds": 142.4
+  },
+  {
+   "number": 3,
+   "multipliers": {
+    "geometry": 1.4984,
+    "photometry": 1.0409,
+    "blur": 1.0989,
+    "noise": 1.804,
+    "clutter": 0.5517
+   },
+   "pseudo_real_exact_greedy": 0.706,
+   "pseudo_real_ci": [
+    0.676,
+    0.732025
+   ],
+   "difference_vs_trial_0": {
+    "value": 0.042,
+    "ci_low": 0.022975,
+    "ci_high": 0.063,
+    "n": 1000
+   },
+   "synthetic_val_exact_greedy": 0.985,
+   "seconds": 127.8
+  },
+  {
+   "number": 4,
+   "multipliers": {
+    "geometry": 0.5642,
+    "photometry": 0.5142,
+    "blur": 1.5858,
+    "noise": 1.4705,
+    "clutter": 1.6702
+   },
+   "pseudo_real_exact_greedy": 0.706,
+   "pseudo_real_ci": [
+    0.678,
+    0.732
+   ],
+   "difference_vs_trial_0": {
+    "value": 0.042,
+    "ci_low": 0.022,
+    "ci_high": 0.065,
+    "n": 1000
+   },
+   "synthetic_val_exact_greedy": 0.98,
+   "seconds": 138.1
+  },
+  {
+   "number": 5,
+   "multipliers": {
+    "geometry": 1.9416,
+    "photometry": 1.5139,
+    "blur": 0.948,
+    "noise": 1.4754,
+    "clutter": 0.5891
+   },
+   "pseudo_real_exact_greedy": 0.726,
+   "pseudo_real_ci": [
+    0.698,
+    0.750025
+   ],
+   "difference_vs_trial_0": {
+    "value": 0.062,
+    "ci_low": 0.040975,
+    "ci_high": 0.085,
+    "n": 1000
+   },
+   "synthetic_val_exact_greedy": 0.985,
+   "seconds": 133.3
+  },
+  {
+   "number": 6,
+   "multipliers": {
+    "geometry": 1.2141,
+    "photometry": 0.6099,
+    "blur": 1.8523,
+    "noise": 1.0308,
+    "clutter": 0.8884
+   },
+   "pseudo_real_exact_greedy": 0.718,
+   "pseudo_real_ci": [
+    0.688,
+    0.744
+   ],
+   "difference_vs_trial_0": {
+    "value": 0.054,
+    "ci_low": 0.033,
+    "ci_high": 0.075,
+    "n": 1000
+   },
+   "synthetic_val_exact_greedy": 0.98,
+   "seconds": 132.5
+  },
+  {
+   "number": 7,
+   "multipliers": {
+    "geometry": 0.7215,
+    "photometry": 1.4625,
+    "blur": 0.941,
+    "noise": 1.0995,
+    "clutter": 0.5132
+   },
+   "pseudo_real_exact_greedy": 0.673,
+   "pseudo_real_ci": [
+    0.645,
+    0.702
+   ],
+   "difference_vs_trial_0": {
+    "value": 0.009,
+    "ci_low": -0.013,
+    "ci_high": 0.033,
+    "n": 1000
+   },
+   "synthetic_val_exact_greedy": 0.975,
+   "seconds": 138.7
+  }
+ ],
+ "adopted": false,
+ "note": "short fine-tunings rank augmentation strengths; the shipped CRNN keeps the default configuration until a full training with the best one is evaluated"
+}

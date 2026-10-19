@@ -1,9 +1,9 @@
 # Model card: CRNN plate recogniser
 
-Status: v1 (milestone M2). Every number on this page is rendered by `uv run plate docs render`
-from `results/train_crnn.json`, `results/calibration_crnn.json` and `results/eval_*.json`;
-`uv run plate docs check` fails if one is edited by hand. Synthetic results are not
-real-world accuracy.
+Status: v2 (milestones M6 and M7; v1 was M2). Every number on this page is rendered by
+`uv run plate docs render` from `results/train_crnn.json`, `results/calibration_crnn.json`,
+`results/sweep.json` and `results/eval_*.json`; `uv run plate docs check` fails if one is
+edited by hand. Synthetic results are not real-world accuracy.
 
 ## Model details
 
@@ -21,7 +21,12 @@ real-world accuracy.
   and unconstrained beam decoding are kept as ablations.
 - Confidence: the beam renormalised over its grammar-valid strings at the fitted
   temperature, i.e. the model's posterior conditioned on the output being a plate.
-- Prediction sets: split conformal prediction at the levels in `models/crnn.json`.
+- Prediction sets: split conformal prediction at the levels in `models/crnn.json`, with one
+  threshold for a single view and one per number of fused views (`conformal_fused`), chosen
+  by the number of views that proposed a plate.
+- Runtimes: ONNX Runtime in the service and the worker (torch-free), and ONNX Runtime Web in
+  the console's in-browser mode, whose TypeScript post-processing reproduces the Python
+  pipeline on every committed parity fixture (`results/parity_fixtures.json`).
 - Files: `models/crnn.onnx` (opset 17, dynamic batch), `models/crnn.json` (charset
   fingerprint, input contract, temperature, beam width, conformal thresholds),
   `models/crnn.pt` (PyTorch weights, for the parity test and for fine-tuning).
@@ -51,6 +56,30 @@ split seed in `plate_reader/synthetic/splits.py`, with a curriculum that raises 
 augmentation strength over the first part of training. No real photograph was used. When
 labelled crops exist under `data/ocr/train`, `plate train crnn` fine-tunes on them; until
 then the model has never seen a real plate.
+
+## Augmentation sweep (domain randomisation)
+
+`plate sweep` asks which strengths of the generator's degradations transfer best to the
+pseudo-real set: every trial scales five groups of augmentation bounds, fine-tunes the
+shipped CRNN briefly on crops generated with them, and scores exact match on a pseudo-real
+tuning split with its own seed (never the pseudo-real evaluation set). Short fine-tunings
+rank configurations; the shipped model is not retrained with the winner until a full
+training with it has been evaluated. Rendered from `results/sweep.json`.
+
+<!-- BEGIN RENDER augmentation-sweep -->
+**Synthetic results are not real-world accuracy.** 8 trials, each fine-tuning `crnn.pt` for 3 epochs of 10000 synthetic crops on `cuda`, scored by greedy exact match on 1000 pseudo-real tuning crops (seed 1009) with 95% bootstrap intervals; trial 0 is the shipped configuration, and differences are paired against it over the same crops. The shipped weights score 0.692 [0.663, 0.719] before any fine-tuning. The shipped CRNN keeps the default configuration until a full training with the best one is evaluated.
+
+| Trial | geometry | photometry | blur | noise | clutter | Pseudo-real exact match | Difference to the shipped configuration | Synthetic validation |
+|---|---|---|---|---|---|---|---|---|
+| 5 (best) | 1.94 | 1.51 | 0.95 | 1.48 | 0.59 | 0.726 [0.698, 0.750] | 0.062 [0.041, 0.085] | 0.985 |
+| 6 | 1.21 | 0.61 | 1.85 | 1.03 | 0.89 | 0.718 [0.688, 0.744] | 0.054 [0.033, 0.075] | 0.980 |
+| 3 | 1.50 | 1.04 | 1.10 | 1.80 | 0.55 | 0.706 [0.676, 0.732] | 0.042 [0.023, 0.063] | 0.985 |
+| 4 | 0.56 | 0.51 | 1.59 | 1.47 | 1.67 | 0.706 [0.678, 0.732] | 0.042 [0.022, 0.065] | 0.980 |
+| 1 | 1.07 | 1.35 | 1.15 | 1.06 | 0.90 | 0.698 [0.669, 0.725] | 0.034 [0.014, 0.053] | 0.985 |
+| 2 | 1.22 | 0.92 | 1.72 | 1.90 | 0.85 | 0.690 [0.662, 0.718] | 0.026 [0.005, 0.049] | 0.980 |
+| 7 | 0.72 | 1.46 | 0.94 | 1.10 | 0.51 | 0.673 [0.645, 0.702] | 0.009 [-0.013, 0.033] | 0.975 |
+| 0 (shipped) | 1.00 | 1.00 | 1.00 | 1.00 | 1.00 | 0.664 [0.635, 0.692] | reference | 0.985 |
+<!-- END RENDER augmentation-sweep -->
 
 ## Evaluation
 
@@ -139,14 +168,19 @@ Set coverage is the share of truths inside the conformal set at the level fixed 
 ## Ethical considerations
 
 Licence plates identify people. The model runs offline, the service stores crops only for
-the review queue, and the browser mode (milestone M6) can read a plate without uploading
-the photo.
+the review queue, and the console's in-browser mode reads a plate without uploading the
+photo. Reads that cannot be certified go to a person instead of being acted on.
 
 ## Reproduce
 
 ```bash
 uv run plate train crnn            # synthetic pretraining, ONNX export, calibration
+uv run plate train calibrate-fused # conformal thresholds per number of fused views
 uv run plate eval --set synthetic -r easyocr -r crnn-greedy -r crnn-beam
 uv run plate eval --set pseudo_real -r easyocr -r crnn-greedy -r crnn-beam
+uv run plate eval --set views
+uv run plate export fixtures       # parity fixtures for the PyTorch, ONNX and browser runtimes
+uv run plate export web            # the automaton and OpenCV reference cases for the browser
+uv run plate sweep                 # the augmentation sweep
 uv run plate docs render
 ```

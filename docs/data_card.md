@@ -1,6 +1,6 @@
 # Data card
 
-Status: first version (follow-up to M4, extended in M7). Synthetic results are not
+Status: v2 (milestones M6 and M7; v1 was the follow-up to M4). Synthetic results are not
 real-world accuracy.
 
 ## What data the platform uses today
@@ -14,12 +14,33 @@ real-world accuracy.
   reproduces every byte.
 - **The pseudo-real set**: the same generator with a heavier augmentation preset. It is a
   stand-in for the gap between synthetic and real photos, labelled pseudo-real everywhere,
-  and it is still synthetic.
+  and it is still synthetic. A separate pseudo-real tuning split (its own seed) scores the
+  augmentation sweep, so the evaluation set never steers a choice it later measures.
+- **Street scenes**: procedural scenes with one plate on a car, and multi-view sets of the
+  same car in several scenes (`make_scene_views`), which are the parity fixtures of the
+  browser runtime and the console's sample photos.
 - **The detector's training data**: the shipped detector was trained on a publicly
   available plate dataset released under CC BY 4.0, plus photographs from the firm's
   experts; that data is not in this repository.
 - **Real data**: none. `data/` is a documented placeholder (`data/README.md`,
   `docs/insert_your_own_data.md`) checked by `plate data validate`.
+
+## Splits
+
+Every synthetic split has its own seed in `plate_reader/synthetic/splits.py`; samples are
+seeded from `(seed, kind, index, view)`, so no two splits share a sample.
+
+| Split | Seed | Used for |
+|---|---|---|
+| `train` | 1001 | CRNN training crops (generated on the fly) |
+| `val` | 1002 | choosing the kept training epoch |
+| `calibration` | 1003 | fitting the temperature |
+| `conformal` | 1004 | single-view conformal thresholds |
+| `test` | 1005 | the synthetic evaluation set, the parity fixtures and the console's samples |
+| `pseudo_real` | 1006 | the pseudo-real evaluation set |
+| `views` | 1007 | multi-view evaluation sets |
+| `views_calibration` | 1008 | conformal thresholds per number of fused views |
+| `pseudo_real_tune` | 1009 | scoring the augmentation sweep |
 
 ## Assumptions the data encodes
 

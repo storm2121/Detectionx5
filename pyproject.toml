@@ -46,6 +46,7 @@ ml = [
   "easyocr>=1.7.2",
   "onnx>=1.16",
   "onnxscript>=0.1",
+  "optuna>=4.0,<5",
 ]
 gui = ["ttkbootstrap>=1.10.1"]
 dev = [

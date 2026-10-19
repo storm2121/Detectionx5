@@ -6,7 +6,9 @@
 
 -e .
 alembic==1.20.0 ; sys_platform == 'linux' or sys_platform == 'win32'
-    # via detectionx5
+    # via
+    #   detectionx5
+    #   optuna
 annotated-doc==0.0.5 ; sys_platform == 'linux' or sys_platform == 'win32'
     # via
     #   fastapi
@@ -29,7 +31,12 @@ click==8.5.0 ; sys_platform == 'linux' or sys_platform == 'win32'
     #   rq
     #   uvicorn
 colorama==0.4.6 ; sys_platform == 'win32'
-    # via typer
+    # via
+    #   colorlog
+    #   tqdm
+    #   typer
+colorlog==6.12.0 ; sys_platform == 'linux' or sys_platform == 'win32'
+    # via optuna
 contourpy==1.4.0 ; sys_platform == 'linux' or sys_platform == 'win32'
     # via matplotlib
 croniter==6.2.4 ; sys_platform == 'linux' or sys_platform == 'win32'
@@ -110,6 +117,7 @@ numpy==2.5.4 ; sys_platform == 'linux' or sys_platform == 'win32'
     #   onnxruntime
     #   onnxscript
     #   opencv-python-headless
+    #   optuna
     #   scikit-image
     #   scipy
     #   shapely
@@ -159,12 +167,14 @@ opentelemetry-sdk==1.45.1 ; sys_platform == 'linux' or sys_platform == 'win32'
     #   opentelemetry-exporter-otlp-proto-http
 opentelemetry-semantic-conventions==0.66b1 ; sys_platform == 'linux' or sys_platform == 'win32'
     # via opentelemetry-sdk
+optuna==4.9.0 ; sys_platform == 'linux' or sys_platform == 'win32'
 packaging==26.3 ; sys_platform == 'linux' or sys_platform == 'win32'
     # via
     #   lazy-loader
     #   matplotlib
     #   onnxruntime
     #   onnxscript
+    #   optuna
     #   plotly
     #   scikit-image
 pillow==12.3.0 ; sys_platform == 'linux' or sys_platform == 'win32'
@@ -226,6 +236,7 @@ pyyaml==6.0.3 ; sys_platform == 'linux' or sys_platform == 'win32'
     # via
     #   detectionx5
     #   easyocr
+    #   optuna
     #   ultralytics
 redis==8.1.0 ; sys_platform == 'linux' or sys_platform == 'win32'
     # via
@@ -258,6 +269,7 @@ sqlalchemy==2.1.5 ; sys_platform == 'linux' or sys_platform == 'win32'
     # via
     #   alembic
     #   detectionx5
+    #   optuna
 starlette==1.8.0 ; sys_platform == 'linux' or sys_platform == 'win32'
     # via fastapi
 structlog==26.1.0 ; sys_platform == 'linux' or sys_platform == 'win32'
@@ -288,6 +300,8 @@ torchvision==0.29.1+cu126 ; sys_platform == 'win32'
     # via
     #   easyocr
     #   ultralytics
+tqdm==4.70.1 ; sys_platform == 'linux' or sys_platform == 'win32'
+    # via optuna
 ttkbootstrap==2.2.3 ; sys_platform == 'linux' or sys_platform == 'win32'
 typer==0.27.3 ; sys_platform == 'linux' or sys_platform == 'win32'
     # via detectionx5

@@ -21,6 +21,7 @@ from torch.utils.data import Dataset, Sampler
 from ..crnn.charset import encode
 from ..crnn.preprocess import preprocess
 from ..normalize import parse_plate
+from ..synthetic.augment import DEFAULT, AugmentConfig
 from ..synthetic.generate import make_crop
 
 
@@ -41,17 +42,29 @@ Sample = tuple[torch.Tensor, list[int]]
 
 
 class SyntheticCrops(Dataset[Sample]):
-    def __init__(self, seed: int, epoch_size: int, curriculum: Curriculum) -> None:
+    def __init__(
+        self,
+        seed: int,
+        epoch_size: int,
+        curriculum: Curriculum,
+        augment: AugmentConfig = DEFAULT,
+    ) -> None:
         self.seed = seed
         self.epoch_size = epoch_size
         self.curriculum = curriculum
+        self.augment = augment
 
     def __len__(self) -> int:
         return self.epoch_size * self.curriculum.epochs
 
     def __getitem__(self, index: int) -> Sample:
         epoch = index // self.epoch_size
-        sample = make_crop(self.seed, index, strength_range=(0.0, self.curriculum.upper(epoch)))
+        sample = make_crop(
+            self.seed,
+            index,
+            strength_range=(0.0, self.curriculum.upper(epoch)),
+            config=self.augment,
+        )
         return torch.from_numpy(preprocess(sample.image)), encode(sample.tokens)
 
 

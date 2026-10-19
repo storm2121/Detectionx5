@@ -330,6 +330,78 @@ def _crnn_training(ctx: RenderContext) -> str:
     )
 
 
+@block("augmentation-sweep")
+def _augmentation_sweep(ctx: RenderContext) -> str:
+    payload = ctx.result("sweep")
+    if payload is None:
+        return f"Not run yet: `uv run plate sweep`. {SYNTHETIC_LABEL.capitalize()}."
+    budget = payload.get("budget", {})
+    groups = list(payload.get("groups", {}))
+    baseline = payload.get("baseline", {})
+    best = payload.get("best", {})
+    lines = [
+        f"**{SYNTHETIC_LABEL.capitalize()}.** {len(payload.get('trials', []))} trials, each "
+        + (
+            f"fine-tuning `{payload['init_weights']}` for "
+            if payload.get("init_weights")
+            else "training from scratch for "
+        )
+        + f"{budget.get('epochs', '?')} epochs of {budget.get('epoch_size', '?')} synthetic crops "
+        f"on `{budget.get('device', '?')}`, scored by greedy exact match on "
+        f"{budget.get('tune_size', '?')} pseudo-real tuning crops (seed "
+        f"{payload.get('splits', {}).get('tuning', {}).get('seed', '?')}) with 95% "
+        "bootstrap intervals; trial "
+        f"{baseline.get('number', '?')} is the shipped configuration, and differences are "
+        "paired against it over the same crops. "
+        + (
+            f"The shipped weights score {fmt_ci(payload['shipped_before_fine_tuning'])} "
+            "before any fine-tuning. "
+            if payload.get("shipped_before_fine_tuning")
+            else ""
+        )
+        + (
+            "The best configuration is in use."
+            if payload.get("adopted")
+            else "The shipped CRNN keeps the default configuration until a full training with "
+            "the best one is evaluated."
+        ),
+        "",
+        "| Trial | "
+        + " | ".join(groups)
+        + " | Pseudo-real exact match | Difference to the shipped configuration | "
+        "Synthetic validation |",
+        "|---|" + "---|" * len(groups) + "---|---|---|",
+    ]
+    trials = sorted(
+        payload.get("trials", []),
+        key=lambda t: (-float(t["pseudo_real_exact_greedy"]), int(t["number"])),
+    )
+    for trial in trials:
+        tag = ""
+        if trial.get("number") == best.get("number"):
+            tag = " (best)"
+        elif trial.get("number") == baseline.get("number"):
+            tag = " (shipped)"
+        multipliers = trial.get("multipliers", {})
+        low_high = trial.get("pseudo_real_ci")
+        score = fmt(float(trial["pseudo_real_exact_greedy"]))
+        if low_high:
+            score += f" [{fmt(float(low_high[0]))}, {fmt(float(low_high[1]))}]"
+        difference = trial.get("difference_vs_trial_0")
+        paired = (
+            "reference"
+            if trial.get("number") == baseline.get("number")
+            else (fmt_ci(difference) if difference else "n/a")
+        )
+        lines.append(
+            f"| {trial['number']}{tag} | "
+            + " | ".join(fmt(float(multipliers.get(g, 1.0)), 2) for g in groups)
+            + f" | {score} | {paired}"
+            f" | {fmt(float(trial['synthetic_val_exact_greedy']))} |"
+        )
+    return "\n".join(lines)
+
+
 @block("fused-calibration")
 def _fused_calibration(ctx: RenderContext) -> str:
     payload = ctx.result("calibration_fused")

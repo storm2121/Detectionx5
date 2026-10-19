@@ -29,6 +29,7 @@ from ..crnn.decode import constrained_beam_search, greedy, log_softmax
 from ..crnn.model import CRNN, CRNNConfig, count_parameters
 from ..crnn.preprocess import batch as preprocess_batch
 from ..settings import PROJECT_ROOT
+from ..synthetic.augment import DEFAULT, AugmentConfig
 from ..synthetic.generate import GENERATOR_VERSION, make_crop
 from ..synthetic.splits import SPLIT_SEEDS
 from .data import Curriculum, EpochSampler, LabelledCrops, SyntheticCrops, collate
@@ -44,6 +45,9 @@ class TrainConfig:
     lr: float = 2e-3
     weight_decay: float = 1e-4
     workers: int = 6
+    #: Keep the data workers alive between epochs. A process that builds many loaders in a
+    #: row (the sweep) turns this off: stale persistent workers break on Windows.
+    persistent_workers: bool = True
     val_size: int = 1000
     seed: int = 0
     device: str = "auto"
@@ -58,11 +62,16 @@ class TrainConfig:
         default_factory=lambda: PROJECT_ROOT / "models" / "checkpoints" / "crnn_best.pt"
     )
     model: CRNNConfig = field(default_factory=CRNNConfig)
+    #: Start from these weights instead of a random initialisation (the sweep's trials).
+    init_weights: Path | None = None
+    #: Degradation bounds of the synthetic training crops (the sweep scales them).
+    augment: AugmentConfig = field(default_factory=lambda: DEFAULT)
 
     def as_dict(self) -> dict[str, Any]:
         data = asdict(self)
         data["data_dir"] = _relative(self.data_dir) if self.data_dir else None
         data["checkpoint"] = Path(self.checkpoint).name
+        data["init_weights"] = _relative(self.init_weights) if self.init_weights else None
         data["model"] = self.model.as_dict()
         return data
 
@@ -146,7 +155,7 @@ def _loader(
         shuffle=shuffle if sampler is None else False,
         num_workers=config.workers,
         collate_fn=collate,
-        persistent_workers=config.workers > 0,
+        persistent_workers=config.workers > 0 and config.persistent_workers,
         pin_memory=torch.cuda.is_available(),
         drop_last=False,
     )
@@ -187,12 +196,14 @@ def train(config: TrainConfig, log: Log = print) -> TrainResult:
     torch.backends.cudnn.benchmark = False
     device = resolve_device(config.device)
     amp = config.amp and device.type == "cuda"
-    model = CRNN(config.model).to(device)
+    model = (
+        load_weights(config.init_weights) if config.init_weights is not None else CRNN(config.model)
+    ).to(device)
     params = count_parameters(model)
     log(f"CRNN with {params} parameters on {device} (amp={amp})")
 
     curriculum = Curriculum(config.epochs, config.curriculum_start, config.curriculum_ramp)
-    dataset = SyntheticCrops(SPLIT_SEEDS["train"], config.epoch_size, curriculum)
+    dataset = SyntheticCrops(SPLIT_SEEDS["train"], config.epoch_size, curriculum, config.augment)
     sampler = EpochSampler(config.epoch_size, config.seed)
     loader = _loader(dataset, sampler, config)
     steps = config.epochs * math.ceil(config.epoch_size / config.batch_size)
