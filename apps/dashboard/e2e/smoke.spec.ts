@@ -61,7 +61,7 @@ test('reads three synthetic photos of one car: boxes, fields, views, fusion, set
     display(expected.prediction ?? ''),
   )
   const characters = expected.positions.filter((p) => p.symbol !== '-').length
-  await expect(page.getByTestId('character-heatmap').locator('rect.winner')).toHaveCount(characters)
+  await expect(page.getByTestId('character-heatmap').locator('.winner')).toHaveCount(characters)
   await expectNoHorizontalScroll(page)
   await expectAccessible(page)
 })
@@ -93,33 +93,79 @@ test('a queued read is corrected in the review queue and exported', async ({ pag
 
   // The stored read now reports that it was reviewed.
   await page.goto(`/reads/${readId}`)
-  await expect(page.getByTestId('read-result').getByTestId('status-pill')).toHaveText('reviewed')
+  await expect(page.getByTestId('read-result').getByTestId('status-pill')).toHaveText('Reviewed')
 })
 
 test('the jobs page reports what the service refuses', async ({ page }) => {
   await page.goto('/jobs')
   await page.getByLabel('Path under the jobs root').fill('no-such-folder')
   await page.getByTestId('queue-job').click()
-  await expect(page.getByTestId('error-note')).toContainText('No such folder under the jobs root.')
+  await expect(page.getByRole('alert')).toContainText('No such folder under the jobs root.')
 })
 
 test('evaluation switches sets and recognisers', async ({ page }) => {
   await page.goto('/evaluation')
   await expect(page.getByTestId('metric-table')).toContainText('Exact match')
-  await page.getByRole('button', { name: 'Pseudo-real set' }).click()
+  await page.getByRole('radio', { name: 'Pseudo-real set' }).click()
   await expect(page).toHaveURL(/set=eval_pseudo_real/)
   await expect(page.getByText('Pseudo-real set: n =', { exact: false })).toBeVisible()
-  await page.getByTestId('recognizer-choice').click()
-  await page.getByRole('option', { name: 'EasyOCR (baseline)' }).click()
-  await expect(page.getByTestId('calibration-curve').first()).toContainText('Accuracy per')
+  await page.getByTestId('recognizer-choice').selectOption('easyocr')
+  await expect(page.getByTestId('calibration-curve').first()).toContainText('Accuracy')
   await expect(page.getByText('not a calibrated probability', { exact: false })).toBeVisible()
 })
 
 test('models and methods show the served model and typeset the equations', async ({ page }) => {
   await page.goto('/models')
   await expect(page.getByTestId('model-version')).toContainText(PARITY.model_version)
-  await expect(page.getByTestId('registry-table')).toContainText('active')
+  await expect(page.getByTestId('registry-table')).toContainText('Active')
   await page.goto('/methods')
   await expect(page.locator('.katex').first()).toBeVisible()
   expect(await page.locator('[data-testid="math"]').count()).toBeGreaterThan(8)
+})
+
+test('photos reorder by dragging: the thumbnail follows the pointer and settles in its slot', async ({
+  page,
+  isMobile,
+}) => {
+  test.skip(isMobile, 'a touch drag starts with a long press; the mouse drag covers the logic')
+  await page.goto('/read')
+  await page.getByTestId('photo-input').setInputFiles(SCENES)
+  const items = page.getByTestId('photos').locator('li')
+  await expect(items).toHaveCount(SCENES.length)
+  const names = async () => items.locator('.file').allTextContents()
+  const before = await names()
+  const first = await items.nth(0).boundingBox()
+  const last = await items.nth(SCENES.length - 1).boundingBox()
+  if (!first || !last) throw new Error('no layout')
+  await page.mouse.move(first.x + first.width / 2, first.y + first.height / 3)
+  await page.mouse.down()
+  // 1:1 tracking: the lifted thumbnail moves with the pointer while it is held
+  await page.mouse.move(first.x + first.width / 2 + 40, first.y + first.height / 3, { steps: 4 })
+  const held = await items.nth(0).boundingBox()
+  expect(Math.abs((held?.x ?? 0) - (first.x + 40))).toBeLessThan(6)
+  await page.mouse.move(last.x + last.width / 2, last.y + last.height / 3, { steps: 12 })
+  await page.mouse.up()
+  await expect.poll(names).toEqual([...before.slice(1), before[0]])
+  // the spring settles the thumbnail into its new slot
+  await expect
+    .poll(async () => {
+      const box = await items.nth(SCENES.length - 1).boundingBox()
+      return Math.abs((box?.x ?? 0) - last.x) < 1.5
+    })
+    .toBe(true)
+  // and the keyboard moves it back
+  await items.nth(SCENES.length - 1).focus()
+  await page.keyboard.press('Home')
+  await expect.poll(names).toEqual(before)
+})
+
+test('under reduced motion every page still works and passes axe', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' })
+  await page.goto('/read')
+  await page.getByTestId('photo-input').setInputFiles(SCENES)
+  await page.getByTestId('read-button').click()
+  await expect(page.getByTestId('read-result').getByTestId('plate-fields')).toBeVisible()
+  await page.getByRole('button', { name: /Views and hypotheses/ }).click()
+  await expect(page.getByTestId('view-card').first()).toBeVisible()
+  await expectAccessible(page)
 })

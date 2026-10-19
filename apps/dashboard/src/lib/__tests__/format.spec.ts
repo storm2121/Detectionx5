@@ -50,8 +50,10 @@ describe('number formatting', () => {
 
   it('formats bootstrap intervals', () => {
     const estimate = { value: 0.99, ci_low: 0.98, ci_high: 1, n: 300 }
-    expect(interval(estimate)).toBe('98.0–100.0%')
-    expect(interval({ value: 0.95, ci_low: 0.94, ci_high: 0.97, n: 2000 }, true)).toBe('0.94–0.97')
+    expect(interval(estimate)).toBe('(98.0 to 100.0)')
+    expect(interval({ value: 0.95, ci_low: 0.94, ci_high: 0.97, n: 2000 }, true)).toBe(
+      '(0.94 to 0.97)',
+    )
   })
 
   it('formats dates and rejects nonsense', () => {

@@ -26,7 +26,7 @@ test('in-browser mode reads the sample photos on the device', async ({ page }) =
     if (request.method() === 'POST') posted.push(request.url())
   })
   await page.goto('/read')
-  await page.getByRole('button', { name: 'In this browser' }).click()
+  await page.getByRole('radio', { name: 'In this browser' }).click()
   await expect(page.getByTestId('parity-indicator')).toContainText('parity with Python', {
     timeout: 200_000,
   })
@@ -43,7 +43,7 @@ test('in-browser mode reads the sample photos on the device', async ({ page }) =
   }
   await expect(page.getByTestId('plate-box')).toHaveCount(SCENES.length)
   await expect(page.getByTestId('view-card')).toHaveCount(SCENES.length)
-  await expect(page.getByTestId('character-heatmap').locator('rect.winner')).toHaveCount(
+  await expect(page.getByTestId('character-heatmap').locator('.winner')).toHaveCount(
     fused.positions.filter((p) => p.symbol !== '-').length,
   )
   await expect(result).toContainText('read in this browser')

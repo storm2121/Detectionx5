@@ -1,10 +1,8 @@
 import { describe, expect, it } from 'vitest'
 
 import { ACCEPTED, QUEUED } from '@/__tests__/helpers'
-import type { PositionOut } from '@/api/types'
-
-import { fusionRows, heatmap, weakestCharacter } from '../fusion'
-import { GAP, SEPARATOR, SYMBOL_ORDER, reviewReason, statusTone, symbolLabel } from '../plate'
+import { fusionRows, weakestCharacter } from '../fusion'
+import { GAP, SEPARATOR, reviewReason, statusLabel, statusTone, symbolLabel } from '../plate'
 
 describe('the fusion table', () => {
   it('puts the read first with every view next to the fused posterior', () => {
@@ -28,37 +26,8 @@ describe('the fusion table', () => {
   })
 })
 
-describe('the character heatmap', () => {
-  it('has one column per position and rows for every winner', () => {
-    const data = heatmap(ACCEPTED.positions)
-    expect(data.columns).toHaveLength(ACCEPTED.positions.length)
-    const winners = ACCEPTED.positions.filter((p) => p.symbol !== SEPARATOR).map((p) => p.symbol)
-    for (const symbol of winners) expect(data.symbols).toContain(symbol)
-    expect(data.cells).toHaveLength(data.columns.length * data.symbols.length)
-    expect(data.cells.filter((c) => c.winner).length).toBe(winners.length)
-  })
-
-  it('drops the separator row unless a hypothesis puts one under a character', () => {
-    expect(heatmap(ACCEPTED.positions).symbols).not.toContain(SEPARATOR)
-    const misplaced: PositionOut[] = [
-      {
-        index: 0,
-        symbol: '1',
-        confidence: 0.6,
-        distribution: [
-          { symbol: '1', probability: 0.6 },
-          { symbol: SEPARATOR, probability: 0.3 },
-          { symbol: GAP, probability: 0.1 },
-        ],
-      },
-    ]
-    expect(heatmap(misplaced).symbols).toEqual(['1', SEPARATOR, GAP])
-  })
-
-  it('orders digits before letters and finds the weakest character', () => {
-    const data = heatmap(QUEUED.positions, 0)
-    const ranks = data.symbols.map((s) => SYMBOL_ORDER.indexOf(s))
-    expect([...ranks].sort((a, b) => a - b)).toEqual(ranks)
+describe('the weakest character', () => {
+  it('is the least confident character, separators aside', () => {
     const weakest = weakestCharacter(QUEUED.positions)
     const lowest = Math.min(
       ...QUEUED.positions.filter((p) => p.symbol !== SEPARATOR).map((p) => p.confidence),
@@ -80,5 +49,7 @@ describe('plate vocabulary', () => {
     expect(statusTone('queued')).toBe('warn')
     expect(statusTone('failed')).toBe('bad')
     expect(statusTone('whatever')).toBe('neutral')
+    expect(statusLabel('queued')).toBe('Waiting for review')
+    expect(statusLabel('something_new')).toBe('Something new')
   })
 })

@@ -6,6 +6,7 @@ import { ACCEPTED, fakeFetch, plugins, png, QUEUED } from '@/__tests__/helpers'
 import { setFetch } from '@/api/client'
 import calibration from '@results/calibration_crnn.json'
 import fused from '@results/calibration_fused.json'
+import real from '@results/eval_data.json'
 import detectorEval from '@results/eval_detector_synthetic.json'
 import evaluation from '@results/eval_synthetic.json'
 import training from '@results/train_crnn.json'
@@ -46,6 +47,7 @@ const HEALTH = {
 
 const common = [
   { path: '/api/health', body: HEALTH },
+  { path: '/api/review/summary', body: { pending: 1, ready_to_export: 1 } },
   { path: '/api/models', body: MODELS },
   { path: '/api/reads', body: { items: [], total: 0, limit: 8, offset: 0 } },
   {
@@ -56,6 +58,7 @@ const common = [
       'calibration_fused',
       'train_crnn',
       'eval_detector_synthetic',
+      'eval_data',
     ].map((name) => ({
       name,
       schema: null,
@@ -67,6 +70,7 @@ const common = [
   { path: '/api/results/calibration_fused', body: fused },
   { path: '/api/results/train_crnn', body: training },
   { path: '/api/results/eval_detector_synthetic', body: detectorEval },
+  { path: '/api/results/eval_data', body: real },
 ]
 
 afterEach(() => setFetch(null))
@@ -102,8 +106,10 @@ describe('the console', () => {
     expect(wrapper.get('[data-testid="conformal-set"]').text()).toContain(ACCEPTED.plate ?? '')
     expect(wrapper.findAll('[data-testid="view-card"]')).toHaveLength(3)
     expect(wrapper.find('[data-testid="character-heatmap"]').exists()).toBe(true)
-    expect(wrapper.text()).toContain('accepted')
-    expect(wrapper.text()).toContain('Synthetic results are not real-world accuracy.')
+    expect(wrapper.text()).toContain('Accepted')
+    expect(wrapper.text().toLowerCase()).toContain('synthetic results are not real-world accuracy')
+    // the navigation names the review queue with what waits in it
+    expect(wrapper.text()).toContain('Review queue (1 waiting)')
     wrapper.unmount()
   })
 
@@ -151,6 +157,14 @@ describe('the console', () => {
     expect(wrapper.find('[data-testid="fusion-comparison"]').exists()).toBe(true)
     expect(wrapper.findAll('[data-testid="coverage-table"]')).toHaveLength(2)
     expect(wrapper.text()).toContain('Synthetic results are not real-world accuracy.')
+    // the real photos come first, with their n and the honest sentence about them
+    const section = wrapper.get('[data-testid="real-photos"]')
+    expect(section.text()).toContain(`${real.set.n} labelled photos of real cars`)
+    expect(section.text()).toContain('photos give a wide interval')
+    const first = wrapper.findAll('h2').map((h) => h.text())
+    expect(first.indexOf('Real photos')).toBeLessThan(
+      first.indexOf('Development and synthetic harness'),
+    )
     wrapper.unmount()
   })
 
@@ -158,7 +172,10 @@ describe('the console', () => {
     const { wrapper } = await visit('/models')
     await flushPromises()
     expect(wrapper.get('[data-testid="model-version"]').text()).toBe('crnn-test')
-    expect(wrapper.find('[data-testid="registry-table"]').text()).toContain('active')
+    expect(wrapper.find('[data-testid="registry-table"]').text()).toContain('Active')
+    const gap = wrapper.get('[data-testid="sim-to-real"]').text()
+    expect(gap).toContain(`Real photos (n = ${real.set.n})`)
+    expect(gap).toContain('points lower on real photos')
     expect(wrapper.find('[data-testid="training-curve"]').exists()).toBe(true)
     const detector = wrapper.get('[data-testid="detector-eval"]').text()
     expect(detector).toContain(detectorEval.metrics.map50.toFixed(3))
@@ -213,7 +230,8 @@ describe('the console', () => {
     const decision = fetcher.calls.find((c) => c.url.endsWith('/api/review/item-1'))
     expect(JSON.parse(String(decision?.init?.body))).toEqual({ plate: '27-د-9' })
     expect(wrapper.findAll('[data-testid="review-item"]')).toHaveLength(0)
-    expect(wrapper.get('[data-testid="decided"]').text()).toContain('corrected')
+    expect(wrapper.get('[data-testid="decided"]').text()).toContain('Corrected')
+    expect(wrapper.get('[data-testid="export-button"]').text()).toBe('Export 1 correction')
     await wrapper.get('[data-testid="export-button"]').trigger('click')
     await flushPromises()
     expect(wrapper.get('[data-testid="export-result"]').text()).toContain('Exported 1 crop')
@@ -230,7 +248,7 @@ describe('the console', () => {
         body: { detail: 'No such folder under the jobs root.' },
       },
     ])
-    expect(wrapper.text()).toContain('No jobs yet.')
+    expect(wrapper.text()).toContain('Queue one to start.')
     await wrapper.get('form').trigger('submit')
     await flushPromises()
     expect(wrapper.text()).toContain('Give a path under the jobs root')

@@ -103,6 +103,11 @@ dashboard-e2e:
     {{pnpm}} exec playwright install chromium
     {{pnpm}} e2e
 
+# Every console page in both themes at 1440 and 390 px, written to docs/images (stack running).
+dashboard-screenshots:
+    {{pnpm}} exec playwright install chromium
+    {{pnpm}} screenshots
+
 # Nothing synthetic is generated or read (ADR 0011); the console is http://localhost:5174.
 # The whole stack in Compose, then where the console is once it answers.
 demo:
