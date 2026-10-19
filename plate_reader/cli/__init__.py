@@ -32,6 +32,7 @@ COMMANDS: Final[tuple[tuple[str, str, Kind], ...]] = (
     ("synth", "synth", "group"),
     ("evaluate", "eval", "command"),
     ("eval_detector", "eval-detector", "command"),
+    ("compare", "compare-crnn", "command"),
     ("train", "train", "group"),
     ("export", "export", "group"),
     ("registry", "registry", "group"),
