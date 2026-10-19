@@ -226,7 +226,7 @@ the README currently shows the final-epoch row (0.958 / 0.957 / 0.987 / 0.743) a
 rendering from `docs/training_results.csv`. The README states OCR accuracy is not benchmarked; keep
 that statement until a real labelled set exists. The current vote weights each reading's votes by
 detector confidence (`pipeline.py` around line 200). The `.venv` has CPU-only torch 2.14 and
-ultralytics 8.4; the machine has an RTX 3050 4 GB for which CUDA torch should be installed in the
+ultralytics 8.4; the machine has a 4 GB laptop GPU for which CUDA torch should be installed in the
 project environment.
 
 ## 16. Glossary

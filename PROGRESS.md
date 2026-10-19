@@ -137,7 +137,7 @@ Never record the name of the original dataset host.
   for the CRNN, its calibration and the pseudo-real set, all rendered.
 - Commands run and results:
   - `plate train crnn --epochs 24 --epoch-size 20000 --batch-size 128 --workers 6 --device cuda`:
-    CUDA torch on the RTX 3050, about 19 minutes of training plus calibration; exit 0.
+    CUDA torch on the laptop GPU, about 19 minutes of training plus calibration; exit 0.
     No CPU fallback was needed.
   - Conformal coverage at alpha 0.1 on the synthetic test split, with the joint bootstrap
     interval over the calibration and test splits: the interval contains 0.9 (and the alpha

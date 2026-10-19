@@ -6,7 +6,7 @@ Status: accepted (executing agent, 2026-10-18).
 
 The previous `.venv` held Python 3.11, CPU-only torch, `numpy<2` and both
 `opencv-python` and `opencv-python-headless` (which overwrite each other's `cv2`). The
-development machine has an RTX 3050 (4 GB) with driver 551.76, which reports CUDA 12.4.
+development machine has a 4 GB laptop GPU whose driver reports CUDA 12.4.
 
 ## Decision
 
