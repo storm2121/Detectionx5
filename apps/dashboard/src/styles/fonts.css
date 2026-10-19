@@ -1,0 +1,16 @@
+/*
+ * Noto Naskh Arabic (SIL OFL 1.1, bundled with the synthetic generator; see
+ * plate_reader/synthetic/fonts/FONTS.md) for the plate's Arabic letter. It is limited to
+ * Arabic code points, so it can lead every font stack without touching Latin text, and it
+ * is scaled so that the letters' bodies (measured on ب, د and ه at 0.43 to 0.47 em) meet
+ * the system face's x-height (0.50 em). It is never italicised or synthesised.
+ */
+@font-face {
+  font-family: 'DX Naskh';
+  src: url('@fonts/noto-naskh-arabic/NotoNaskhArabic-VF.ttf') format('truetype');
+  font-weight: 400 700;
+  font-style: normal;
+  font-display: swap;
+  size-adjust: 111%;
+  unicode-range: U+0600-06FF, U+0750-077F, U+FB50-FDFF, U+FE70-FEFF;
+}

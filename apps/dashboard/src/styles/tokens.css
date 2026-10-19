@@ -1,0 +1,283 @@
+/*
+ * Design tokens of the DetectionX5 console (docs/DESIGN.md §2). Every colour, size, space,
+ * radius, material and motion value a component uses is one of these custom properties;
+ * components never carry a raw colour. Light is the default. Dark is selected, not
+ * inverted: `data-theme="dark"` (the theme store sets it on <html>, and Storybook on a
+ * story's frame) or, before the console has chosen, the system preference.
+ *
+ * Contrast (WCAG, measured against both the page and the panel surface of each theme):
+ * text 15:1 or more, secondary text 8:1, tertiary text 4.8:1, the accent as text 5:1,
+ * success, warning and danger as text 4.6:1 or more, white on the accent fill 5:1.
+ * The categorical chart hues share one OKLCH lightness per theme (0.58 light, 0.66 dark,
+ * chroma 0.14) and pass the dataviz validator in this order: adjacent-pair colour-vision
+ * separation 11.8 (light) and 11.9 (dark), normal-vision separation 22, each 3:1 or more
+ * against the panel surface.
+ */
+:root,
+[data-theme='light'] {
+  color-scheme: light;
+
+  /* the neutral ramp: 1 is nearest the page, 9 is the ink */
+  --dx-gray-1: #f5f5f7;
+  --dx-gray-2: #e8e8ed;
+  --dx-gray-3: #d2d2d7;
+  --dx-gray-4: #aeaeb2;
+  --dx-gray-5: #8e8e93;
+  --dx-gray-6: #6b6b70;
+  --dx-gray-7: #48484c;
+  --dx-gray-8: #2c2c2e;
+  --dx-gray-9: #1d1d1f;
+
+  /* surfaces are near-white, never pure */
+  --dx-bg: var(--dx-gray-1);
+  --dx-surface: #fcfcfd;
+  --dx-surface-inset: #f0f0f3;
+  --dx-text: var(--dx-gray-9);
+  --dx-text-2: var(--dx-gray-7);
+  --dx-text-3: var(--dx-gray-6);
+  --dx-border: var(--dx-gray-3);
+  --dx-border-strong: var(--dx-gray-4);
+
+  /* the one accent, and the three states */
+  --dx-accent: #0066cc;
+  --dx-accent-fill: #0066cc;
+  --dx-accent-fill-hover: #0059b3;
+  --dx-on-accent: #ffffff;
+  --dx-accent-soft: color-mix(in srgb, var(--dx-accent) 10%, var(--dx-surface));
+  --dx-success: #15743a;
+  --dx-success-soft: color-mix(in srgb, var(--dx-success) 10%, var(--dx-surface));
+  --dx-warning: #8f5f00;
+  --dx-warning-soft: color-mix(in srgb, var(--dx-warning) 10%, var(--dx-surface));
+  --dx-danger: #c42b1c;
+  --dx-danger-soft: color-mix(in srgb, var(--dx-danger) 10%, var(--dx-surface));
+  --dx-focus: var(--dx-accent);
+
+  /* charts: the neutral ramp plus the accent; categorical hues only for series identity */
+  --dx-chart-mark: var(--dx-accent);
+  --dx-chart-neutral: var(--dx-gray-5);
+  --dx-chart-grid: var(--dx-gray-2);
+  --dx-chart-axis: var(--dx-gray-4);
+  --dx-chart-1: #3a7bcb;
+  --dx-chart-2: #bc5a29;
+  --dx-chart-3: #8864c0;
+  --dx-chart-4: #538c2d;
+  --dx-chart-5: #b2548d;
+  /* confidence is one hue from the surface to the accent, as an overlay's opacity */
+  --dx-ramp-low: var(--dx-surface-inset);
+  --dx-ramp-high: var(--dx-accent);
+  /* text inside a ramp cell: whichever of the two reads better on the blended colour */
+  --dx-ink-dark: #000000;
+  --dx-ink-light: #ffffff;
+
+  /* the plate is drawn as a white plate in both themes */
+  --dx-plate-bg: #fbfbf8;
+  --dx-plate-ink: #161616;
+  --dx-plate-rule: #2c2c2e;
+  /* the detector's box over a photo: the accent on a light halo */
+  --dx-box: var(--dx-accent-fill);
+  --dx-box-halo: rgb(255 255 255 / 0.85);
+
+  /* materials: translucent chrome over scrolling content */
+  --dx-material: color-mix(in srgb, var(--dx-surface) 60%, transparent);
+  --dx-material-solid: var(--dx-surface);
+  --dx-material-edge: rgb(255 255 255 / 0.7);
+  --dx-material-filter: blur(20px) saturate(180%);
+  --dx-scrim-edge: color-mix(in srgb, var(--dx-bg) 85%, transparent);
+  --dx-shadow-float: 0 8px 28px rgb(0 0 0 / 0.12), 0 1px 3px rgb(0 0 0 / 0.08);
+  /* a raised control inside a control (the segmented thumb, the switch knob) */
+  --dx-shadow-control: 0 1px 2px rgb(0 0 0 / 0.16);
+  --dx-knob: #ffffff;
+
+  /*
+   * type: the platform's system stack with optical sizes and tabular figures. Chromium on
+   * Windows resolves neither the family "Segoe UI Variable" nor its opsz axis, only the
+   * named optical instances, so the stack names the instance for each size range;
+   * elsewhere -apple-system and font-optical-sizing: auto do the same job. "DX Naskh"
+   * covers Arabic code points only (fonts.css), so plate letters set in Noto Naskh Arabic
+   * at the Latin x-height while every Latin glyph falls through to the system face.
+   */
+  --dx-font-sans:
+    'DX Naskh', -apple-system, BlinkMacSystemFont, 'Segoe UI Variable Text', 'Segoe UI Variable',
+    'Segoe UI', system-ui, sans-serif;
+  --dx-font-display:
+    'DX Naskh', -apple-system, BlinkMacSystemFont, 'Segoe UI Variable Display', 'Segoe UI Variable',
+    'Segoe UI', system-ui, sans-serif;
+  --dx-font-small:
+    'DX Naskh', -apple-system, BlinkMacSystemFont, 'Segoe UI Variable Small', 'Segoe UI Variable',
+    'Segoe UI', system-ui, sans-serif;
+  --dx-font-mono: ui-monospace, 'SF Mono', 'Cascadia Mono', Menlo, Consolas, monospace;
+  --dx-text-caption: 0.75rem; /* 12px, +0.01em */
+  --dx-text-footnote: 0.8125rem; /* 13px */
+  --dx-text-dense: 0.875rem; /* 14px, tables */
+  --dx-text-body: 0.9375rem; /* 15px */
+  --dx-text-headline: 1.0625rem; /* 17px, section titles */
+  --dx-text-title: 1.25rem; /* 20px, -0.01em */
+  --dx-text-large: 1.75rem; /* 28px, -0.02em, page titles */
+  --dx-text-plate: 3.25rem; /* 52px, the read plate */
+  --dx-track-large: -0.02em;
+  --dx-track-title: -0.01em;
+  --dx-track-caption: 0.01em;
+  --dx-leading-title: 1.1;
+  --dx-leading-body: 1.45;
+  --dx-leading-dense: 1.3;
+  --dx-weight-title: 600;
+  --dx-weight-label: 500;
+  --dx-weight-body: 400;
+  --dx-measure: 68ch;
+
+  /* space: a 4px scale, in rem so it follows the reader's text size */
+  --dx-space-1: 0.25rem;
+  --dx-space-2: 0.5rem;
+  --dx-space-3: 0.75rem;
+  --dx-space-4: 1rem;
+  --dx-space-5: 1.5rem;
+  --dx-space-6: 2rem;
+  --dx-space-7: 3rem;
+  --dx-space-8: 4rem;
+  --dx-gutter: 1.5rem;
+  --dx-content-width: 80rem;
+  --dx-bar-height: 3.25rem;
+  --dx-tab-height: 3.5rem;
+  --dx-target: 2.25rem; /* control height; 2.75rem (44px) at phone width */
+
+  /* shape: controls, panels, floating sheets; one-pixel borders, hairlines on dense screens */
+  --dx-radius-control: 6px;
+  --dx-radius-panel: 10px;
+  --dx-radius-sheet: 16px;
+  --dx-line: 1px;
+
+  /* motion: pointer-down feedback, and the cross-fade that replaces springs when asked */
+  --dx-press-scale: 0.98;
+  --dx-press-ms: 100ms;
+  --dx-fade-ms: 200ms;
+  --dx-ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+/* dark, followed from the system until the console has stamped a theme on <html> */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']):not([data-theme='dark']) {
+    color-scheme: dark;
+    --dx-gray-1: #1a1a1d;
+    --dx-gray-2: #26262a;
+    --dx-gray-3: #3a3a3e;
+    --dx-gray-4: #545459;
+    --dx-gray-5: #727277;
+    --dx-gray-6: #9b9ba1;
+    --dx-gray-7: #c7c7cc;
+    --dx-gray-8: #e5e5ea;
+    --dx-gray-9: #f5f5f7;
+    --dx-bg: #101012;
+    --dx-surface: #1a1a1d;
+    --dx-surface-inset: #222226;
+    --dx-accent: #4aa3ff;
+    --dx-accent-fill: #0a6cd6;
+    --dx-accent-fill-hover: #0960c2;
+    --dx-accent-soft: color-mix(in srgb, var(--dx-accent) 16%, var(--dx-surface));
+    --dx-success: #32d15b;
+    --dx-success-soft: color-mix(in srgb, var(--dx-success) 16%, var(--dx-surface));
+    --dx-warning: #ffa733;
+    --dx-warning-soft: color-mix(in srgb, var(--dx-warning) 16%, var(--dx-surface));
+    --dx-danger: #ff7a70;
+    --dx-danger-soft: color-mix(in srgb, var(--dx-danger) 16%, var(--dx-surface));
+    --dx-chart-1: #5294e6;
+    --dx-chart-2: #d77343;
+    --dx-chart-3: #a07cdb;
+    --dx-chart-4: #6ba547;
+    --dx-chart-5: #cd6ca6;
+    --dx-box-halo: rgb(0 0 0 / 0.7);
+    --dx-material-edge: rgb(255 255 255 / 0.12);
+    --dx-scrim-edge: color-mix(in srgb, var(--dx-bg) 85%, transparent);
+    --dx-shadow-float: 0 8px 28px rgb(0 0 0 / 0.5), 0 1px 3px rgb(0 0 0 / 0.4);
+    --dx-shadow-control: 0 1px 2px rgb(0 0 0 / 0.5);
+  }
+}
+
+/* dark, chosen in the console (or on a Storybook frame) */
+[data-theme='dark'] {
+  color-scheme: dark;
+  --dx-gray-1: #1a1a1d;
+  --dx-gray-2: #26262a;
+  --dx-gray-3: #3a3a3e;
+  --dx-gray-4: #545459;
+  --dx-gray-5: #727277;
+  --dx-gray-6: #9b9ba1;
+  --dx-gray-7: #c7c7cc;
+  --dx-gray-8: #e5e5ea;
+  --dx-gray-9: #f5f5f7;
+  --dx-bg: #101012;
+  --dx-surface: #1a1a1d;
+  --dx-surface-inset: #222226;
+  --dx-text: var(--dx-gray-9);
+  --dx-text-2: var(--dx-gray-7);
+  --dx-text-3: var(--dx-gray-6);
+  --dx-border: var(--dx-gray-3);
+  --dx-border-strong: var(--dx-gray-4);
+  --dx-accent: #4aa3ff;
+  --dx-accent-fill: #0a6cd6;
+  --dx-accent-fill-hover: #0960c2;
+  --dx-accent-soft: color-mix(in srgb, var(--dx-accent) 16%, var(--dx-surface));
+  --dx-success: #32d15b;
+  --dx-success-soft: color-mix(in srgb, var(--dx-success) 16%, var(--dx-surface));
+  --dx-warning: #ffa733;
+  --dx-warning-soft: color-mix(in srgb, var(--dx-warning) 16%, var(--dx-surface));
+  --dx-danger: #ff7a70;
+  --dx-danger-soft: color-mix(in srgb, var(--dx-danger) 16%, var(--dx-surface));
+  --dx-focus: var(--dx-accent);
+  --dx-chart-mark: var(--dx-accent);
+  --dx-chart-neutral: var(--dx-gray-5);
+  --dx-chart-grid: var(--dx-gray-2);
+  --dx-chart-axis: var(--dx-gray-4);
+  --dx-chart-1: #5294e6;
+  --dx-chart-2: #d77343;
+  --dx-chart-3: #a07cdb;
+  --dx-chart-4: #6ba547;
+  --dx-chart-5: #cd6ca6;
+  --dx-ramp-low: var(--dx-surface-inset);
+  --dx-ramp-high: var(--dx-accent);
+  --dx-box: var(--dx-accent-fill);
+  --dx-box-halo: rgb(0 0 0 / 0.7);
+  --dx-material: color-mix(in srgb, var(--dx-surface) 60%, transparent);
+  --dx-material-solid: var(--dx-surface);
+  --dx-material-edge: rgb(255 255 255 / 0.12);
+  --dx-scrim-edge: color-mix(in srgb, var(--dx-bg) 85%, transparent);
+  --dx-shadow-float: 0 8px 28px rgb(0 0 0 / 0.5), 0 1px 3px rgb(0 0 0 / 0.4);
+  --dx-shadow-control: 0 1px 2px rgb(0 0 0 / 0.5);
+}
+
+/* a hairline on high-density screens */
+@media (min-resolution: 2dppx) {
+  :root {
+    --dx-line: 0.5px;
+  }
+}
+
+/* phone width: a 16px gutter and 44px touch targets */
+@media (max-width: 720px) {
+  :root {
+    --dx-gutter: 1rem;
+    --dx-target: 2.75rem;
+  }
+}
+
+/* reduced transparency: solid chrome, no blur */
+@media (prefers-reduced-transparency: reduce) {
+  :root,
+  [data-theme='light'],
+  [data-theme='dark'] {
+    --dx-material: var(--dx-material-solid);
+    --dx-material-filter: none;
+  }
+}
+
+/* more contrast: solid chrome with a defined border, stronger lines and secondary text */
+@media (prefers-contrast: more) {
+  :root,
+  [data-theme='light'],
+  [data-theme='dark'] {
+    --dx-material: var(--dx-material-solid);
+    --dx-material-filter: none;
+    --dx-border: var(--dx-border-strong);
+    --dx-text-3: var(--dx-text-2);
+    --dx-line: 1px;
+  }
+}

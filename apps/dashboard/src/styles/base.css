@@ -1,0 +1,365 @@
+/*
+ * Element defaults and layout primitives. Hierarchy comes from weight and size together
+ * (600 titles, 500 labels, 400 body); tracking is size-specific; every number uses tabular
+ * figures; everything is left-aligned and reads top-left to bottom-right.
+ */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  font-family: var(--dx-font-sans);
+  font-size: 100%;
+  font-optical-sizing: auto;
+  font-synthesis: none;
+  font-variant-numeric: tabular-nums;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background: var(--dx-bg);
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  min-height: 100dvh;
+  background: var(--dx-bg);
+  color: var(--dx-text);
+  font-size: var(--dx-text-body);
+  font-weight: var(--dx-weight-body);
+  line-height: var(--dx-leading-body);
+}
+
+h1,
+h2,
+h3,
+h4,
+p,
+figure,
+dl,
+dd,
+ol,
+ul {
+  margin: 0;
+}
+
+h1 {
+  font-family: var(--dx-font-display);
+  font-size: var(--dx-text-large);
+  font-weight: var(--dx-weight-title);
+  letter-spacing: var(--dx-track-large);
+  line-height: var(--dx-leading-title);
+}
+
+h2 {
+  font-family: var(--dx-font-display);
+  font-size: var(--dx-text-title);
+  font-weight: var(--dx-weight-title);
+  letter-spacing: var(--dx-track-title);
+  line-height: var(--dx-leading-title);
+}
+
+h3 {
+  font-size: var(--dx-text-headline);
+  font-weight: var(--dx-weight-title);
+  line-height: 1.25;
+}
+
+h4 {
+  font-size: var(--dx-text-body);
+  font-weight: var(--dx-weight-title);
+  line-height: 1.3;
+}
+
+a {
+  color: var(--dx-accent);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.18em;
+}
+
+a:hover {
+  text-decoration-thickness: 2px;
+}
+
+code,
+kbd {
+  font-family: var(--dx-font-mono);
+  font-size: 0.9em;
+}
+
+img,
+svg {
+  max-width: 100%;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+  color: inherit;
+}
+
+:focus-visible {
+  outline: 2px solid var(--dx-focus);
+  outline-offset: 2px;
+}
+
+::selection {
+  background: color-mix(in srgb, var(--dx-accent) 24%, transparent);
+}
+
+/* --- text roles ---------------------------------------------------------------- */
+.dx-caption {
+  font-family: var(--dx-font-small);
+  font-size: var(--dx-text-caption);
+  letter-spacing: var(--dx-track-caption);
+  line-height: 1.35;
+}
+
+.dx-footnote {
+  font-size: var(--dx-text-footnote);
+  line-height: 1.4;
+}
+
+.dx-label {
+  font-weight: var(--dx-weight-label);
+}
+
+.dx-secondary {
+  color: var(--dx-text-2);
+}
+
+.dx-tertiary {
+  color: var(--dx-text-3);
+}
+
+.dx-measure {
+  max-width: var(--dx-measure);
+}
+
+.dx-mono {
+  font-family: var(--dx-font-mono);
+  font-size: 0.9em;
+}
+
+/*
+ * Plate text keeps its token order (digits, letter, region) left to right. Plain bidi
+ * would reorder "24830-ب-1", because a European digit after an Arabic letter becomes an
+ * Arabic number; overriding is safe because the only Arabic in a plate is one letter.
+ */
+.dx-plate {
+  direction: ltr;
+  unicode-bidi: isolate-override;
+  font-weight: var(--dx-weight-label);
+  white-space: nowrap;
+}
+
+.dx-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* --- layout -------------------------------------------------------------------- */
+.dx-page {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--dx-space-6);
+  width: 100%;
+  max-width: var(--dx-content-width);
+  min-width: 0;
+  margin: 0 auto;
+  padding: var(--dx-space-6) var(--dx-gutter) var(--dx-space-8);
+}
+
+.dx-page-head {
+  display: grid;
+  gap: var(--dx-space-2);
+  max-width: var(--dx-measure);
+}
+
+.dx-page-head p {
+  color: var(--dx-text-2);
+}
+
+.dx-section {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--dx-space-4);
+  min-width: 0;
+}
+
+.dx-section-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--dx-space-1) var(--dx-space-4);
+}
+
+.dx-section-head p {
+  color: var(--dx-text-2);
+  max-width: var(--dx-measure);
+}
+
+/* an in-flow panel: a border and a radius, never a shadow */
+.dx-panel {
+  min-width: 0;
+  padding: var(--dx-space-5);
+  border: var(--dx-line) solid var(--dx-border);
+  border-radius: var(--dx-radius-panel);
+  background: var(--dx-surface);
+}
+
+.dx-stack {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--dx-space-3);
+  min-width: 0;
+}
+
+.dx-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--dx-space-2) var(--dx-space-3);
+}
+
+.dx-columns {
+  display: grid;
+  gap: var(--dx-space-5);
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 24rem), 1fr));
+  align-items: start;
+}
+
+.dx-scroll-x {
+  position: relative;
+  max-width: 100%;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+}
+
+/* --- tables: results first, so they get the most care ----------------------------- */
+.dx-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--dx-text-dense);
+  line-height: var(--dx-leading-dense);
+}
+
+.dx-table caption {
+  caption-side: top;
+  padding: 0 0 var(--dx-space-3);
+  color: var(--dx-text-2);
+  font-size: var(--dx-text-footnote);
+  line-height: 1.4;
+  text-align: left;
+}
+
+.dx-table th,
+.dx-table td {
+  padding: var(--dx-space-2) var(--dx-space-3);
+  border-bottom: var(--dx-line) solid var(--dx-border);
+  text-align: left;
+  vertical-align: baseline;
+}
+
+.dx-table th:first-child,
+.dx-table td:first-child {
+  padding-left: 0;
+}
+
+.dx-table th:last-child,
+.dx-table td:last-child {
+  padding-right: 0;
+}
+
+.dx-table thead th {
+  font-family: var(--dx-font-small);
+  font-size: var(--dx-text-caption);
+  font-weight: var(--dx-weight-label);
+  letter-spacing: var(--dx-track-caption);
+  color: var(--dx-text-2);
+  white-space: nowrap;
+}
+
+.dx-table tbody th {
+  font-weight: var(--dx-weight-label);
+}
+
+.dx-table tbody tr:last-child > * {
+  border-bottom: 0;
+}
+
+.dx-table .dx-num {
+  text-align: right;
+  white-space: nowrap;
+}
+
+.dx-table .dx-ci {
+  color: var(--dx-text-2);
+}
+
+/* --- definition lists ------------------------------------------------------------- */
+.dx-facts {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: var(--dx-space-2) var(--dx-space-5);
+  font-size: var(--dx-text-dense);
+  line-height: var(--dx-leading-dense);
+}
+
+.dx-facts dt {
+  color: var(--dx-text-2);
+}
+
+.dx-facts dd {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+/* --- skeletons: the shape of the content that is on its way ----------------------- */
+.dx-skeleton {
+  display: block;
+  border-radius: 4px;
+  background: var(--dx-surface-inset);
+  animation: dx-skeleton 1.6s ease-in-out infinite;
+}
+
+@keyframes dx-skeleton {
+  50% {
+    opacity: 0.55;
+  }
+}
+
+/* --- reduced motion: no smooth scrolling, no pulsing; springs are handled in motion/ --- */
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  .dx-skeleton {
+    animation: none;
+  }
+}
+
+@media (max-width: 720px) {
+  .dx-page {
+    gap: var(--dx-space-5);
+    padding-top: var(--dx-space-5);
+  }
+
+  .dx-panel {
+    padding: var(--dx-space-4);
+  }
+}
