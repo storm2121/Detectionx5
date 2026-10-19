@@ -4,11 +4,22 @@ import { computed } from 'vue'
 import type { ReadOut } from '@/api/types'
 import { probability } from '@/lib/format'
 import { fusionRows } from '@/lib/fusion'
+import { fusionLabel } from '@/lib/labels'
 
-const props = withDefaults(defineProps<{ read: ReadOut; limit?: number }>(), { limit: 8 })
+/**
+ * Each view's probability for every candidate it proposed, beside the fused posterior.
+ * `order` lists the views in the order the tray shows them; fusion does not depend on it.
+ */
+const props = withDefaults(
+  defineProps<{ read: ReadOut; order?: number[] | null; limit?: number }>(),
+  {
+    order: null,
+    limit: 8,
+  },
+)
 
 const rows = computed(() => fusionRows(props.read, props.limit))
-const views = computed(() => props.read.views)
+const columns = computed(() => props.order ?? props.read.views.map((_, i) => i))
 </script>
 
 <template>
@@ -21,33 +32,37 @@ const views = computed(() => props.read.views)
   >
     <table class="dx-table">
       <caption>
-        Each view's probability for every candidate it proposed, and the fused posterior (method
-        <code>{{ read.fusion }}</code
-        >). A dash: the view did not propose that plate.
+        Each view's probability for the candidates it proposed, and the fused posterior ({{
+          fusionLabel(read.fusion).toLowerCase()
+        }}). A dash: that view did not propose it.
       </caption>
       <thead>
         <tr>
           <th scope="col">Candidate</th>
-          <th v-for="view in views" :key="view.index" scope="col" class="dx-right">
-            View {{ view.index + 1 }}
+          <th v-for="(view, n) in columns" :key="view" scope="col" class="dx-num">
+            View {{ n + 1 }}
           </th>
-          <th scope="col" class="dx-right">Fused</th>
-          <th scope="col">In set</th>
+          <th scope="col" class="dx-num">Fused</th>
+          <th scope="col">Set</th>
         </tr>
       </thead>
       <tbody>
         <tr v-for="row in rows" :key="row.tokens" :class="{ top: row.isPrediction }">
           <th scope="row">
-            <span class="dx-plate-text">{{ row.plate }}</span>
+            <span class="dx-plate">{{ row.plate }}</span>
             <span v-if="row.isPrediction" class="dx-sr-only"> (the read)</span>
           </th>
-          <td v-for="(p, i) in row.views" :key="i" class="dx-right dx-num">
-            {{ p === null ? '–' : probability(p, 1) }}
+          <td v-for="view in columns" :key="view" class="dx-num">
+            {{
+              row.views[view] === null || row.views[view] === undefined
+                ? '–'
+                : probability(row.views[view], 1)
+            }}
           </td>
-          <td class="dx-right dx-num fused">{{ probability(row.fused, 2) }}</td>
+          <td class="dx-num fused">{{ probability(row.fused, 1) }}</td>
           <td>
             <span v-if="row.inSet" class="in-set">in set</span>
-            <span v-else class="dx-muted">–</span>
+            <span v-else class="dx-tertiary">–</span>
           </td>
         </tr>
       </tbody>
@@ -56,21 +71,25 @@ const views = computed(() => props.read.views)
 </template>
 
 <style scoped>
-tr.top th,
-tr.top td {
+tr.top > * {
   background: var(--dx-accent-soft);
 }
 
+tr.top > :first-child {
+  padding-left: var(--dx-space-2);
+  border-radius: var(--dx-radius-control) 0 0 var(--dx-radius-control);
+}
+
+tr.top > :last-child {
+  border-radius: 0 var(--dx-radius-control) var(--dx-radius-control) 0;
+}
+
 .fused {
-  font-weight: 650;
+  font-weight: var(--dx-weight-title);
 }
 
 .in-set {
-  color: var(--dx-ok);
-  font-weight: 600;
-}
-
-code {
-  font-size: var(--dx-text-xs);
+  color: var(--dx-success);
+  font-weight: var(--dx-weight-label);
 }
 </style>

@@ -1,28 +1,27 @@
 <script setup lang="ts">
-import Button from 'primevue/button'
-import ToggleSwitch from 'primevue/toggleswitch'
 import { computed, onMounted, ref, shallowRef, watch } from 'vue'
 import { RouterLink } from 'vue-router'
 
 import { api, cropUrl, errorMessage } from '@/api/client'
 import type { ReadOut, ReadSummary } from '@/api/types'
-import CharacterHeatmap from '@/components/CharacterHeatmap.vue'
-import ConfidenceMeter from '@/components/ConfidenceMeter.vue'
-import ConformalSet from '@/components/ConformalSet.vue'
-import ErrorNote from '@/components/ErrorNote.vue'
+import ConfidenceBar from '@/components/ConfidenceBar.vue'
 import FusionTable from '@/components/FusionTable.vue'
-import LoadingState from '@/components/LoadingState.vue'
 import ModeToggle from '@/components/ModeToggle.vue'
-import PhotoDrop from '@/components/PhotoDrop.vue'
-import PhotoFrame from '@/components/PhotoFrame.vue'
-import PlateFields from '@/components/PlateFields.vue'
-import StatusPill from '@/components/StatusPill.vue'
-import SyntheticNote from '@/components/SyntheticNote.vue'
+import PhotoThumb from '@/components/PhotoThumb.vue'
+import PhotoTray from '@/components/PhotoTray.vue'
+import PlateReadout from '@/components/PlateReadout.vue'
+import PredictionSet from '@/components/PredictionSet.vue'
+import DisclosureSection from '@/components/ui/DisclosureSection.vue'
+import DxButton from '@/components/ui/DxButton.vue'
+import NoticeBlock from '@/components/ui/NoticeBlock.vue'
+import SkeletonBlock from '@/components/ui/SkeletonBlock.vue'
+import StatusLine from '@/components/ui/StatusLine.vue'
+import SwitchField from '@/components/ui/SwitchField.vue'
 import ViewCard from '@/components/ViewCard.vue'
 import { dateTime, milliseconds, probability } from '@/lib/format'
 import { weakestCharacter } from '@/lib/fusion'
 import { fusionLabel } from '@/lib/labels'
-import { reviewReason, statusTone, symbolLabel } from '@/lib/plate'
+import { reviewReason, statusLabel, statusTone, symbolLabel } from '@/lib/plate'
 import { useBrowserStore } from '@/stores/browser'
 import { MAX_PHOTOS, useReadStore } from '@/stores/read'
 import { useServiceStore } from '@/stores/service'
@@ -38,6 +37,7 @@ const storedError = ref<string | null>(null)
 const loadingStored = ref(false)
 const recent = ref<ReadSummary[]>([])
 const recentError = ref<string | null>(null)
+const recentLoaded = ref(false)
 
 const detail = computed(() => Boolean(props.id))
 const read = computed(() => (detail.value ? stored.value : store.result))
@@ -45,6 +45,31 @@ const busy = computed(() => (detail.value ? loadingStored.value : store.status =
 const errorText = computed(() => (detail.value ? storedError.value : store.error))
 const threshold = computed(() => service.models?.review_threshold ?? null)
 const inBrowser = computed(() => Boolean(read.value?.id.startsWith('browser-')))
+
+/** The read's views in the order the tray shows their photos (fusion ignores the order). */
+const order = computed<number[] | null>(() => {
+  const value = read.value
+  if (!value || detail.value) return null
+  const indices = store.photos.map((p) => p.view)
+  return indices.every((i): i is number => i !== null && i < value.views.length) &&
+    indices.length === value.views.length
+    ? indices
+    : null
+})
+const orderedViews = computed(() => {
+  const value = read.value
+  if (!value) return []
+  return (order.value ?? value.views.map((_, i) => i)).flatMap((i, n) => {
+    const view = value.views[i]
+    return view ? [{ view, number: n + 1 }] : []
+  })
+})
+const boxes = computed(() =>
+  store.photos.map((p) =>
+    store.result && p.view !== null ? (store.result.views[p.view]?.box ?? null) : null,
+  ),
+)
+const readViews = computed(() => read.value?.views.filter((v) => v.prediction !== null).length ?? 0)
 
 function readNow() {
   void store.read({
@@ -57,22 +82,22 @@ function readNow() {
 function cropFor(index: number): string | null {
   return inBrowser.value ? (store.browserCrops[index] ?? null) : null
 }
-const readViews = computed(() => read.value?.views.filter((v) => v.prediction !== null).length ?? 0)
 
+/** Status, completion, warning and error read differently, in colour, icon and words. */
 const verdict = computed(() => {
   const value = read.value
   if (!value) return null
-  if (value.status === 'reviewed') return { tone: 'info' as const, label: 'reviewed' }
+  if (value.status === 'reviewed') return { tone: 'info' as const, label: 'Reviewed' }
   if (value.review.queued) {
-    return { tone: 'warn' as const, label: `review: ${reviewReason(value.review.reason)}` }
+    return { tone: 'warn' as const, label: `Sent to review: ${reviewReason(value.review.reason)}` }
   }
-  return { tone: 'ok' as const, label: 'accepted' }
+  return { tone: 'ok' as const, label: 'Accepted' }
 })
 
 const weakest = computed(() => {
   const position = read.value ? weakestCharacter(read.value.positions) : null
   return position
-    ? `Least certain character: ${symbolLabel(position.symbol)} at ${probability(position.confidence, 1)}`
+    ? `Least certain character: ${symbolLabel(position.symbol)} at ${probability(position.confidence, 1)}.`
     : ''
 })
 
@@ -110,13 +135,18 @@ async function loadRecent() {
     recentError.value = null
   } catch (cause) {
     recentError.value = errorMessage(cause)
+  } finally {
+    recentLoaded.value = true
   }
 }
 
 watch(
   () => store.result,
   (value) => {
-    if (value) void loadRecent()
+    if (value) {
+      void loadRecent()
+      void service.refreshReview()
+    }
   },
 )
 
@@ -125,207 +155,195 @@ onMounted(() => {
   void loadRecent()
   if (store.mode === 'browser') void browser.prepare()
 })
-
-function boxFor(index: number) {
-  return store.result?.views[index]?.box ?? null
-}
 </script>
 
 <template>
   <div class="dx-page">
     <header class="dx-page-head">
       <h1>{{ detail ? 'Stored read' : 'Read a plate' }}</h1>
-      <p class="dx-lead">
-        <template v-if="detail">
-          A read from the service's log, with the crops it kept for review.
-          <RouterLink to="/read">Read new photos</RouterLink>.
-        </template>
-        <template v-else>
-          Drop one to ten photos of the same car. Each photo is one view: the detector finds the
-          plate, the recogniser reads it with the plate grammar, and the views are fused into one
-          calibrated read with a conformal prediction set.
-        </template>
+      <p v-if="detail">
+        A read from the service's log, with the crops it kept.
+        <RouterLink to="/read">Read new photos</RouterLink>
+      </p>
+      <p v-else>
+        Add one to ten photos of the same car. Each photo is one view: the detector finds the plate,
+        the recogniser reads it under the plate grammar, and the views are fused into one calibrated
+        read.
       </p>
     </header>
 
     <div class="layout">
-      <section class="dx-card inputs" aria-labelledby="photos-title">
-        <div class="dx-card-head">
+      <section class="inputs dx-stack" aria-labelledby="photos-title">
+        <div class="dx-section-head">
           <h2 id="photos-title">{{ detail ? 'Crops' : 'Photos' }}</h2>
-          <span v-if="!detail" class="dx-small dx-muted dx-num">
+          <span v-if="!detail" class="dx-footnote dx-secondary">
             {{ store.photos.length }} of {{ MAX_PHOTOS }}
           </span>
         </div>
 
         <template v-if="!detail">
-          <PhotoDrop
+          <PhotoTray
+            :photos="store.photos"
+            :boxes="boxes"
             :disabled="store.status === 'reading'"
             :max-photos="MAX_PHOTOS"
             @add="store.add"
+            @remove="store.remove"
+            @move="store.move"
+            @measure="store.measured"
           />
-          <p v-if="store.rejected" class="dx-small skipped">
-            {{ store.rejected }} file(s) skipped: not an image, or more than
-            {{ MAX_PHOTOS }} photos.
-          </p>
-          <div v-if="store.photos.length" class="photos" data-testid="photos">
-            <PhotoFrame
-              v-for="(photo, index) in store.photos"
-              :key="photo.id"
-              :src="photo.url"
-              :alt="`Photo ${index + 1}, ${photo.file.name}`"
-              :box="boxFor(index)"
-              :badge="`View ${index + 1}`"
-              removable
-              @remove="store.remove(photo.id)"
-              @measure="(w: number, h: number) => store.measured(photo.id, w, h)"
-            >
-              {{ photo.file.name }}
-            </PhotoFrame>
-          </div>
+          <NoticeBlock
+            v-if="store.rejected"
+            tone="warning"
+            :message="`${store.rejected} file(s) skipped: only images are read, at most ${MAX_PHOTOS} photos.`"
+          />
           <div class="controls">
             <ModeToggle />
-            <div class="switch">
-              <ToggleSwitch v-model="store.detect" input-id="detect-plates" />
-              <label for="detect-plates">Find the plate in each photo</label>
-            </div>
-            <p class="dx-small dx-muted">Switch off when every photo is already a plate crop.</p>
+            <SwitchField
+              v-model="store.detect"
+              label="Find the plate in each photo"
+              hint="Switch off when every photo is already a plate crop."
+            />
             <div class="dx-row">
-              <Button
-                label="Read plate"
-                :loading="store.status === 'reading'"
+              <DxButton
+                variant="primary"
                 :disabled="!store.canRead"
+                :busy="store.status === 'reading'"
+                busy-label="Reading photos"
                 data-testid="read-button"
                 @click="readNow()"
-              />
-              <Button
-                v-if="store.photos.length"
-                label="Clear"
-                severity="secondary"
-                text
-                @click="store.clear()"
-              />
+              >
+                Read plate
+              </DxButton>
+              <DxButton v-if="store.photos.length" variant="plain" @click="store.clear()">
+                Remove all photos
+              </DxButton>
             </div>
           </div>
         </template>
 
         <template v-else-if="read">
-          <div class="photos">
+          <div class="crops">
             <template v-for="view in read.views" :key="view.index">
-              <PhotoFrame
+              <PhotoThumb
                 v-if="view.prediction !== null"
                 :src="cropUrl(read.id, view.index)"
                 :alt="`Crop of view ${view.index + 1}`"
-                :badge="`View ${view.index + 1}`"
-              />
+              >
+                View {{ view.index + 1 }}
+              </PhotoThumb>
             </template>
           </div>
-          <p v-if="readViews === 0" class="dx-muted">No crop was kept: no view was read.</p>
+          <p v-if="readViews === 0" class="dx-secondary">No crop was kept: no view was read.</p>
         </template>
+        <SkeletonBlock v-else-if="loadingStored" kind="figure" label="Loading the crops" />
       </section>
 
-      <section class="dx-card result" aria-labelledby="result-title" data-testid="read-result">
-        <div class="dx-card-head">
+      <section class="result dx-panel" aria-labelledby="result-title" data-testid="read-result">
+        <div class="dx-section-head">
           <h2 id="result-title">Result</h2>
-          <StatusPill v-if="verdict && !busy" :tone="verdict.tone" :label="verdict.label" />
+          <StatusLine v-if="verdict && !busy" :tone="verdict.tone" :label="verdict.label" />
         </div>
         <p class="dx-sr-only" aria-live="polite">{{ live }}</p>
 
-        <LoadingState v-if="busy" label="Reading" />
-        <ErrorNote v-else-if="errorText" :message="errorText" title="The read failed" />
-        <div v-else-if="read" class="dx-stack result-body">
-          <PlateFields :fields="read.fields" :format="read.format" :plate="read.plate" />
-          <ConfidenceMeter
+        <SkeletonBlock v-if="busy" kind="plate" label="Reading the photos" />
+        <NoticeBlock
+          v-else-if="errorText"
+          tone="error"
+          title="The read failed"
+          :message="`${errorText} Check that the service is running, then press Read plate again.`"
+        />
+        <div v-else-if="read" class="result-body">
+          <PlateReadout
+            :positions="read.positions"
+            :fields="read.fields"
+            :format="read.format"
+            :plate="read.plate"
+          />
+          <p v-if="weakest" class="dx-footnote dx-secondary">{{ weakest }}</p>
+          <ConfidenceBar
             :value="read.plate ? read.confidence : null"
             :threshold="threshold"
             :calibrated="read.calibrated"
-            label="Calibrated confidence"
           />
-          <ConformalSet :set="read.prediction_set" :level="read.level" :prediction="read.plate" />
-          <dl class="dx-dl">
+          <PredictionSet :set="read.prediction_set" :level="read.level" :prediction="read.plate" />
+          <dl class="dx-facts">
             <dt>Views read</dt>
-            <dd class="dx-num">{{ readViews }} of {{ read.views.length }}</dd>
+            <dd>{{ readViews }} of {{ read.views.length }}</dd>
             <dt>Fusion</dt>
             <dd>{{ fusionLabel(read.fusion) }}</dd>
             <dt>Model</dt>
             <dd>
               <code>{{ read.model_version }}</code>
             </dd>
-            <dt>Latency</dt>
-            <dd class="dx-num">{{ milliseconds(read.latency_ms) }}</dd>
+            <dt>Time</dt>
+            <dd>{{ milliseconds(read.latency_ms) }} for the whole read</dd>
             <dt>Read</dt>
             <dd v-if="inBrowser">read in this browser, not stored</dd>
             <dd v-else>
               <RouterLink :to="`/reads/${read.id}`"
                 ><code>{{ read.id.slice(0, 8) }}</code></RouterLink
               >
-              <span class="dx-muted dx-ci">· {{ dateTime(read.created_at) }}</span>
+              <span class="dx-secondary"> · {{ dateTime(read.created_at) }}</span>
             </dd>
           </dl>
-          <SyntheticNote
-            detail="The recogniser was trained and calibrated on synthetic plates, so this confidence and this set describe synthetic data."
-          />
         </div>
-        <p v-else class="dx-muted">
+        <p v-else class="dx-secondary empty">
           The plate, its confidence and the plates that cannot be ruled out appear here. Add photos
           of one car, then press Read plate.
         </p>
       </section>
     </div>
 
-    <template v-if="read && !busy">
-      <section class="dx-stack" aria-labelledby="views-title">
-        <div class="section-head">
-          <h2 id="views-title">Views</h2>
-          <p class="dx-muted dx-small">
-            Each photo's best detection, read by the constrained beam; highlighted hypotheses are in
-            that view's own conformal set.
-          </p>
-        </div>
-        <div class="dx-grid-3">
+    <section v-if="read && !busy" class="dx-section" aria-label="Views and fusion">
+      <DisclosureSection
+        title="Views and hypotheses"
+        :summary="`${readViews} of ${read.views.length} views read · ${fusionLabel(read.fusion).toLowerCase()}`"
+        :level="2"
+      >
+        <div class="views">
           <ViewCard
-            v-for="view in read.views"
-            :key="view.index"
-            :view="view"
+            v-for="entry in orderedViews"
+            :key="entry.view.index"
+            :view="entry.view"
+            :number="entry.number"
             :read-id="inBrowser ? null : read.id"
-            :crop-src="cropFor(view.index)"
+            :crop-src="cropFor(entry.view.index)"
           />
         </div>
-      </section>
+        <FusionTable :read="read" :order="order" class="fusion" />
+      </DisclosureSection>
+    </section>
 
-      <section class="dx-card" aria-labelledby="fusion-title">
-        <div class="dx-card-head">
-          <h2 id="fusion-title">Fusion</h2>
-          <span class="dx-small dx-muted">{{ fusionLabel(read.fusion) }}</span>
-        </div>
-        <FusionTable :read="read" />
-      </section>
-
-      <section class="dx-card" aria-labelledby="chars-title">
-        <div class="dx-card-head">
-          <h2 id="chars-title">Characters</h2>
-          <span class="dx-small dx-muted">{{ weakest }}</span>
-        </div>
-        <CharacterHeatmap v-if="read.positions.length" :positions="read.positions" />
-        <p v-else class="dx-muted">Nothing was read, so there are no characters to show.</p>
-      </section>
-    </template>
-
-    <section class="dx-card" aria-labelledby="recent-title">
-      <div class="dx-card-head">
+    <section class="dx-section" aria-labelledby="recent-title">
+      <div class="dx-section-head">
         <h2 id="recent-title">Recent reads</h2>
-        <RouterLink to="/review" class="dx-small">Review queue</RouterLink>
+        <RouterLink to="/review" class="dx-footnote">Open the review queue</RouterLink>
       </div>
-      <ErrorNote v-if="recentError" :message="recentError" title="The read log is unavailable" />
-      <p v-else-if="recent.length === 0" class="dx-muted">No reads yet.</p>
+      <NoticeBlock
+        v-if="recentError"
+        tone="error"
+        title="The read log is unavailable"
+        :message="`${recentError} Reads still work; the log returns when the service does.`"
+      />
+      <SkeletonBlock
+        v-else-if="!recentLoaded"
+        kind="table"
+        :rows="3"
+        label="Loading recent reads"
+      />
+      <p v-else-if="recent.length === 0" class="dx-secondary">
+        Reads the service stores appear here, newest first. Read a plate to add the first one.
+      </p>
       <div v-else class="dx-scroll-x" role="region" aria-label="Recent reads" tabindex="0">
         <table class="dx-table">
           <thead>
             <tr>
               <th scope="col">When</th>
               <th scope="col">Plate</th>
-              <th scope="col" class="dx-right">Confidence</th>
+              <th scope="col" class="dx-num">Confidence</th>
               <th scope="col">Status</th>
-              <th scope="col" class="dx-right">Views</th>
+              <th scope="col" class="dx-num">Views</th>
             </tr>
           </thead>
           <tbody>
@@ -334,11 +352,13 @@ function boxFor(index: number) {
                 <RouterLink :to="`/reads/${item.id}`">{{ dateTime(item.created_at) }}</RouterLink>
               </td>
               <td>
-                <span class="dx-plate-text">{{ item.plate ?? '–' }}</span>
+                <span class="dx-plate">{{ item.plate ?? '–' }}</span>
               </td>
-              <td class="dx-right dx-num">{{ probability(item.confidence, 1) }}</td>
-              <td><StatusPill :tone="statusTone(item.status)" :label="item.status" /></td>
-              <td class="dx-right dx-num">{{ item.views }}</td>
+              <td class="dx-num">{{ probability(item.confidence, 1) }}</td>
+              <td>
+                <StatusLine :tone="statusTone(item.status)" :label="statusLabel(item.status)" />
+              </td>
+              <td class="dx-num">{{ item.views }} {{ item.views === 1 ? 'view' : 'views' }}</td>
             </tr>
           </tbody>
         </table>
@@ -350,55 +370,61 @@ function boxFor(index: number) {
 <style scoped>
 .layout {
   display: grid;
-  gap: var(--dx-space-4);
-  grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: var(--dx-space-6);
   align-items: start;
 }
 
-.inputs,
+.controls {
+  display: grid;
+  gap: var(--dx-space-4);
+  padding-top: var(--dx-space-2);
+}
+
 .result {
   display: grid;
-  gap: var(--dx-space-3);
+  gap: var(--dx-space-4);
+  position: sticky;
+  top: calc(var(--dx-bar-height) + var(--dx-space-4));
 }
 
 .result-body {
-  gap: var(--dx-space-4);
+  display: grid;
+  gap: var(--dx-space-5);
+  min-width: 0;
 }
 
-.photos {
+.empty {
+  max-width: var(--dx-measure);
+}
+
+.crops {
   display: grid;
   gap: var(--dx-space-3);
-  grid-template-columns: repeat(auto-fill, minmax(min(100%, 140px), 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 10rem), 1fr));
+}
+
+.views {
+  display: grid;
+  gap: var(--dx-space-4);
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 17rem), 1fr));
+}
+
+.fusion {
+  margin-top: var(--dx-space-5);
 }
 
 .when {
   white-space: nowrap;
 }
 
-.controls {
-  display: grid;
-  gap: var(--dx-space-2);
-}
-
-.switch {
-  display: flex;
-  align-items: center;
-  gap: var(--dx-space-2);
-  font-weight: 550;
-}
-
-.skipped {
-  color: var(--dx-warn);
-}
-
-.section-head {
-  display: grid;
-  gap: var(--dx-space-1);
-}
-
-@media (max-width: 900px) {
+@media (max-width: 960px) {
   .layout {
     grid-template-columns: minmax(0, 1fr);
+  }
+
+  .result {
+    position: static;
   }
 }
 </style>

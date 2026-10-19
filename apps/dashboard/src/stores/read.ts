@@ -3,6 +3,7 @@ import { computed, ref, shallowRef } from 'vue'
 
 import { api, errorMessage } from '@/api/client'
 import type { ReadOut } from '@/api/types'
+import { moveItem } from '@/motion/gesture'
 
 export const MAX_PHOTOS = 10
 
@@ -23,6 +24,12 @@ export interface Photo {
   url: string
   width: number | null
   height: number | null
+  /**
+   * This photo's view in the last read (its position when it was read). Reordering the
+   * photos afterwards keeps each box and view with its photo: fusion does not depend on the
+   * order of the views, so the read stays valid.
+   */
+  view: number | null
 }
 
 let counter = 0
@@ -67,6 +74,7 @@ export const useReadStore = defineStore('read', () => {
         url: objectUrl(file),
         width: null,
         height: null,
+        view: null,
       })
     }
     rejected.value = skipped
@@ -92,6 +100,11 @@ export const useReadStore = defineStore('read', () => {
     error.value = null
     rejected.value = 0
     status.value = 'idle'
+  }
+
+  /** Move the photo at `from` to `to` (drag and drop, or the arrow keys). */
+  function move(from: number, to: number) {
+    photos.value = moveItem(photos.value, from, to)
   }
 
   function measured(id: string, width: number, height: number) {
@@ -140,6 +153,9 @@ export const useReadStore = defineStore('read', () => {
           detect.value,
         )
       }
+      photos.value.forEach((photo, index) => {
+        photo.view = index
+      })
       status.value = 'done'
     } catch (cause) {
       error.value = errorMessage(cause)
@@ -162,6 +178,7 @@ export const useReadStore = defineStore('read', () => {
     add,
     remove,
     clear,
+    move,
     measured,
     read,
   }

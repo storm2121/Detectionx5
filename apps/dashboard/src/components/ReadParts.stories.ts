@@ -1,15 +1,18 @@
 import type { Meta, StoryObj } from '@storybook/vue3'
+import { ref } from 'vue'
 
 import type { ReadOut } from '@/api/types'
 import accepted from '@/fixtures/read-accepted.json'
 import queued from '@/fixtures/read-queued.json'
+import type { Photo } from '@/stores/read'
 
-import CharacterHeatmap from './CharacterHeatmap.vue'
-import ConfidenceMeter from './ConfidenceMeter.vue'
-import ConformalSet from './ConformalSet.vue'
+import ConfidenceBar from './ConfidenceBar.vue'
 import FusionTable from './FusionTable.vue'
-import PhotoFrame from './PhotoFrame.vue'
-import PlateFields from './PlateFields.vue'
+import ModeToggle from './ModeToggle.vue'
+import PhotoThumb from './PhotoThumb.vue'
+import PhotoTray from './PhotoTray.vue'
+import PlateReadout from './PlateReadout.vue'
+import PredictionSet from './PredictionSet.vue'
 import ViewCard from './ViewCard.vue'
 
 // Synthetic reads captured from the service on the parity scenes; every number in them is
@@ -17,52 +20,68 @@ import ViewCard from './ViewCard.vue'
 const ACCEPTED = accepted as unknown as ReadOut
 const QUEUED = queued as unknown as ReadOut
 
-const meta: Meta = { title: 'Read/Parts' }
+const meta: Meta = { title: 'Read' }
 export default meta
 type Story = StoryObj
 
-export const StandardPlate: Story = {
+function photo(index: number): Photo {
+  const name = `scene_0${index}.png`
+  return {
+    id: `p${index}`,
+    file: new File([], name, { type: 'image/png' }),
+    url: `/runtime/parity/${name}`,
+    width: null,
+    height: null,
+    view: index,
+  }
+}
+
+export const PlateAndCharacters: Story = {
   render: () => ({
-    components: { PlateFields },
+    components: { PlateReadout },
     setup: () => ({ read: ACCEPTED }),
-    template: '<PlateFields :fields="read.fields" :format="read.format" :plate="read.plate" />',
+    template: `<div style="max-width: 32rem">
+      <PlateReadout :positions="read.positions" :fields="read.fields" :format="read.format" :plate="read.plate" />
+    </div>`,
   }),
 }
 
-export const TemporaryPlate: Story = {
+export const PlateUncertain: Story = {
   render: () => ({
-    components: { PlateFields },
-    template:
-      '<PlateFields :fields="{ digits: \'72173\', letter: null, region: null }" format="temporary" plate="72173 WW" />',
+    components: { PlateReadout },
+    setup: () => ({ read: QUEUED }),
+    template: `<div style="max-width: 32rem">
+      <PlateReadout :positions="read.positions" :fields="read.fields" :format="read.format" :plate="read.plate" :minimum="0.002" />
+    </div>`,
   }),
 }
 
-export const NoPlate: Story = {
+export const PlateNone: Story = {
   render: () => ({
-    components: { PlateFields },
-    template: '<PlateFields :fields="null" :format="null" :plate="null" />',
+    components: { PlateReadout },
+    template: '<PlateReadout :positions="[]" :fields="null" :format="null" :plate="null" />',
   }),
 }
 
 export const Confidence: Story = {
   render: () => ({
-    components: { ConfidenceMeter },
-    template: `<div style="display: grid; gap: 24px; max-width: 420px">
-      <ConfidenceMeter :value="0.99999997" :threshold="0.9" label="Calibrated confidence" />
-      <ConfidenceMeter :value="0.167" :threshold="0.9" label="Calibrated confidence" />
-      <ConfidenceMeter :value="0.62" :threshold="null" :calibrated="false" label="Vote share" />
+    components: { ConfidenceBar },
+    template: `<div style="display: grid; gap: 24px; max-width: 28rem">
+      <ConfidenceBar :value="0.99999997" :threshold="0.9" />
+      <ConfidenceBar :value="0.62" :threshold="0.9" />
+      <ConfidenceBar :value="0.41" :threshold="null" :calibrated="false" label="Vote share" />
     </div>`,
   }),
 }
 
-export const ConformalSets: Story = {
+export const PredictionSets: Story = {
   render: () => ({
-    components: { ConformalSet },
-    template: `<div style="display: grid; gap: 24px; max-width: 480px">
-      <ConformalSet :set="['27-د-9']" :level="0.95" prediction="27-د-9" />
-      <ConformalSet :set="['27-د-9', '22-د-9', '227-د-9']" :level="0.9" prediction="27-د-9" />
-      <ConformalSet :set="[]" :level="0.95" prediction="54-ب-4" />
-      <ConformalSet :set="null" :level="null" prediction="54-ب-4" />
+    components: { PredictionSet },
+    template: `<div style="display: grid; gap: 24px; max-width: 30rem">
+      <PredictionSet :set="['27-د-9']" :level="0.95" prediction="27-د-9" />
+      <PredictionSet :set="['27-د-9', '22-د-9', '227-د-9']" :level="0.9" prediction="27-د-9" />
+      <PredictionSet :set="[]" :level="0.95" prediction="54-ب-4" />
+      <PredictionSet :set="null" :level="null" prediction="54-ب-4" />
     </div>`,
   }),
 }
@@ -75,27 +94,11 @@ export const Fusion: Story = {
   }),
 }
 
-export const HeatmapConfident: Story = {
-  render: () => ({
-    components: { CharacterHeatmap },
-    setup: () => ({ read: ACCEPTED }),
-    template: '<CharacterHeatmap :positions="read.positions" />',
-  }),
-}
-
-export const HeatmapUncertain: Story = {
-  render: () => ({
-    components: { CharacterHeatmap },
-    setup: () => ({ read: QUEUED }),
-    template: '<CharacterHeatmap :positions="read.positions" :minimum="0.002" />',
-  }),
-}
-
 export const Views: Story = {
   render: () => ({
     components: { ViewCard },
     setup: () => ({ read: ACCEPTED }),
-    template: `<div class="dx-grid-3">
+    template: `<div style="display: grid; gap: 16px; grid-template-columns: repeat(auto-fill, minmax(16rem, 1fr))">
       <ViewCard v-for="view in read.views" :key="view.index" :view="view" />
     </div>`,
   }),
@@ -103,12 +106,46 @@ export const Views: Story = {
 
 export const PhotoWithBox: Story = {
   render: () => ({
-    components: { PhotoFrame },
+    components: { PhotoThumb },
     setup: () => ({ read: ACCEPTED }),
-    template: `<div style="max-width: 420px">
-      <PhotoFrame src="/runtime/parity/scene_02.png" alt="Synthetic street photo (a parity fixture)" :box="read.views[2].box" badge="View 3" removable>
-        scene_02.png
-      </PhotoFrame>
+    template: `<div style="max-width: 24rem">
+      <PhotoThumb src="/runtime/parity/scene_02.png" alt="Synthetic street photo (a parity fixture)" :box="read.views[2].box">
+        View 3 · scene_02.png
+      </PhotoThumb>
     </div>`,
+  }),
+}
+
+export const Tray: Story = {
+  render: () => ({
+    components: { PhotoTray },
+    setup: () => {
+      const photos = ref<Photo[]>([photo(0), photo(1), photo(2)])
+      const boxes = ACCEPTED.views.map((v) => v.box)
+      function move(from: number, to: number) {
+        const next = [...photos.value]
+        const [item] = next.splice(from, 1)
+        if (item) next.splice(to, 0, item)
+        photos.value = next
+      }
+      return { photos, boxes, move }
+    },
+    template: `<div style="max-width: 36rem">
+      <PhotoTray :photos="photos" :boxes="photos.map((p) => boxes[p.view] ?? null)" @move="move" />
+    </div>`,
+  }),
+}
+
+export const EmptyTray: Story = {
+  render: () => ({
+    components: { PhotoTray },
+    template: '<div style="max-width: 36rem"><PhotoTray :photos="[]" /></div>',
+  }),
+}
+
+export const ReadMode: Story = {
+  render: () => ({
+    components: { ModeToggle },
+    template: '<div style="max-width: 32rem"><ModeToggle /></div>',
   }),
 }

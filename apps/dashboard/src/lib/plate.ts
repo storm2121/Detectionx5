@@ -39,6 +39,23 @@ export function reviewReason(reason: string | null | undefined): string {
   return REVIEW_REASONS[reason] ?? reason.replace(/_/g, ' ')
 }
 
+/** Sentence-case names for the states the service reports. */
+export const STATUS_LABELS: Record<string, string> = {
+  accepted: 'Accepted',
+  queued: 'Waiting for review',
+  reviewed: 'Reviewed',
+  pending: 'Waiting',
+  running: 'Running',
+  finished: 'Finished',
+  failed: 'Failed',
+}
+
+export function statusLabel(status: string): string {
+  return (
+    STATUS_LABELS[status] ?? status.charAt(0).toUpperCase() + status.slice(1).replace(/_/g, ' ')
+  )
+}
+
 export type Tone = 'ok' | 'warn' | 'bad' | 'info' | 'neutral'
 
 export function statusTone(status: string): Tone {
