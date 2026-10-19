@@ -419,3 +419,78 @@ Never record the name of the original dataset host.
 - Open questions for the architect: whether to retrain the CRNN with the sweep's best
   configuration (it changes the shipped model, every calibration and every result).
 - Next: M7.
+
+### M7: documentation and demo — done — 2026-10-19
+
+- Built: the README rewritten around what the platform does, why it is built this way, two
+  Mermaid diagrams (a read, and the deployed stack), how a read works step by step, the
+  rendered results (detector, recognisers on synthetic plates, CRNN training and
+  calibration, multi-view fusion, the pseudo-real stand-in), how to run it (ports, the
+  console, the service's endpoints, the `plate` commands), inserting real data, what changes
+  once real data arrives, honesty and limitations, the original reader, development and
+  layout. `docs/CV_NOTES.md`: every CV line with the code, tests and results that back it,
+  and a rendered table of the figures, each with its source file; it is now a governed
+  document (`plate docs check` covers it). Model card and data card v2 (runtimes, per-view-
+  count thresholds, the sweep, every split and its seed). ADR 0010 (the sweep). CHANGELOG
+  complete through M7. `just demo` waits for the stack to be healthy and reads three
+  synthetic photos of one car; `tools/demo_read.py` waits for health and prints the console's
+  address. The two detector stubs are now implemented: `plate eval-detector` validates the
+  detector with Ultralytics on any `detector.yaml` in the data layout and writes the metrics
+  with the set's provenance and counts (`results/eval_detector_synthetic.json` for a
+  synthetic scene set, `results/eval_detector_data.json` for real photos), rendered in the
+  README, the model card and the CV notes and shown on the console's Models page, with
+  `just eval-detector` to reproduce it; `plate train detector` takes `--device`,
+  `--workers` and `--amp/--no-amp` and has run for real on a tiny synthetic scene set.
+- Commands run and results:
+  - Clean clone: `git clone` of the branch into `.cache/clean-clone` (`data/` holding only
+    the placeholder), then `just setup && just demo` there. The stack came up healthy (eight
+    containers); `tools/demo_read.py` read three synthetic photos of one car as the true
+    plate with a single-plate prediction set, three of three views read, not queued for
+    review; the console answered on 5174 (`/`, `/models`, `/api/health` and
+    `/runtime/models/registry.json` all 200). The clone's stack was then stopped and the
+    clone deleted.
+  - `uv run plate synth scenes --n 300 --seed 1005 --val-fraction 0.5 --out synthetic/scenes-eval`
+    then `uv run plate eval-detector --data synthetic/scenes-eval/detector.yaml`: on the
+    validation half (150 scenes, 135 plates, 15 scenes without a plate), precision 0.729,
+    recall 0.948, mAP@50 0.843, mAP@50-95 0.602; one Ultralytics pass, so no interval.
+    Synthetic results are not real-world accuracy. `just eval-detector` reproduced the same
+    values (twice, GPU chosen by Ultralytics).
+  - `uv run plate synth scenes --n 64 --seed 1001 --val-fraction 0.25 --out .cache/detector-smoke`
+    then `uv run plate train detector --data .cache/detector-smoke/detector.yaml --epochs 1
+    --imgsz 320 --batch 8 --workers 2 --weights models/best.pt --project .cache/detector-run
+    --device 0 --no-amp`: one real epoch on 48 training scenes, validated on 16, weights
+    written under `.cache/detector-run/train/weights` (not committed: one epoch on 16
+    validation scenes says nothing about the detector); nothing was downloaded.
+  - `PLATE_TEST_MODELS=1 uv run pytest tests/test_detector_runs.py`: 2 passed (Ultralytics
+    validation and one training epoch on tiny synthetic scene sets, on the CPU).
+  - `just check`: green; console lint, type-check, build, 105 unit tests (8 files) and
+    Storybook; ruff, mypy --strict (85 files) and the repository guards; pytest 232 passed
+    and 3 skipped (the real-model API test and the two Ultralytics tests, all opt-in),
+    coverage 93.98% on `plate_reader`; `plate docs check` and `plate data validate` clean.
+  - `docker compose build api worker dashboard`, `docker compose --profile tracing up -d
+    --wait`, then `just dashboard-e2e` (Playwright, desktop and phone): 38 passed, with the
+    Models page showing the detector's synthetic-scene metrics; the stack was then stopped.
+  - `uv run python tools/repo_guards.py names --all` and `data --all`: clean.
+- Decisions: the README keeps the original reader's story as a short section, since the
+  shims and the EasyOCR baseline are still part of the platform; the CV notes are governed so
+  that a CV figure can only come from a results file. The detector's synthetic evaluation
+  uses the validation half of a scene set generated from the test seed and records its
+  digest; it is labelled synthetic everywhere, and the README says the detector's only
+  independent figures are synthetic. Ultralytics' loader workers load in the
+  main process for evaluation by default (`--workers`): on Windows its spawned workers died
+  once while the clean clone's Compose stack was running. Text now checks out with LF on every
+  platform (`.gitattributes`): with Windows' `core.autocrlf`, pre-commit's stash and restore
+  had rewritten 109 tracked files with CRLF, which Prettier's check rejects (the index was
+  LF throughout, so no content changed).
+- Stubbed or skipped, and why: the detector is not retrained, and the one-epoch run's
+  weights are not used: the shipped `models/best.pt` stays, because a detector trained on
+  procedural scenes would need real photos to show it is better. WebGPU was not exercised
+  (headless Chromium offers no adapter). CI has not run on GitHub, since nothing is pushed.
+  The sweep's best configuration is recorded, not adopted. The Docker engine stopped
+  answering (HTTP 500) twice during the leg and was restarted each time.
+- Open questions for the architect: whether to retrain the CRNN with the sweep's best
+  configuration (it changes the shipped model, every calibration and every result); whether
+  the detector should be fine-tuned on synthetic scenes before real photos exist (its
+  synthetic precision is well below its recall, but only real photos can say whether that
+  matters).
+- Next: the architect's review; real data when it exists (`docs/insert_your_own_data.md`).
