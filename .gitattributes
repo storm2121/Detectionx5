@@ -1,5 +1,9 @@
-# Normalise line endings in the repository, check out native on each platform.
-* text=auto
+# Normalise line endings in the repository and check text out with LF on every platform,
+# as .editorconfig, Prettier and ruff expect (a native CRLF checkout fails Prettier's check).
+* text=auto eol=lf
+*.ps1 text eol=crlf
+*.bat text eol=crlf
+*.cmd text eol=crlf
 
 # Shell scripts must keep LF even on Windows checkouts (they run inside containers).
 *.sh text eol=lf
