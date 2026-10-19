@@ -39,6 +39,7 @@ GOVERNED_FILES: Final[tuple[str, ...]] = (
     "docs/model_card.md",
     "docs/data_card.md",
     "docs/methods/fusion.md",
+    "docs/CV_NOTES.md",
 )
 
 _BLOCK_RE: Final = re.compile(
@@ -399,6 +400,124 @@ def _augmentation_sweep(ctx: RenderContext) -> str:
             + f" | {score} | {paired}"
             f" | {fmt(float(trial['synthetic_val_exact_greedy']))} |"
         )
+    return "\n".join(lines)
+
+
+@block("cv-evidence")
+def _cv_evidence(ctx: RenderContext) -> str:
+    """The figures behind docs/CV_NOTES.md, each with the results file it comes from."""
+    rows: list[tuple[str, str, str]] = []
+
+    synthetic = ctx.result("eval_synthetic")
+    pseudo = ctx.result("eval_pseudo_real")
+    if synthetic is not None:
+        recognizers = synthetic.get("recognizers", {})
+        beam = recognizers.get("crnn-beam", {}).get("metrics", {})
+        easy = recognizers.get("easyocr", {}).get("metrics", {})
+        if "exact_match" in beam:
+            rows.append(
+                (
+                    "CRNN (constrained beam), exact match on the synthetic test set",
+                    fmt_ci(beam["exact_match"]),
+                    "`results/eval_synthetic.json`",
+                )
+            )
+        if "exact_match" in easy:
+            rows.append(
+                (
+                    "EasyOCR baseline, exact match on the same set",
+                    fmt_ci(easy["exact_match"]),
+                    "`results/eval_synthetic.json`",
+                )
+            )
+        if "ece" in beam:
+            rows.append(
+                (
+                    "CRNN (constrained beam), expected calibration error",
+                    fmt_ci(beam["ece"]),
+                    "`results/eval_synthetic.json`",
+                )
+            )
+        fusion = synthetic.get("fusion", {}).get("recognizers", {}).get("crnn-beam", {})
+        methods = fusion.get("methods", {}).get("probabilistic", {})
+        ks = synthetic.get("fusion", {}).get("k", [])
+        if ks and f"k={ks[-1]}" in methods:
+            rows.append(
+                (
+                    f"CRNN, exact match of the probabilistic fusion of {ks[-1]} views",
+                    fmt_ci(methods[f"k={ks[-1]}"]["metrics"]["exact_match"]),
+                    "`results/eval_synthetic.json`",
+                )
+            )
+    calibration = ctx.result("calibration_crnn")
+    if calibration is not None:
+        coverage = calibration.get("conformal", {}).get("coverage", {})
+        for alpha in sorted(coverage, key=float):
+            report = coverage[alpha]
+            rows.append(
+                (
+                    f"Conformal sets at level {fmt(float(report['level']), 2)}, measured coverage",
+                    fmt_ci(report["coverage"]),
+                    "`results/calibration_crnn.json`",
+                )
+            )
+    fused = ctx.result("calibration_fused")
+    if fused is not None:
+        coverage = fused.get("coverage", {})
+        views = sorted(coverage, key=int)
+        if views:
+            top = coverage[views[-1]]
+            alpha = sorted(top, key=float)[0]
+            report = top[alpha]
+            rows.append(
+                (
+                    f"Fused sets over {views[-1]} views at level {fmt(float(report['level']), 2)}, "
+                    "measured coverage",
+                    fmt_ci(report["coverage"]),
+                    "`results/calibration_fused.json`",
+                )
+            )
+    if synthetic is not None and pseudo is not None:
+        a = synthetic.get("recognizers", {}).get("crnn-beam", {}).get("metrics", {})
+        b = pseudo.get("recognizers", {}).get("crnn-beam", {}).get("metrics", {})
+        if "exact_match" in a and "exact_match" in b:
+            rows.append(
+                (
+                    "CRNN (constrained beam), exact match on the pseudo-real set",
+                    fmt_ci(b["exact_match"]),
+                    "`results/eval_pseudo_real.json`",
+                )
+            )
+    sweep = ctx.result("sweep")
+    if sweep is not None:
+        best = sweep.get("best", {})
+        rows.append(
+            (
+                f"Augmentation sweep, best of {len(sweep.get('trials', []))} trials on the "
+                "pseudo-real tuning split",
+                fmt(float(best.get("pseudo_real_exact_greedy", 0.0))),
+                "`results/sweep.json`",
+            )
+        )
+    training = ctx.result("train_crnn")
+    if training is not None:
+        rows.append(
+            (
+                "CRNN parameters",
+                str(training.get("parameters", "?")),
+                "`results/train_crnn.json`",
+            )
+        )
+    if not rows:
+        return f"No results yet. {SYNTHETIC_LABEL.capitalize()}."
+    lines = [
+        f"**{SYNTHETIC_LABEL.capitalize()}.** Values with 95% bootstrap intervals where the source "
+        "records one.",
+        "",
+        "| Claim | Value | Source |",
+        "|---|---|---|",
+    ]
+    lines += [f"| {claim} | {value} | {source} |" for claim, value, source in rows]
     return "\n".join(lines)
 
 

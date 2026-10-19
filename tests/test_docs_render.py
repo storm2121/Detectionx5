@@ -188,3 +188,14 @@ def test_the_sweep_block_renders_from_results(tmp_path: Path) -> None:
     assert rows[0].startswith("| 1 (best) | 1.50 | 0.75 | 0.625")
     assert rows[1].startswith("| 0 (shipped) | 1.00 | 1.00 | 0.500 | reference")
     assert "keeps the default configuration" in text
+
+
+def test_the_cv_evidence_block_traces_every_figure_to_a_file(tmp_path: Path) -> None:
+    from plate_reader.docs_render import BLOCKS
+
+    assert BLOCKS["cv-evidence"](RenderContext(tmp_path)).startswith("No results yet")
+    text = BLOCKS["cv-evidence"](RenderContext(ROOT))
+    rows = [line for line in text.splitlines() if line.startswith("| ") and "Claim" not in line]
+    assert rows
+    assert all(line.rstrip(" |").endswith(".json`") for line in rows)
+    assert SYNTHETIC_LABEL.capitalize() in text
