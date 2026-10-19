@@ -1,7 +1,10 @@
 import { defineStore } from 'pinia'
 import { computed, ref, watch } from 'vue'
 
-import { DARK_CLASS } from '@/theme/preset'
+import { reducedMotion } from '@/motion/springs'
+
+/** Kept on <html> beside `data-theme` for anything that styles by class. */
+export const DARK_CLASS = 'dx-dark'
 
 export type ThemeChoice = 'system' | 'light' | 'dark'
 const KEY = 'dx-theme'
@@ -52,8 +55,20 @@ export const useThemeStore = defineStore('theme', () => {
     writeChoice(next)
   }
 
+  /**
+   * Switch theme. Where the browser can, the page cross-fades between the two (an opacity
+   * view transition), so the brightness changes gently; under reduced motion it switches.
+   */
   function toggle() {
-    set(resolved.value === 'dark' ? 'light' : 'dark')
+    const next = resolved.value === 'dark' ? 'light' : 'dark'
+    const doc = typeof document !== 'undefined' ? document : null
+    if (doc && 'startViewTransition' in doc && !reducedMotion()) {
+      ;(
+        doc as Document & { startViewTransition: (run: () => void) => unknown }
+      ).startViewTransition(() => set(next))
+    } else {
+      set(next)
+    }
   }
 
   return { choice, resolved, set, toggle }

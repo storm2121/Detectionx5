@@ -109,6 +109,12 @@ export interface ReviewDecision {
   confirm?: boolean
 }
 
+/** `GET /review/summary`: what the navigation and the export button count. */
+export interface ReviewSummary {
+  pending: number
+  ready_to_export: number
+}
+
 export interface ExportOut {
   id: string
   exported: number

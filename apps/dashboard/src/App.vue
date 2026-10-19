@@ -2,8 +2,9 @@
 import { onBeforeUnmount, onMounted } from 'vue'
 import { RouterView } from 'vue-router'
 
+import AppBar from '@/components/AppBar.vue'
 import AppFooter from '@/components/AppFooter.vue'
-import AppHeader from '@/components/AppHeader.vue'
+import TabBar from '@/components/TabBar.vue'
 import { useServiceStore } from '@/stores/service'
 import { useThemeStore } from '@/stores/theme'
 
@@ -11,9 +12,14 @@ useThemeStore()
 const service = useServiceStore()
 let timer: number | undefined
 
-onMounted(() => {
+function refresh() {
   void service.refreshHealth()
-  timer = window.setInterval(() => void service.refreshHealth(), 15000)
+  void service.refreshReview()
+}
+
+onMounted(() => {
+  refresh()
+  timer = window.setInterval(refresh, 15000)
 })
 
 onBeforeUnmount(() => window.clearInterval(timer))
@@ -21,24 +27,25 @@ onBeforeUnmount(() => window.clearInterval(timer))
 
 <template>
   <a class="skip" href="#main">Skip to content</a>
-  <AppHeader />
+  <AppBar />
   <main id="main" tabindex="-1">
     <RouterView />
   </main>
   <AppFooter />
+  <TabBar />
 </template>
 
 <style scoped>
 .skip {
   position: absolute;
-  left: var(--dx-space-2);
   top: -48px;
-  z-index: 20;
+  left: var(--dx-space-2);
+  z-index: 40;
   padding: var(--dx-space-2) var(--dx-space-3);
-  border-radius: var(--dx-radius-s);
-  background: var(--dx-accent);
+  border-radius: var(--dx-radius-control);
+  background: var(--dx-accent-fill);
   color: var(--dx-on-accent);
-  font-weight: 600;
+  font-weight: var(--dx-weight-label);
 }
 
 .skip:focus {
@@ -46,7 +53,7 @@ onBeforeUnmount(() => window.clearInterval(timer))
 }
 
 main {
-  min-height: calc(100vh - 160px);
+  min-height: calc(100vh - 12rem);
   outline: none;
 }
 </style>

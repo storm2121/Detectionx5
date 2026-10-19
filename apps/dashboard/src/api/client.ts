@@ -9,6 +9,7 @@ import type {
   ResultEntry,
   ReviewDecision,
   ReviewItemOut,
+  ReviewSummary,
 } from './types'
 
 /** Every call goes to `/api/...`; Vite's dev server and nginx forward it to the service. */
@@ -111,6 +112,7 @@ export const api = {
   reviewQueue: (limit = 50) => request<ReviewItemOut[]>(`/review/queue${query({ limit })}`),
   decide: (itemId: string, decision: ReviewDecision) =>
     request<ReviewItemOut>(`/review/${encodeURIComponent(itemId)}`, json(decision)),
+  reviewSummary: () => request<ReviewSummary>('/review/summary'),
   exportReviewed: () => request<ExportOut>('/review/export', { method: 'POST' }),
 
   jobs: (limit = 20) => request<JobOut[]>(`/jobs${query({ limit })}`),

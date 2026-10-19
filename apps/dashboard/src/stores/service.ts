@@ -2,12 +2,16 @@ import { defineStore } from 'pinia'
 import { ref } from 'vue'
 
 import { api, errorMessage } from '@/api/client'
-import type { Health, ModelsOut } from '@/api/types'
+import type { Health, ModelsOut, ReviewSummary } from '@/api/types'
 
-/** Service health (polled by the header) and the active models (loaded once). */
+/**
+ * Service health and the review counts (polled by the shell, so every page's navigation
+ * says how many reads wait), and the active models (loaded once).
+ */
 export const useServiceStore = defineStore('service', () => {
   const health = ref<Health | null>(null)
   const healthError = ref<string | null>(null)
+  const review = ref<ReviewSummary | null>(null)
   const models = ref<ModelsOut | null>(null)
   const modelsError = ref<string | null>(null)
   let modelsRequest: Promise<void> | null = null
@@ -19,6 +23,14 @@ export const useServiceStore = defineStore('service', () => {
     } catch (cause) {
       health.value = null
       healthError.value = errorMessage(cause)
+    }
+  }
+
+  async function refreshReview() {
+    try {
+      review.value = await api.reviewSummary()
+    } catch {
+      review.value = null
     }
   }
 
@@ -36,5 +48,14 @@ export const useServiceStore = defineStore('service', () => {
     return modelsRequest
   }
 
-  return { health, healthError, models, modelsError, refreshHealth, loadModels }
+  return {
+    health,
+    healthError,
+    review,
+    models,
+    modelsError,
+    refreshHealth,
+    refreshReview,
+    loadModels,
+  }
 })
