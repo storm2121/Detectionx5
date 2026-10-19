@@ -557,7 +557,7 @@ Never record the name of the original dataset host.
   re-export, parity, evaluations and re-rendering.
 - Next: none; this is the last leg.
 
-### Design and product pass: real photos lead, the harness crops as the service does, the console redesign — partial (in progress) — 2026-10-19
+### Design and product pass: real photos lead, the harness crops as the service does, the console redesign — done — 2026-10-19
 
 - Built (Part A, product): the Read page reads only the viewer's photos (the synthetic
   sample button, the store's sample loader and the sample copy step are gone; the e2e tests
@@ -600,4 +600,85 @@ Never record the name of the original dataset host.
   tests/test_docs_render.py`: 45 passed (the 15 eval tests, 5 new photo tests, the render
   tests with a new real-photos test); `uv run pytest -q tests/test_service.py`: 15 passed;
   `uv run plate docs render` then `plate docs check`: in sync; ruff and mypy --strict clean.
-- Part B (the console redesign) is in progress; the rest of this entry follows when it is done.
+- Built (Part B, the console on `docs/DESIGN.md`; ADR 0012): `src/styles/tokens.css`, one
+  tokens file for light, dark (chosen, or followed from the system before a choice),
+  reduced transparency and higher contrast: a nine-step neutral ramp, one blue accent,
+  success, warning, danger, five equal-lightness categorical hues validated with the dataviz
+  validator, materials, the 4 px space scale in rem, the three radii, hairlines on dense
+  screens, motion values. The system type stack with optical sizes, size-specific tracking
+  and tabular figures everywhere; Noto Naskh Arabic for plate letters at the Latin
+  x-height. PrimeVue and its theme are gone: headless controls (button, icon button with a
+  tooltip, segmented control, switch, text field with inline validation, native select,
+  disclosure, notice, status line, skeleton, progress bar) styled only with tokens; Lucide
+  (`@lucide/vue`, the maintained successor of the deprecated `lucide-vue-next`) is the only
+  icon set; Motion's `animate` drives pointer-down press feedback and critically damped
+  springs that start from the current value, with a cross-fade under reduced motion. A
+  translucent top bar with a scroll-edge fade that names the page, a translucent tab bar at
+  phone width, "Review queue (3 waiting)" from `GET /review/summary`. The Read page: photos
+  and boxes left, the result right (one column on a phone); the plate large in both
+  scripts with the character heatmap on the same columns; the calibrated confidence as a
+  one-hue ramp bar; the prediction set as chips; the views and the fusion table in a section
+  that opens in place; server or browser as a segmented control with the parity check
+  beside it; photos reorder by dragging with Pointer Events and capture (1:1 from the grab
+  point, rubber-banded at the tray's edges, released into a spring carrying the pointer's
+  velocity; touch picks up after a short press) or with the arrow keys. Review queue:
+  crops, proposed read, set, an inline correction judged by the plate automaton as it is
+  typed, one export button with the count. Jobs: progress bars that spring to each update,
+  with a count and a rate. Evaluation and Models open with the real photos (intervals in
+  words, `25% (0 to 50)`; the sim-to-real gap as a table, then two bars per recogniser with
+  their intervals, labelled with their set); the synthetic sets follow under "Development and
+  synthetic harness". Methods at a 70-character measure. Charts use D3 joins eased on the
+  spring curve and move by transform and opacity only. Storybook renders every story in both
+  themes side by side (stories for every control, the Read parts, the results views and the
+  shell). Playwright writes `docs/images/console-<page>-<theme>-<width>.png` for seven pages,
+  two themes and two widths (28 images, `just dashboard-screenshots`). A bundle check runs
+  after every build (`scripts/check-bundle.mjs`). `docs/DESIGN_NOTES.md` lists every
+  departure from the brief and the audit against its §1 list.
+- Commands run and results (Part B): `pnpm test` (Vitest): 10 files, 122 passed. `pnpm lint`:
+  clean. `pnpm build`: vue-tsc and Vite pass; the bundle check reports a first load of 93 kB
+  of script and 6.7 kB of styles, gzipped, against budgets of 110 and 10 (the console before
+  the redesign shipped about 121 and 5, measured from a temporary worktree of HEAD).
+  `pnpm storybook:build`: built; three stories checked in a browser render a light and a
+  dark frame each. Playwright against the production build (`vite preview` on 5174, the
+  service on 8100 with SQLite in a scratch folder and exports redirected there, so nothing
+  reached `data/`): `e2e/smoke.spec.ts` and `e2e/parity.spec.ts`, desktop and phone, 41
+  passed and 1 skipped (every page in both themes loads, labels its synthetic numbers, does
+  not scroll sideways and passes axe WCAG 2.1 A/AA; the three-photo read; the review round
+  trip and export; the refused job; the evaluation switch; the models and methods; browser
+  parity on every fixture; the in-browser read with no upload; the drag-and-drop reorder
+  with 1:1 tracking, the settle and the keyboard move back; a reduced-motion pass with axe;
+  the drag test is skipped on the phone project, where a drag starts with a long press).
+  `pnpm screenshots`: 28 passed. `just check`: green; ruff, mypy --strict (87 files), the
+  repository guards, the console's lint, build with the bundle check, 122 unit tests and
+  Storybook; pytest 242 passed and 3 skipped (all opt-in), coverage 93.84% on
+  `plate_reader`; `plate docs check` in sync; `plate data validate` clean (it now counts the
+  twelve local private photos, with no error).
+- Decisions: the harness cuts a detected photo at the service's own crop box (its detector
+  returns `detect_image` boxes, already padded) and pads only labelled boxes; results carry
+  `set.note` for the words that describe a set, so the honest sentence is rendered, not
+  typed. The README's real-photo block uses whole per cent with intervals in words (twelve
+  photos carry no decimal); the synthetic tables keep their format. The placeholder test now
+  checks what the repository ships (the tracked `data/` files laid out on their own), since a
+  working copy may hold the private set (it failed on that set before the change). PrimeVue
+  removed rather than re-themed (its CSS transitions, shadows and focus rings leaked; ADR
+  0012). Every other design decision that departs from or interprets the brief is in
+  `docs/DESIGN_NOTES.md` (among them: the type stack names the Segoe UI Variable optical
+  instances because Chromium on Windows resolves neither the family nor its opsz axis; "the
+  plate in both scripts" is its Latin digits and Arabic letter, with no invented
+  transliteration; a phone tab bar instead of a scrolling link row; no sheets exist, so the
+  sheet radius is unused; in-table chart marks animate by CSS transitions on the spring
+  curve rather than D3 transitions).
+- Stubbed or skipped, and why: Docker answered with HTTP 500 at the start of the leg and
+  again at its end, and was not restarted, as instructed, so the Compose smoke run, `just demo` and the
+  clean-clone demo were not run; the same Playwright suite ran against the production build
+  and a local service instead (no Redis, so jobs were refused before queueing and no job
+  ran end to end; the refused-job test covers the page). WebGPU still needs a browser with
+  an adapter. The categorical chart hues are defined and validated but no chart uses them
+  yet. Touch drag was checked by its logic and a long-press design, not on a touch device.
+- Open questions for the architect: AGENT_RULES §6 still describes `just demo` with the
+  synthetic steps that moved to `just demo-synthetic` (ADR 0011); whether to update it. The
+  conformal sets cover none of the twelve real photos and the beam's real ECE is high:
+  whether to collect real calibration photos next, before any fine-tuning. `docs/images`
+  adds about 9 MB of screenshots to the repository; whether to keep them in git or move them
+  to an artefact store.
+- Next: the architect's review.
