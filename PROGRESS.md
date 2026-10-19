@@ -494,3 +494,65 @@ Never record the name of the original dataset host.
   synthetic precision is well below its recall, but only real photos can say whether that
   matters).
 - Next: the architect's review; real data when it exists (`docs/insert_your_own_data.md`).
+
+### M8: polish (the sweep's best configuration trained in full; the detector note) — partial (the final demo is blocked on the Docker engine) — 2026-10-19
+
+- Built: `plate train crnn --augment-from results/sweep.json` trains with the best sweep
+  trial's multipliers applied to the default augmentation bounds exactly as in the sweep and
+  records them (`augment_source` in `train_crnn.json`). `plate compare-crnn`
+  (`plate_reader/eval/compare.py`) reads two exported CRNNs through the served decoder, each
+  with its own calibrated temperature, on the same crops of the synthetic test split (seed
+  1005) and the pseudo-real set (seed 1006), and writes `results/crnn_comparison.json` with
+  each model's exact match and the paired bootstrap difference; the rule is part of the file.
+  The model card has a new rendered section for the comparison, the CV notes list both paired
+  differences, the training block names the augmentation a model was trained with, and the
+  sweep's tables call trial 0 the default configuration. ADR 0010 is accepted, with an
+  outcome section. The detector's precision gap on synthetic scenes is rendered with its
+  result (README and model card) and recorded in the data guide as noted, not acted on; the
+  detector is not fine-tuned on synthetic scenes, as the architect decided.
+- Commands run and results:
+  - `uv run plate train crnn --augment-from results/sweep.json --models-dir .cache/crnn-sweep/models --results-dir .cache/crnn-sweep/results`:
+    the shipped recipe from scratch (24 epochs of 20000 crops, curriculum, seed 0) on `cuda`
+    in 796.5 s; kept epoch 21 (synthetic validation greedy exact match 0.998); temperature
+    0.8008; conformal coverage at the 0.90 and 0.95 levels 0.902 [0.8845, 0.917] and 0.9605
+    [0.941, 0.9715] on the synthetic test split; thresholds for 1, 3 and 5 fused views fitted.
+    Version `3d1b26202da9`. The process returned exit code 127 after writing every output;
+    the outputs are complete and consistent, and other `plate` commands exit 0, so it is
+    noted here and was not investigated further.
+  - The rule was fixed before the comparison ran, with 2000 crops per set (the size of each
+    calibration split), 1000 paired resamples and 95% intervals, and the comparison ran once.
+    `uv run plate compare-crnn --old models/crnn.onnx --new .cache/crnn-sweep/models/crnn.onnx --new-summary .cache/crnn-sweep/results/train_crnn.json`
+    (85 s): on the synthetic test split the shipped weights score 0.9945 [0.9915, 0.9975] and
+    the retrained ones 0.9975 [0.9950, 0.9995], a paired difference of 0.0030 [-0.0005,
+    0.0065] (nine crops right only with the retrained weights, three only with the shipped
+    ones); on the pseudo-real set 0.6675 against 0.7305, a difference of 0.0630 [0.0465,
+    0.0790]. The synthetic interval includes zero, so the shipped weights stay. Synthetic
+    results are not real-world accuracy.
+  - Therefore nothing that depends on the weights was redone: calibration, thresholds, ONNX
+    export, parity fixtures, browser parity, evaluations, the registry and every rendered
+    number are unchanged. The retrained weights stay in `.cache/crnn-sweep` on this machine
+    and are not committed.
+  - `just check`: green; console lint, type-check, build, 105 unit tests (8 files) and
+    Storybook; ruff, mypy --strict (87 files) and the repository guards; pytest 236 passed
+    and 3 skipped (all opt-in), coverage 93.83% on `plate_reader`; `plate docs check` and
+    `plate data validate` clean.
+  - Clean clone: `git clone` of the branch at `56ac83a` into `.cache/clean-clone`, then
+    `just setup` there: exit 0. `just demo` could not run: from early in this leg the Docker
+    engine has answered every request with HTTP 500 (one `docker version` takes about four
+    minutes to fail), and Docker Desktop was not restarted, as the architect asked. The clone
+    stays set up, so `just demo` can run there as soon as the engine answers. The last demo,
+    on a clean clone in M7, passed; since then the stack changed only in the Models page's
+    detector card, which the Compose end-to-end run covered (38 passed) before this leg.
+- Decisions: the comparison uses the decoder and temperature the service would run, so a
+  difference is one a user would see; it is paired over the same crops, and the comparison
+  size was not changed after the result was known. The pseudo-real set is reported beside
+  the deciding split, not used to decide, as the architect's rule says.
+- Stubbed or skipped, and why: no cheap stub remained. WebGPU still needs a browser with an
+  adapter, and CI on GitHub still needs a push, which stays disabled. The final clean-clone demo waits on the Docker engine (above);
+  it is the one M8 item not done.
+- Open questions for the architect: whether the adoption rule should also weigh the
+  pseudo-real set. The retrained weights are better there with an interval above zero and
+  not worse on the synthetic test split within its interval; under the rule as given they
+  were not adopted, and adopting them would need the whole chain of re-calibration,
+  re-export, parity, evaluations and re-rendering.
+- Next: none; this is the last leg.
