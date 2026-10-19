@@ -1,266 +1,141 @@
-# Moroccan Licence-Plate Reader
+# DetectionX5: a Moroccan licence-plate reading platform
 
-Detects and reads Moroccan vehicle licence plates from photographs. Detection
-uses a YOLOv10 model fine-tuned on Moroccan plates; reading is done with
-EasyOCR. **Everything runs locally — no API key, no network calls at inference
-time, no per-image cost.**
+DetectionX5 reads Moroccan licence plates from photos. It finds the plate in each photo,
+reads it with a recogniser that can only produce strings the plate grammar allows, fuses
+several photos of the same car into one read, reports a calibrated confidence and a
+conformal prediction set, and sends the reads it cannot certify to a human review queue
+whose corrections become training data. A Vue console shows every step, and can run both
+models in the browser so that a photo never leaves the device. Everything runs locally: no
+API key, no network call at inference time.
+
+**There is no labelled real data yet.** The platform trains, calibrates and measures itself
+on deterministic synthetic plates, and every number below says so: synthetic results are not
+real-world accuracy.
+
+<!-- BEGIN RENDER ocr-benchmark-status -->
+**OCR accuracy is not benchmarked on real data.** No labelled real evaluation set exists yet, so no real-world accuracy figure is claimed. `docs/insert_your_own_data.md` explains where real photos and labels go.
+<!-- END RENDER ocr-benchmark-status -->
 
 ```console
-$ python cli.py samples/car.jpg
-Detecting plates in car.jpg...
-  plate 1: 24830-ب-1 [fields, detector 0.43]
-
-Plate: 24830-ب-1
+$ uv run plate read samples/car.jpg
+$ just demo        # synthetic data, a small evaluation, the whole stack, one synthetic read
 ```
 
----
+## Contents
 
-## The problem this project actually solves
+- [Why it is built this way](#why-it-is-built-this-way)
+- [Architecture](#architecture)
+- [How a read works](#how-a-read-works)
+- [Results](#results)
+- [Run it](#run-it)
+- [Insert your own data](#insert-your-own-data)
+- [What changes once real data arrives](#what-changes-once-real-data-arrives)
+- [Honesty and limitations](#honesty-and-limitations)
+- [The original reader](#the-original-reader)
+- [Development](#development)
+- [Credits and licence](#credits-and-licence)
 
-A Moroccan civilian plate is laid out as three printed fields divided by two
-vertical bars:
+## Why it is built this way
 
-```
-┌──────────────────────────┐
-│   24830  │  ب  │  1      │
-└──────────────────────────┘
-   number    letter  region
-```
+- **Plates have a grammar, so the reader should know it.** A standard plate is one to five
+  digits, one of six Arabic letters and a one- or two-digit region; a temporary plate is
+  digits followed by `WW`. The formats are compiled into one minimal automaton
+  ([`plate_reader/grammar.py`](plate_reader/grammar.py)), and the recogniser's beam search
+  only extends prefixes the automaton accepts, so it cannot return an impossible plate.
+- **A confidence is only useful if it is calibrated.** The CRNN's posterior over plates is
+  temperature-scaled on a held-out split, and every read carries a split-conformal
+  prediction set: the plates that cannot be ruled out at the stated level. A set with more
+  than one plate, or an empty one, is the system saying it does not know, and the read goes
+  to review instead of being trusted.
+- **Several photos beat one.** Views are fused in probability space (the product of the
+  per-view posteriors is Bayes' rule for independent views), each number of fused views has
+  its own conformal threshold, and every character of the fused read gets its own
+  posterior.
+- **No real data is no excuse for no measurement.** A seeded generator renders plates with
+  open-licensed fonts and documented degradations; every split has its own seed; every
+  metric has a bootstrap interval; a heavier pseudo-real preset stands in for the
+  sim-to-real gap; and `data/` is a documented placeholder with a validator, ready for real
+  photos.
+- **Two runtimes, one answer.** The browser runtime is a TypeScript port of the Python
+  pipeline's image operations, decoders and fusion; CI fails when it disagrees with the
+  Python pipeline on the committed fixtures.
 
-Pointing a general-purpose OCR engine at that crop goes badly, and the reason
-is specific: **the printed separator bars are themselves read as characters.**
-EasyOCR sees them as an Arabic alif (`ا`) or as the digit `1`, which corrupts
-every field at once. On the bundled sample, reading the plate as one line
-produces `74!30`, `2/930`, `ا ' ب ر` and similar noise — nothing parseable.
+## Architecture
 
-The bars are, however, trivial to find geometrically: they are the only marks
-that are tall and extremely narrow. Locating them and cutting the plate into
-its three fields means each field can be read on its own, with an alphabet
-restricted to what that field can legally contain. That one change is the
-difference between unusable output and a correct read.
-
-Two further details mattered more than expected:
-
-- **Two recognisers, not one.** On the bundled sample, EasyOCR's English model
-  read the digits with far higher confidence than its Arabic model did on the
-  same pixels, while the Arabic model is needed for the single letter. Each
-  model is pointed only at the field it is good at.
-- **The letter field needs cropping to its ink; the digit fields must not be.**
-  `ب` is a short glyph adrift in a full-height strip, so scaling that strip
-  leaves the letter too small to recognise — on the sample, cropping to the ink
-  first turned a low-confidence `د` into a high-confidence `ب`. Applying the
-  same crop to the digit fields made them *worse*, so it is deliberately applied
-  to the letter alone. (These were single-sample observations from development,
-  not benchmarks.)
-
-## Install
-
-Python 3.12, managed by [uv](https://docs.astral.sh/uv/). Dependencies are
-declared in `pyproject.toml` and locked in `uv.lock`; on Windows the lock pulls
-a CUDA 12.6 build of PyTorch, on Linux a CPU build.
-
-```bash
-git clone https://github.com/storm2121/Detectionx5.git
-cd Detectionx5
-
-uv sync                          # creates .venv with Python 3.12 and every group
-uv run plate --help              # the platform command line
-```
-
-Without uv, `requirements.txt` and `requirements-dev.txt` are generated from the
-lock for pip users:
-
-```bash
-python -m venv .venv             # Python 3.12
-source .venv/bin/activate        # Windows: .venv\Scripts\activate
-pip install -r requirements.txt
+```mermaid
+flowchart LR
+  subgraph read["one read: 1 to 10 photos of one car"]
+    P[photos] --> D["detector<br/>YOLOv10n, ONNX"]
+    D --> C["plate crops"]
+    C --> R["CRNN + CTC<br/>grammar-constrained beam"]
+    R --> T["temperature-scaled<br/>posterior per view"]
+    T --> F["probabilistic fusion<br/>per-character posteriors"]
+    F --> S["conformal set<br/>threshold per number of views"]
+  end
+  S --> Q{"single plate and<br/>confident?"}
+  Q -- yes --> L[(read log)]
+  Q -- no --> V["review queue"]
+  V --> E["data/ocr/train<br/>labelled crops"]
+  E --> FT["fine-tune and recalibrate"]
+  FT -.-> R
 ```
 
-EasyOCR downloads its recognition models (~100 MB) the first time it runs.
-That is the only network access the project makes, and it happens once.
-
-## Usage
-
-**Command line**
-
-```bash
-python cli.py samples/car.jpg                 # read one image
-python cli.py front.jpg side.jpg rear.jpg     # vote across several photos
-python cli.py samples/car.jpg --json          # machine-readable output
-python cli.py samples/car.jpg --save-crops    # also write the cropped plates
-python cli.py samples/car.jpg --conf 0.4      # stricter detection threshold
+```mermaid
+flowchart LR
+  B["browser: Vue console<br/>(server or in-browser mode)"] -->|/api| N[nginx :5174]
+  N --> A["API :8100<br/>FastAPI, ONNX Runtime"]
+  A --> PG[(PostgreSQL :5433)]
+  A --> RD[(Redis :6380)]
+  RD --> W["worker<br/>folders and videos"]
+  W --> PG
+  A --> O["OpenTelemetry collector"]
+  W --> O
+  O --> PR["Prometheus :9100"]
+  O -.->|tracing profile| TP["Tempo"]
+  PR --> G["Grafana :3100"]
+  TP --> G
 ```
 
-Exit status is `0` when a plate was read and `1` when none could be, so the
-tool composes with shell scripting.
+The packages: [`plate_reader`](plate_reader) (grammar, synthetic generator, evaluation
+harness, CRNN, calibration and conformal sets, fusion, pipeline, training, the `plate`
+command line), [`services/api`](services/api) (the service, its database, jobs and review
+queue) and [`apps/dashboard`](apps/dashboard) (the console and the in-browser runtime).
+Decisions are recorded as ADRs in [`docs/adr`](docs/adr).
 
-**Desktop app**
+## How a read works
 
-```bash
-python gui.py
-```
+1. **Detect.** The YOLOv10n detector (ONNX, the NMS-free one-to-one head) finds plate boxes
+   in each letterboxed photo; boxes are padded, cropped and de-duplicated, and each photo
+   contributes its most confident plate.
+2. **Read.** The CRNN (a residual CNN, a bidirectional LSTM and CTC) turns the grey crop into
+   per-frame class scores; a prefix beam search that carries the grammar automaton's state
+   keeps only viable plate prefixes and returns grammar-valid strings with their summed
+   alignment probabilities.
+3. **Calibrate.** One temperature, fitted by golden-section search on the negative
+   log-likelihood of the true plate under the reported posterior, turns the beam into a
+   calibrated distribution over plates.
+4. **Fuse.** Every view's distribution is renormalised over the union of candidates with a
+   floor and the views are multiplied (log opinion pooling), with exactly rounded sums so the
+   order of the photos never matters; each character of the winner gets a posterior from
+   aligning every candidate to it.
+5. **Certify.** The conformal set keeps every candidate whose nonconformity (the probability
+   mass of the other candidates) is under the threshold calibrated for that number of
+   proposing views. The service serves sets at the level `PLATE_ALPHA` sets.
+6. **Review.** A read whose set is not a single plate, or whose confidence is under
+   `PLATE_REVIEW_THRESHOLD`, joins the review queue; a confirmed or corrected read exports
+   its crops and label in the `data/ocr/train` layout, which `plate train crnn` fine-tunes on.
 
-Pick one or more images and press *Read plates*. Detection and OCR run on a
-worker thread, so the window stays responsive.
+The equations, their assumptions and their tests are in
+[`docs/methods/fusion.md`](docs/methods/fusion.md) and the
+[model card](docs/model_card.md); the console's Methods page typesets them.
 
-**As a library**
+## Results
 
-```python
-from plate_reader import read_images
+Every number in this section is rendered by `uv run plate docs render` from
+[`docs/training_results.csv`](docs/training_results.csv) and `results/*.json`;
+`uv run plate docs check` fails if a number is edited by hand or drifts from its source.
 
-result = read_images(["samples/car.jpg"])
-print(result.text)  # '24830-ب-1'
-print(result.plate.digits)  # '24830'
-print(result.plate.letter)  # 'ب'
-print(result.plate.region)  # '1'
-print(result.agreement)  # images that independently agreed
-```
-
-## HTTP API
-
-Install `requirements.txt`, then start the FastAPI server from the project root:
-
-```bash
-uvicorn api:app --host 127.0.0.1 --port 8000
-```
-
-The detector and all three EasyOCR readers load once at startup and are reused
-across requests. Startup waits for them to be ready and fails if they cannot
-load. The first startup may download the OCR weights. Each server worker loads
-its own models; use one worker to keep a single copy in memory. The API uses
-the same `PLATE_MODEL`, `PLATE_CONF`, and `PLATE_GPU` settings as the CLI.
-
-`GET /health` returns `200` with `{"status":"ok"}` once startup completes.
-Interactive API documentation is available at <http://127.0.0.1:8000/docs>.
-
-`POST /read` accepts multipart uploads under the repeated `files` field. Send
-one to ten photos **of the same car** (JPEG, PNG, WebP, or BMP; up to 10 MiB
-each). For example, in a POSIX shell:
-
-```bash
-curl -X POST http://127.0.0.1:8000/read \
-  -F "files=@front.jpg" \
-  -F "files=@rear.jpg"
-```
-
-In Windows PowerShell:
-
-```powershell
-curl.exe -X POST http://127.0.0.1:8000/read -F "files=@front.jpg" -F "files=@rear.jpg"
-```
-
-Example response:
-
-```json
-{
-  "plate": "24830-ب-1",
-  "fields": {"digits": "24830", "letter": "ب", "region": "1"},
-  "confidence": 0.8,
-  "images_agreeing": 2,
-  "images_processed": 2
-}
-```
-
-`confidence` is the winning plate's fraction of all OCR- and detector-weighted
-votes, between 0 and 1. It measures relative vote support, not a calibrated
-probability of correctness. `images_agreeing` counts photos whose best reading
-matches the winning plate; each photo counts at most once. Temporary `WW`
-plates have `null` letter and region fields. If no valid plate can be read,
-the response is still `200`, with `plate` and `fields` set to `null`, confidence
-`0`, and `images_agreeing` `0`.
-
-Missing uploads return `422`; empty or corrupt images return `400`; unsupported
-image formats return `415`; exceeding the count or size limit returns `413`.
-Uploads use temporary files that are removed after each request, including
-failed requests. Model inference is serialized within a worker, while health
-checks can run independently.
-
-## Run the platform: service, worker and observability
-
-The platform service (`services/api`) is separate from the legacy `api.py` above and is
-torch-free: the CRNN and the detector run through ONNX Runtime. Everything starts with
-Docker Compose:
-
-```bash
-docker compose up --build -d          # api, worker, redis, postgres, otel-collector,
-                                      # prometheus, grafana, dashboard
-docker compose --profile tracing up --build -d   # the same, plus Tempo as the trace store
-uv run python tools/demo_read.py      # sends a synthetic photo and prints the read
-```
-
-The console (Vue 3, `apps/dashboard`) is at http://localhost:5174: read photos and see the
-boxes, fields, per-view hypotheses, the fusion table, the conformal set and the character
-heatmap; follow jobs; work the review queue; browse the evaluation (metrics with intervals,
-reliability diagrams, letter confusions, conformal coverage), the models and the methods.
-`just dashboard` runs it with Vite against `just api`; `just dashboard-check` lints, builds
-and tests it and builds its Storybook; `just dashboard-e2e` runs the Playwright smoke and
-accessibility checks against the running stack.
-
-The Read page can also read **in the browser**: the detector and the recogniser run through
-ONNX Runtime Web (WebGPU when available, WebAssembly otherwise) with TypeScript ports of the
-pipeline's image operations, decoders and fusion, so no photo leaves the device. Switching
-to that mode runs the parity fixtures in the browser and shows the outcome next to the
-toggle; `/parity` lists every fixture, and CI fails when any is out of tolerance.
-
-Host ports are chosen so the stack does not clash with other projects on the same machine:
-
-| Service | Host port |
-|---|---|
-| API (`services.api.main:app`) | 8100 |
-| PostgreSQL | 5433 |
-| Redis | 6380 |
-| Prometheus | 9100 |
-| Grafana (dashboard "DetectionX5 plate service") | 3100 |
-| OpenTelemetry collector | 4319 (gRPC), 4320 (HTTP) |
-| Dashboard (the console; nginx forwards `/api` to the API) | 5174 |
-
-Without Docker, `just api` serves the API on port 8100 with SQLite under `storage/`, and
-`just worker` runs a job worker against Redis on port 6380.
-
-| Endpoint | Purpose |
-|---|---|
-| `POST /read` | one to ten photos of one car: plate, fields, calibrated confidence, conformal set, per-view hypotheses, per-character posteriors, model version; `detect=false` reads photos as crops |
-| `GET /reads`, `GET /reads/{id}` | the read log |
-| `GET /review/queue`, `POST /review/{id}`, `POST /review/export` | reads whose conformal set holds more than one plate or whose confidence is under `PLATE_REVIEW_THRESHOLD`; corrections export to `data/ocr/train` |
-| `POST /jobs`, `POST /jobs/upload`, `GET /jobs`, `GET /jobs/{id}`, `GET /jobs/{id}/events` | folders and videos in the background (RQ on Redis), IoU tracking and per-track fusion, progress as Server-Sent Events |
-| `GET /results`, `GET /results/{name}` | the committed evaluation results the console renders (all synthetic) |
-| `GET /models`, `GET /health`, `GET /metrics` | registry and loaded models, health, Prometheus metrics |
-
-## How it works
-
-```
-photo
-  │
-  ├─ 1. detect      YOLOv10 finds plate boxes, near-duplicates merged by IoU
-  ├─ 2. isolate     crop trimmed to the bright plate body
-  ├─ 3. segment     separator bars located by aspect ratio, plate cut in three
-  ├─ 4. read        digits via the English model, letter via the Arabic model,
-  │                 each field over several thresholdings
-  ├─ 5. vote        weighted by OCR and detector confidence
-  └─ 6. validate    parsed against the legal plate grammar
-```
-
-If the separator bars cannot be found — a damaged plate, an odd angle, or the
-temporary `WW` format — the plate is read as a single line instead. That path
-is less accurate but still frequently correct.
-
-Recognised formats:
-
-| Format | Example | Notes |
-|---|---|---|
-| Standard | `24830-ب-1` | digits, one of `أ ب د ه و ط`, region code |
-| Temporary | `72173 WW` | digits followed by the `WW` marker |
-
-Text repair is handled in [`plate_reader/normalize.py`](plate_reader/normalize.py):
-Arabic-Indic digits are converted, every Unicode spelling of the six letters is
-folded onto one canonical form, and letter/digit lookalikes (`O`→`0`, `I`→`1`)
-are undone inside groups that are meant to be numeric.
-
-## Detection model
-
-The numbers in this section are rendered by `uv run plate docs render` from
-[`docs/training_results.csv`](docs/training_results.csv); `uv run plate docs check`
-fails if anyone edits them by hand.
+### Detection model
 
 <!-- BEGIN RENDER detector-metrics -->
 `models/best.pt` (version `648b737411ad`): YOLOv10n fine-tuned for 100 epochs on a single `LP` class, trained on a plate dataset plus photos from the firm's experts. The shipped checkpoint is epoch 90, the epoch Ultralytics selected by its fitness score (0.1 x mAP@50 + 0.9 x mAP@50-95). Values are from that epoch's row of the training log.
@@ -277,16 +152,7 @@ Set: the detector's own validation split (data). The training log does not recor
 
 Full per-epoch metrics are in [`docs/training_results.csv`](docs/training_results.csv).
 
-To use your own weights without editing anything:
-
-```bash
-PLATE_MODEL=/path/to/weights.pt python cli.py photo.jpg
-```
-
-## Synthetic baseline
-
-The platform measures itself on deterministic synthetic plates until real labelled
-data exists. These numbers are rendered from `results/eval_synthetic.json`.
+### Recognisers on synthetic plates
 
 <!-- BEGIN RENDER synthetic-baseline -->
 **Synthetic results are not real-world accuracy.** Set: synthetic (`synthetic`), n = 300, generator seed 1005; values with 95% bootstrap intervals over images (1000 resamples).
@@ -318,13 +184,7 @@ Multi-view sets (exact match of the fused read; n = 100 sets, bootstrap over set
 | crnn-beam-unconstrained | probabilistic_weighted | 0.980 [0.950, 1.000] | 1.000 [1.000, 1.000] | 1.000 [1.000, 1.000] |
 <!-- END RENDER synthetic-baseline -->
 
-## Recogniser: CRNN with grammar-constrained decoding
-
-Beside the EasyOCR path, the platform trains a compact CRNN (CNN, bidirectional LSTM,
-CTC) on synthetic crops, decodes it with a beam search pruned by the plate grammar, fits a
-temperature so its confidence is calibrated, and wraps each read in a conformal
-prediction set. It runs through ONNX Runtime, without PyTorch. Details and limitations are
-in [`docs/model_card.md`](docs/model_card.md).
+### The CRNN: training and calibration
 
 <!-- BEGIN RENDER crnn-training -->
 `models/crnn.onnx` (version `5348143705d4`, 5.8 MB, 1440051 parameters): trained on synthetic crops only, 24 epochs of 20000 freshly generated crops each on `cuda`, in 1139.4 s. The kept epoch is 18, chosen by greedy exact match on the synthetic validation split (0.995). Fine-tuned on real data: no. Synthetic results are not real-world accuracy.
@@ -349,12 +209,8 @@ Conformal prediction sets (thresholds from the conformal split, n = 2000; covera
 
 ### Multi-view fusion
 
-Several photos of one car are combined in probability space: each view's grammar-valid
-hypotheses are renormalised over the union of candidates and multiplied, which is Bayes'
-rule for independent views, and every character gets a posterior from aligning the
-hypotheses to the winner. The original vote stays selectable (`--fusion vote`). Equations
-and properties are in [`docs/methods/fusion.md`](docs/methods/fusion.md); rendered from
-`results/eval_views.json`:
+Rendered from `results/eval_views.json`; the method and its properties are in
+[`docs/methods/fusion.md`](docs/methods/fusion.md).
 
 <!-- BEGIN RENDER fusion-comparison -->
 **Synthetic results are not real-world accuracy.** Multi-view synthetic sets: n = 200 plates with up to 5 views each (generator seed 1007); the first k views of every set are fused; values with bootstrap intervals over sets.
@@ -397,12 +253,12 @@ Calibration and conformal sets of the fused read (each number of views has its o
 | crnn-beam | probabilistic_weighted | 5 | 0.000 [0.000, 0.000] | 0.250 [0.190, 0.305] | 0.250 [0.190, 0.305] |
 <!-- END RENDER fusion-comparison -->
 
-### Pseudo-real stand-in
+### The pseudo-real stand-in
 
-A heavier augmentation preset stands in for the gap between synthetic and real photos
-until real labelled data exists. Rendered from `results/eval_pseudo_real.json`. The
-console's Models page draws the gap per recogniser, and `plate sweep` searches the
-augmentation strengths that narrow it (results in the model card).
+A heavier augmentation preset stands in for the gap between synthetic and real photos until
+real labelled data exists. Rendered from `results/eval_pseudo_real.json`. The console's
+Models page draws the gap per recogniser, and `plate sweep` searches the augmentation
+strengths that narrow it (its results are in the [model card](docs/model_card.md)).
 
 <!-- BEGIN RENDER pseudo-real-baseline -->
 **Synthetic results are not real-world accuracy.** Set: pseudo_real (`pseudo_real`), n = 300, generator seed 1006; values with 95% bootstrap intervals over images (1000 resamples).
@@ -417,118 +273,180 @@ augmentation strengths that narrow it (results in the model card).
 Set coverage is the share of truths inside the conformal set at the level fixed on the synthetic conformal split; it holds its level only when the evaluated images are exchangeable with that split, so a drop on the pseudo-real set is the expected warning sign of a distribution shift, not a bug.
 <!-- END RENDER pseudo-real-baseline -->
 
-## Configuration
+## Run it
 
-Every setting in [`plate_reader/settings.py`](plate_reader/settings.py) (re-exported
-by `config.py`) has a sensible default and can be overridden by environment variable:
-
-| Variable | Default | Purpose |
-|---|---|---|
-| `PLATE_MODEL` | `models/best.pt` | detector weights |
-| `PLATE_OUTPUT_DIR` | `output/` | where `--save-crops` writes |
-| `PLATE_CONF` | `0.25` | detection confidence threshold |
-| `PLATE_GPU` | `0` | set to `1` to run EasyOCR on the GPU |
-| `PLATE_DATA_DIR` | `data/` | the real-data placeholder (see `data/README.md`) |
-| `PLATE_RESULTS_DIR` | `results/` | where evaluation and training write metrics JSON |
-
-## Layout
-
-```
-config.py               paths and thresholds, all overridable
-cli.py                  command-line entry point
-gui.py                  ttkbootstrap desktop app
-api.py                  FastAPI upload and health endpoints
-plate_reader/
-    detector.py         YOLO wrapper, IoU de-duplication, padded crops
-    segment.py          plate isolation, separator detection, field cutting
-    preprocess.py       thresholding variants for the OCR ensemble
-    ocr.py              EasyOCR backends behind a swappable interface
-    grammar.py          the plate formats as one finite automaton
-    normalize.py        text repair and lenient parsing onto the grammar
-    settings.py         typed PLATE_* configuration
-    docs_render.py      renders README numbers from results; detects drift
-    data/               the real-data layout and its validator
-    synthetic/          deterministic synthetic plates (fonts, render, augment)
-    eval/               evaluation harness, bootstrap intervals, reports
-    crnn/               CRNN model, CTC decoders, calibration, conformal, ONNX runtime
-    training/           CRNN training, ONNX export, calibration, detector training
-    fusion.py           combining several photos (legacy vote baseline)
-    cli/                the `plate` command line
-    pipeline.py         orchestration and voting
-models/best.pt          fine-tuned detector
-models/crnn.onnx        CRNN recogniser (with crnn.json metadata and crnn.pt weights)
-results/                metrics JSON the docs and the console render from
-apps/dashboard/         the Vue 3 console (Vite, Pinia, PrimeVue, D3, KaTeX, Storybook)
-data/                   placeholder for real data (README, layout, detector.yaml)
-docs/                   ADRs, training log, insert-your-own-data guide
-tools/repo_guards.py    pre-commit and CI guards
-samples/car.jpg         sample image
-tests/                  pytest suite
-```
-
-## Tests
+Python 3.12 managed by [uv](https://docs.astral.sh/uv/), Node 20 or newer for the console,
+Docker for the stack, and [just](https://github.com/casey/just) for the recipes. On Windows
+the lock installs a CUDA 12.6 build of PyTorch, on Linux a CPU build; the service and the
+worker are torch-free (ONNX Runtime).
 
 ```bash
-pip install -r requirements-dev.txt
-pytest tests -q
+git clone https://github.com/storm2121/Detectionx5.git
+cd Detectionx5
+just setup             # .venv with every dependency group, git hooks
+just demo              # synthetic data, a small evaluation, docker compose up, one synthetic read
 ```
 
-The text tests need nothing beyond pytest. The segmentation tests use the
-bundled sample and the committed weights, and skip automatically if those are
-unavailable.
+`docker compose up --build -d` starts the API, the worker, Redis, PostgreSQL, the
+OpenTelemetry collector, Prometheus, Grafana and the console;
+`docker compose --profile tracing up --build -d` adds Tempo as the trace store. Host ports
+are chosen so the stack does not clash with other projects on the same machine:
 
-The API tests use FastAPI's `TestClient` with fake detector/OCR models and the
-real multi-photo voting pipeline, so they need no model downloads. They cover
-startup and model reuse, agreement and confidence, temporary and unreadable
-plates, upload validation, and temporary-file cleanup. Run them on their own
-with `pytest tests/test_api.py -q`.
+| Service | Host port |
+|---|---|
+| Console (nginx forwards `/api` to the API) | 5174 |
+| API (`services.api.main:app`) | 8100 |
+| PostgreSQL | 5433 |
+| Redis | 6380 |
+| Prometheus | 9100 |
+| Grafana (dashboard "DetectionX5 plate service") | 3100 |
+| OpenTelemetry collector | 4319 (gRPC), 4320 (HTTP) |
 
-To include the real-model API regression test, which reads `samples/car.jpg`
-and checks for `24830-ب-1`, enable it explicitly. The OCR weights must be
-cached or downloadable on the first run:
+Without Docker, `just api` serves the API on port 8100 with SQLite under `storage/`,
+`just worker` runs a job worker against Redis on port 6380, and `just dashboard` serves the
+console with Vite on port 5174.
+
+**The console** (http://localhost:5174): Read (drop photos or try three synthetic photos of
+one car; boxes, fields, calibrated confidence, conformal set, per-view hypotheses, the fusion
+table, the character heatmap; server or in-browser mode with a parity indicator), Jobs
+(folders and videos with live progress), Review queue (confirm, correct, export),
+Evaluation (metrics with intervals, reliability diagrams, letter confusions, fusion by
+number of views, coverage), Models (active models, thresholds, the registry, the training
+curve, the sim-to-real gap, the augmentation sweep), Methods (the equations) and Browser
+parity. Light and dark themes, phone width, axe-checked.
+
+**The service:**
+
+| Endpoint | Purpose |
+|---|---|
+| `POST /read` | one to ten photos of one car: plate, fields, calibrated confidence, conformal set, per-view hypotheses, per-character posteriors, model version; `detect=false` reads photos as crops |
+| `GET /reads`, `GET /reads/{id}` | the read log |
+| `GET /review/queue`, `POST /review/{id}`, `POST /review/export` | reads to review; corrections export to `data/ocr/train` |
+| `POST /jobs`, `POST /jobs/upload`, `GET /jobs`, `GET /jobs/{id}`, `GET /jobs/{id}/events` | folders and videos in the background (RQ on Redis), IoU tracking and per-track fusion, progress as Server-Sent Events |
+| `GET /results`, `GET /results/{name}` | the committed evaluation results the console renders |
+| `GET /models`, `GET /health`, `GET /metrics` | the registry and the loaded models, health, Prometheus metrics |
+
+**The command line** (`uv run plate --help`):
+
+| Command | What it does |
+|---|---|
+| `plate read PHOTO...` | read photos with the original reader (EasyOCR) |
+| `plate synth crops / views / scenes / pseudo-real` | write deterministic synthetic sets |
+| `plate eval --set synthetic / pseudo_real / views / data` | evaluate recognisers with bootstrap intervals |
+| `plate train crnn / calibrate / calibrate-fused / detector` | train and calibrate |
+| `plate export onnx / detector / fixtures / web` | export models, parity fixtures and the browser's assets |
+| `plate sweep` | search augmentation strengths against the pseudo-real set |
+| `plate registry promote / list` | the model registry |
+| `plate data validate / init` | check or create the real-data layout |
+| `plate docs render / check` | render and check every documented number |
+
+## Insert your own data
+
+Real photos and labels go under `data/` in a fixed layout (detector images and YOLO
+labels; OCR crops with a `crop_path,plate_text,format` CSV), and `uv run plate data
+validate` checks it before anything trains. The step-by-step guide is
+[`docs/insert_your_own_data.md`](docs/insert_your_own_data.md); the data card
+([`docs/data_card.md`](docs/data_card.md)) lists what the data encodes. Real photos stay out
+of git: a pre-commit check refuses images, videos and large CSVs under `data/`.
+
+## What changes once real data arrives
+
+- `uv run plate eval --set data` measures every recogniser on the real test split; the
+  console and the docs then show real results next to the synthetic ones, and the
+  statement that OCR accuracy is not benchmarked on real data can go.
+- `plate train crnn` fine-tunes the CRNN on `data/ocr/train`, and the review queue's exports
+  keep adding to that split.
+- The temperature and every conformal threshold (one view, and each number of fused views)
+  are refitted on real calibration splits: thresholds hold only for images exchangeable
+  with the split they were fitted on.
+- The detector is evaluated, and if need be fine-tuned (`plate train detector`), on real
+  photos; its current figures come from its own validation split.
+- The augmentation sweep's objective moves from the pseudo-real tuning split to a real
+  validation split, and the pseudo-real set becomes a robustness check instead of the
+  stand-in for the real world.
+
+## Honesty and limitations
+
+- No real labelled evaluation exists: every recogniser metric, confidence and threshold here
+  comes from synthetic data, and synthetic results are not real-world accuracy. The
+  pseudo-real set is synthetic too.
+- The detector's figures come from its own validation split, with no interval.
+- The fonts approximate plate lettering; backgrounds are procedural; the generator draws no
+  country band, dealer or damaged plates.
+- Temporary plates are assumed to carry one to six digits until the range is confirmed.
+- A conformal guarantee holds under exchangeability only; on images unlike the calibration
+  split (the pseudo-real set shows how unlike) coverage drops, which is the warning it is
+  meant to give.
+- Only the six letters `أ ب د ه و ط` are accepted; other series are rejected by design.
+- The original EasyOCR reader stays as the baseline and for the legacy entry points; it is
+  much weaker than the CRNN on every synthetic set.
+
+## The original reader
+
+The project started as an EasyOCR reader: it finds the plate's two separator bars (the only
+tall, very narrow marks on the plate), cuts the plate into its three fields, and reads each
+field with the EasyOCR model suited to it, because reading the whole plate as one line turns
+the bars into characters. That path is kept, behind the same shims as before:
 
 ```bash
-PLATE_TEST_MODELS=1 pytest tests -q
+python cli.py samples/car.jpg                 # read one image
+python cli.py front.jpg side.jpg rear.jpg     # several photos of one car
+python cli.py samples/car.jpg --json          # machine-readable output
+python gui.py                                 # the desktop app
+uvicorn api:app --host 127.0.0.1 --port 8000  # the original HTTP API
 ```
 
-In Windows PowerShell:
+```python
+from plate_reader import read_images
 
-```powershell
-$env:PLATE_TEST_MODELS = "1"
-.\.venv\Scripts\python.exe -m pytest tests -q
+result = read_images(["samples/car.jpg"])
+print(result.text)  # '24830-ب-1'
 ```
 
-This checks single and multi-file requests using repeated copies of the sample;
-distinct photos of the same car are still needed to assess real-world agreement.
+`read_images` fuses with the original vote unless every view is calibrated (ADR 0009).
+EasyOCR downloads its recognition models the first time it runs; that is the only network
+access the project makes.
 
-## Limitations
+## Development
 
-Worth being straight about:
+```bash
+just check            # ruff, mypy --strict, the repository guards, the console's checks,
+                      # pytest with the coverage gate, plate docs check, plate data validate
+just dashboard-e2e    # Playwright smoke, accessibility and parity checks against the stack
+```
 
-- <!-- BEGIN RENDER ocr-benchmark-status -->
-**OCR accuracy is not benchmarked on real data.** No labelled real evaluation set exists yet, so no real-world accuracy figure is claimed. `docs/insert_your_own_data.md` explains where real photos and labels go.
-<!-- END RENDER ocr-benchmark-status -->
-  The pipeline is verified end-to-end on the bundled sample and the segmentation
-  logic is covered by tests. The detector's metrics above come from its own
-  validation split. Every synthetic number in this README is labelled as
-  synthetic: synthetic results are not real-world accuracy.
-- **The `WW` temporary format has no separator bars**, so it takes the
-  whole-plate fallback path and is read less reliably.
-- Plates that are heavily skewed, motion-blurred, or badly lit will fail
-  segmentation and fall back to the weaker path. No perspective correction is
-  applied.
-- Only the six letters `أ ب د ه و ط` are accepted; other series are rejected
-  by design rather than guessed at.
-- CPU inference takes roughly a second or two per image. Set `PLATE_GPU=1` if
-  you have CUDA available.
+CI runs lint and guards, mypy, the test suite with coverage, a small synthetic evaluation, the
+console's lint, build, tests and Storybook, the browser parity test, the console's smoke test
+against Compose, and the container builds. Every setting is a `PLATE_*` environment variable
+([`plate_reader/settings.py`](plate_reader/settings.py) and
+[`services/api/config.py`](services/api/config.py)).
+
+```
+plate_reader/           the library and the `plate` command line
+  grammar.py            the plate formats as one minimal automaton
+  synthetic/            deterministic synthetic plates, scenes and multi-view sets
+  eval/                 evaluation harness, bootstrap intervals, reports
+  crnn/                 CRNN, CTC decoders, calibration, conformal sets, ONNX runtime
+  fusion.py             probabilistic fusion and the legacy vote
+  pipeline.py           detect, read, fuse, certify
+  training/             CRNN training and calibration, ONNX export, the sweep
+services/api/           the service: reads, review, jobs, metrics, migrations
+apps/dashboard/         the console and the in-browser runtime
+models/                 the detector and the CRNN (ONNX and PyTorch) with metadata
+results/                every committed metric, as JSON
+data/                   the real-data placeholder
+docs/                   ADRs, model and data cards, methods, guides
+tests/                  the Python test suite and the fixtures shared with the console
+```
 
 ## Credits and licence
 
 - Detection architecture: [YOLOv10](https://github.com/THU-MIG/yolov10) (THU-MIG), AGPL-3.0
 - Detector training data: a plate dataset plus photos from the firm's experts
-- OCR: [EasyOCR](https://github.com/JaidedAI/EasyOCR), Apache-2.0
-- Synthetic-plate fonts: SIL Open Font License 1.1 (see `plate_reader/synthetic/fonts/`)
+- OCR baseline: [EasyOCR](https://github.com/JaidedAI/EasyOCR), Apache-2.0
+- Synthetic-plate and console fonts: SIL Open Font License 1.1 (see
+  `plate_reader/synthetic/fonts/`)
 
-Licensed under **AGPL-3.0** — see [LICENSE](LICENSE). This is required rather
-than chosen: the fine-tuned weights derive from YOLOv10/Ultralytics, which are
-AGPL-3.0, so anything distributed from them inherits that licence.
+Licensed under **AGPL-3.0** (see [LICENSE](LICENSE)). This is required rather than chosen:
+the fine-tuned weights derive from YOLOv10 and Ultralytics, which are AGPL-3.0, so anything
+distributed from them inherits that licence.
