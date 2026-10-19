@@ -1,12 +1,12 @@
 <script setup lang="ts">
-import Button from 'primevue/button'
-import SelectButton from 'primevue/selectbutton'
 import { computed, onMounted, ref } from 'vue'
 
-import ErrorNote from '@/components/ErrorNote.vue'
-import LoadingState from '@/components/LoadingState.vue'
-import StatusPill from '@/components/StatusPill.vue'
 import SyntheticNote from '@/components/SyntheticNote.vue'
+import DxButton from '@/components/ui/DxButton.vue'
+import NoticeBlock from '@/components/ui/NoticeBlock.vue'
+import SegmentedControl from '@/components/ui/SegmentedControl.vue'
+import SkeletonBlock from '@/components/ui/SkeletonBlock.vue'
+import StatusLine from '@/components/ui/StatusLine.vue'
 import type { Backend } from '@/inference/runtime'
 import { useBrowserStore } from '@/stores/browser'
 
@@ -14,8 +14,8 @@ const browser = useBrowserStore()
 const gpu = ref(false)
 
 const backends = computed(() => [
-  { label: 'WebAssembly (CPU)', value: 'wasm' },
-  ...(gpu.value ? [{ label: 'WebGPU', value: 'webgpu' }] : []),
+  { label: 'WebAssembly (CPU)', value: 'wasm' as Backend },
+  ...(gpu.value ? [{ label: 'WebGPU', value: 'webgpu' as Backend }] : []),
 ])
 const backend = computed({
   get: () => browser.backend ?? 'wasm',
@@ -39,7 +39,7 @@ onMounted(async () => {
   <div class="dx-page">
     <header class="dx-page-head">
       <h1>Browser parity</h1>
-      <p class="dx-lead">
+      <p>
         The in-browser mode reads plates with TypeScript ports of the Python pipeline's image
         operations, decoders and fusion, and ONNX Runtime Web. This page reads the committed
         fixtures (<code>results/parity_fixtures.json</code>: CRNN crops and a three-photo street
@@ -47,14 +47,10 @@ onMounted(async () => {
       </p>
     </header>
 
-    <SyntheticNote
-      detail="The fixtures are synthetic images; parity says the browser computes what Python computes, not how accurate either is."
-    />
-
-    <section class="dx-card" aria-labelledby="run-title">
-      <div class="dx-card-head">
+    <section class="dx-section" aria-labelledby="run-title">
+      <div class="dx-section-head">
         <h2 id="run-title">Run</h2>
-        <StatusPill
+        <StatusLine
           v-if="report"
           :tone="report.passed ? 'ok' : 'bad'"
           :label="
@@ -65,30 +61,30 @@ onMounted(async () => {
           data-testid="parity-summary"
         />
       </div>
-      <div class="dx-row controls">
-        <SelectButton
-          v-model="backend"
-          :options="backends"
-          option-label="label"
-          option-value="value"
-          :allow-empty="false"
-          aria-label="Inference backend"
-        />
-        <Button
-          label="Run again"
-          severity="secondary"
-          :loading="browser.checking"
+      <div class="dx-row">
+        <SegmentedControl v-model="backend" :options="backends" label="Inference backend" />
+        <DxButton
+          :busy="browser.checking"
+          busy-label="Reading the fixtures"
           data-testid="parity-run"
           @click="browser.check()"
-        />
+        >
+          Run again
+        </DxButton>
       </div>
-      <LoadingState v-if="browser.checking" label="Reading the fixtures in this browser" />
-      <ErrorNote
-        v-else-if="browser.parityError"
-        :message="browser.parityError"
-        title="The check could not run"
+      <SkeletonBlock
+        v-if="browser.checking"
+        kind="table"
+        :rows="4"
+        label="Reading the fixtures in this browser"
       />
-      <dl v-if="report && !browser.checking" class="dx-dl maxima" data-testid="parity-maxima">
+      <NoticeBlock
+        v-else-if="browser.parityError"
+        tone="error"
+        title="The check could not run"
+        :message="`${browser.parityError} Reload the page to fetch the models again.`"
+      />
+      <dl v-if="report && !browser.checking" class="dx-facts" data-testid="parity-maxima">
         <dt>Backend</dt>
         <dd>{{ report.backend === 'webgpu' ? 'WebGPU' : 'WebAssembly' }}</dd>
         <dt>Model</dt>
@@ -96,22 +92,22 @@ onMounted(async () => {
           <code>{{ report.modelVersion }}</code>
         </dd>
         <dt>Largest input difference</dt>
-        <dd class="dx-num">{{ report.maxima.inputLevels }} grey level(s)</dd>
+        <dd>{{ report.maxima.inputLevels }} grey level(s)</dd>
         <dt>Largest logit difference</dt>
-        <dd class="dx-num">{{ report.maxima.logits.toExponential(2) }}</dd>
+        <dd>{{ report.maxima.logits.toExponential(2) }}</dd>
         <dt>Largest probability difference</dt>
-        <dd class="dx-num">{{ report.maxima.probability.toExponential(2) }}</dd>
+        <dd>{{ report.maxima.probability.toExponential(2) }}</dd>
         <dt>Largest box difference</dt>
-        <dd class="dx-num">{{ report.maxima.box.toExponential(2) }} px</dd>
+        <dd>{{ report.maxima.box.toExponential(2) }} px</dd>
         <dt>Largest detector score difference</dt>
-        <dd class="dx-num">{{ report.maxima.detectorConfidence.toExponential(2) }}</dd>
+        <dd>{{ report.maxima.detectorConfidence.toExponential(2) }}</dd>
         <dt>Time</dt>
-        <dd class="dx-num">{{ report.seconds.toFixed(1) }} s</dd>
+        <dd>{{ report.seconds.toFixed(1) }} s for every fixture</dd>
       </dl>
     </section>
 
-    <section v-if="report && !browser.checking" class="dx-card" aria-labelledby="checks-title">
-      <h2 id="checks-title" class="checks-title">Fixtures</h2>
+    <section v-if="report && !browser.checking" class="dx-section" aria-labelledby="checks-title">
+      <h2 id="checks-title">Fixtures</h2>
       <div class="dx-scroll-x" role="region" aria-label="Parity checks" tabindex="0">
         <table class="dx-table" data-testid="parity-table">
           <thead>
@@ -125,30 +121,20 @@ onMounted(async () => {
             <tr v-for="check in report.checks" :key="check.name" :data-ok="check.ok">
               <th scope="row">{{ check.name }}</th>
               <td>
-                <StatusPill
+                <StatusLine
                   :tone="check.ok ? 'ok' : 'bad'"
-                  :label="check.ok ? 'within tolerance' : 'out of tolerance'"
+                  :label="check.ok ? 'Within tolerance' : 'Out of tolerance'"
                 />
               </td>
-              <td class="dx-small dx-num">{{ check.detail }}</td>
+              <td class="dx-footnote">{{ check.detail }}</td>
             </tr>
           </tbody>
         </table>
       </div>
     </section>
+
+    <SyntheticNote
+      detail="The fixtures are synthetic images; parity says the browser computes what Python computes, not how accurate either is."
+    />
   </div>
 </template>
-
-<style scoped>
-.controls {
-  margin-bottom: var(--dx-space-3);
-}
-
-.maxima {
-  margin-top: var(--dx-space-2);
-}
-
-.checks-title {
-  margin-bottom: var(--dx-space-3);
-}
-</style>

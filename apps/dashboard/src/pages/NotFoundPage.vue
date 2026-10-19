@@ -6,7 +6,7 @@ import { RouterLink } from 'vue-router'
   <div class="dx-page">
     <header class="dx-page-head">
       <h1>Page not found</h1>
-      <p class="dx-lead">
+      <p>
         There is no page at this address. <RouterLink to="/read">Read a plate</RouterLink> instead.
       </p>
     </header>

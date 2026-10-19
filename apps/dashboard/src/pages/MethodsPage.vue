@@ -45,7 +45,7 @@ onMounted(async () => {
   <div class="dx-page methods">
     <header class="dx-page-head">
       <h1>Methods</h1>
-      <p class="dx-lead">
+      <p>
         The mathematics behind every number on the other pages. The same equations, with their
         tests, are in <code>docs/methods/fusion.md</code> and the model card.
       </p>
@@ -55,7 +55,7 @@ onMounted(async () => {
       detail="The thresholds and coverages quoted here were fitted and measured on synthetic data; real photos must refit them."
     />
 
-    <section class="dx-card prose" aria-labelledby="m-read">
+    <section class="prose" aria-labelledby="m-read">
       <h2 id="m-read">1. Reading one view</h2>
       <p>
         The CRNN emits one vector of logits <MathBlock :display="false" tex="z_t(x)" /> per frame
@@ -72,7 +72,7 @@ onMounted(async () => {
       <MathBlock :tex="EQ.beam" />
     </section>
 
-    <section class="dx-card prose" aria-labelledby="m-temp">
+    <section class="prose" aria-labelledby="m-temp">
       <h2 id="m-temp">2. Temperature scaling</h2>
       <p>
         One temperature is fitted on a held-out synthetic calibration split by golden-section search
@@ -84,7 +84,7 @@ onMounted(async () => {
       <MathBlock :tex="EQ.ece" />
     </section>
 
-    <section class="dx-card prose" aria-labelledby="m-fusion">
+    <section class="prose" aria-labelledby="m-fusion">
       <h2 id="m-fusion">3. Fusing several photos</h2>
       <p>
         Candidates <MathBlock :display="false" tex="C" /> are the strings any view proposed. Each
@@ -107,7 +107,7 @@ onMounted(async () => {
       <MathBlock :tex="EQ.position" />
     </section>
 
-    <section class="dx-card prose" aria-labelledby="m-conformal">
+    <section class="prose" aria-labelledby="m-conformal">
       <h2 id="m-conformal">4. Conformal prediction sets</h2>
       <p>
         The nonconformity of a candidate is the probability mass of the other candidates. On a
@@ -136,7 +136,7 @@ onMounted(async () => {
       />
     </section>
 
-    <section class="dx-card prose" aria-labelledby="m-ci">
+    <section class="prose" aria-labelledby="m-ci">
       <h2 id="m-ci">5. Uncertainty of the metrics</h2>
       <p>
         Every metric carries a 95% percentile-bootstrap interval over
@@ -150,13 +150,29 @@ onMounted(async () => {
 </template>
 
 <style scoped>
+.methods {
+  gap: var(--dx-space-7);
+}
+
+/* reading text: a 70-character measure and generous leading, equations set flush left */
 .prose {
   display: grid;
-  gap: var(--dx-space-3);
-  max-width: 100%;
+  gap: var(--dx-space-4);
+  max-width: 70ch;
+  min-width: 0;
 }
 
 .prose p {
-  max-width: 78ch;
+  line-height: 1.65;
+}
+
+.prose :deep(.math) {
+  padding: var(--dx-space-2) 0;
+}
+
+/* tables may run wider than the text column; at phone width they scroll in place */
+.prose :deep([data-testid='coverage-table']) {
+  width: max-content;
+  max-width: calc(100vw - 2 * var(--dx-gutter));
 }
 </style>
