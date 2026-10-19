@@ -97,6 +97,15 @@ All notable changes to this project are recorded here. The format follows
   bootstrap intervals, writing `results/sweep.json` (rendered in the model card); the
   Models page shows the sim-to-real gap and the sweep.
 
+- M7: the README rewritten (what the platform does, why, two architecture diagrams, how a
+  read works, rendered results, running it, inserting real data, what changes once real
+  data arrives, honesty and limitations, the original reader, development);
+  `docs/CV_NOTES.md`, every CV line traced to its code, tests and results, with a rendered
+  table of the figures (now a governed document); model card and data card v2; ADR 0010;
+  the data guide lists what real data changes.
+- M7: `just demo` waits for a healthy stack and reads three synthetic photos of one car;
+  `tools/demo_read.py` waits for health and prints the console's address.
+
 ### Changed
 
 - M5: the fused conformal threshold is chosen by the number of views that proposed a plate,

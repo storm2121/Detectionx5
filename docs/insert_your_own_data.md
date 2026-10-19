@@ -1,6 +1,6 @@
 # Insert your own data
 
-Status: first version (M0). It will grow as the training and evaluation commands land.
+Status: v2 (M7; v1 was M0). Every command below exists and runs on synthetic stand-ins today.
 
 The platform runs end to end on synthetic plates. Real photos and labels are optional and
 go into `data/`, which the repository keeps as an empty, documented layout. Nothing under
@@ -85,7 +85,10 @@ from the set.
 | README | "OCR accuracy is not benchmarked on real data" stays | the statement is replaced by the rendered real-data table once `results/eval_data.json` exists |
 | Recogniser | CRNN trained on synthetic crops | fine-tuned on `data/ocr/train`, validated on `data/ocr/val` |
 | Calibration | temperature fitted on a synthetic split | refitted on `data/ocr/val` |
-| Detector | the shipped `models/best.pt` | retrain with `plate train detector --data data/detector.yaml` |
+| Conformal sets | thresholds for one view and per number of fused views, fitted on synthetic splits | refitted on real calibration crops and real multi-photo sets (`plate train calibrate`, `plate train calibrate-fused`) |
+| Detector | the shipped `models/best.pt`, measured on its own validation split | evaluated on `data/detector`, and retrained if needed with `plate train detector --data data/detector.yaml` |
+| Augmentation sweep | scored on a pseudo-real tuning split | scored on a real validation split; the pseudo-real set becomes a robustness check |
+| Console | Evaluation and Models pages show synthetic and pseudo-real results | the real results appear beside them (the Models page's sim-to-real gap gets its real column) |
 
 Every number in the README keeps its set label (synthetic, pseudo-real or data), its n,
 its bootstrap interval and its model version, so real and synthetic results can never be
