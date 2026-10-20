@@ -177,7 +177,11 @@ describe('the console', () => {
     )
     const whole = section.get('[data-testid="real-end-to-end"]').text()
     expect(whole).toContain(`${endToEnd.set.n} photos, the labelled boxes ignored`)
-    expect(section.get('[data-testid="detection-summary"]').text()).toContain('had no detection')
+    const summary = section.get('[data-testid="detection-summary"]').text()
+    expect(summary).toContain(
+      endToEnd.detection.no_detection ? 'had no detection' : 'Every photo had a detection',
+    )
+    expect(summary).toContain('lay on the labelled plate in')
     const detector = section.get('[data-testid="detector-comparison"]').text()
     expect(detector).toContain(`Street photos (n = ${detectorReal.counts.images} photos`)
     expect(detector).toContain(`Synthetic street scenes (n = ${detectorEval.counts.images} scenes)`)

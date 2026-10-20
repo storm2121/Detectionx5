@@ -89,10 +89,13 @@ const detectionSentence = computed(() => {
   const detection = endToEnd.value?.detection
   if (!detection) return ''
   const missed = countWords(detection.no_detection)
-  const head =
-    `${missed.charAt(0).toUpperCase()}${missed.slice(1)} photos had no detection and in ` +
-    `${countWords(detection.off_plate)} more the most confident detection was not on the ` +
-    'labelled plate; both count as wrong reads.'
+  const off = countWords(detection.off_plate)
+  const head = detection.no_detection
+    ? `${missed.charAt(0).toUpperCase()}${missed.slice(1)} photos had no detection and in ` +
+      `${off} more the most confident detection was not on the labelled plate; both count ` +
+      'as wrong reads.'
+    : `Every photo had a detection; in ${off} the most confident detection was not on the ` +
+      'labelled plate, which counts as a wrong read.'
   return `${head} The most confident detection lay on the labelled plate in ${estimate(detection.on_plate, false, 0)} of the photos.`
 })
 const focused = computed(() => evaluation.value?.recognizers[focus.value] ?? null)
