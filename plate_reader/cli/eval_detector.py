@@ -60,7 +60,8 @@ def command(
     name = "eval_detector_synthetic.json" if synthetic else "eval_detector_data.json"
     target = out or PROJECT_ROOT / "results" / name
     target.parent.mkdir(parents=True, exist_ok=True)
-    target.write_text(json.dumps(payload, indent=1) + "\n", encoding="utf-8")
+    # LF on every platform, so re-running an unchanged validation reproduces the file.
+    target.write_text(json.dumps(payload, indent=1) + "\n", encoding="utf-8", newline="\n")
     metrics = payload["metrics"]
     typer.echo(
         f"wrote {target}: mAP@50 {metrics['map50']:.3f}, mAP@50-95 {metrics['map50_95']:.3f}"
