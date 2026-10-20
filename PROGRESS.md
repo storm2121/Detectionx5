@@ -682,3 +682,113 @@ Never record the name of the original dataset host.
   adds about 9 MB of screenshots to the repository; whether to keep them in git or move them
   to an artefact store.
 - Next: the architect's review.
+
+### Real-data benchmark pass: street photos held out from every training set — done (the EasyOCR baseline is not run on them yet) — 2026-10-20
+
+- Built (private, under the gitignored `data/` tree; nothing under `data/` is committed):
+  `data/eval/images` holds the 258 photos of the held-out split under neutral names
+  (`street_001.jpg` to `street_258.jpg`, in a seeded shuffle); `data/eval/mapping.csv` maps
+  each to its source file, camera photo, copy type, transform and hashes; `data/eval/boxes.csv`
+  holds all 261 boxes in integer pixels; `data/eval/labels.csv` (with the new `group`
+  column), `data/eval/unresolved.csv` (box, the three readings, reason, category) and
+  `data/eval/card.json` (counts and words only) are the labelled set; the YOLO labels, a list
+  of the measured photos and `data/eval/detector.yaml` feed the detector's measurement; the
+  scripts that built all of it are in `data/eval/build/`. The previous twelve web photos and
+  their labels moved to `data/eval_web/` (untracked). Contact sheets are in `.cache/sheets/`.
+- Finding (reported, not hidden): every photo of the split is an augmented copy of a camera
+  photo, named by its augmentation: 32 contrast changed, 51 noise added, 43 shifted, 41
+  rotated, 47 mirrored left to right and 44 flipped upside down, copies of 196 camera photos.
+  Every one of those camera photos also has copies in the training split (and every camera
+  photo of the validation split is in the training split too), so the files were never
+  trained on but the scenes were: the detector's figures on this set, and the end-to-end
+  ones, are not independent of its training data, and neither are its training-log
+  validation figures. The recogniser has only ever seen synthetic plates, so its figures are
+  clean. Several photos show the same vehicle: the 219 readable plates belong to 133
+  vehicles.
+- Decisions: (1) the mirrored and upside-down copies were flipped back exactly (verified
+  against a natural copy of the same camera photo for all 91: normalised correlation above
+  0.9 for the inverse flip, every time) with their boxes, and re-encoded as JPEG quality 95;
+  every other photo was copied byte for byte; rotated and shifted copies stay as they are.
+  (2) Intervals resample groups: a group is a vehicle with every photo it appears in (the
+  connected components of same plate and same camera photo), 132 groups; ADR 0013, which
+  also covers the optional `group` column, the set card and `--detect`. (3) `--detect` reads
+  each photo's most confident detection, as the service does; a photo without one would count
+  as a read that returned nothing. (4) The detector is measured on every valid box (the plates
+  whose text was left out included); the photo whose only box is degenerate is left out of
+  that measurement, so it covers 257 photos and 260 boxes. (5) `data/README.md` is not
+  edited (the brief says nothing under `data/` is committed); the optional column is
+  documented in `docs/insert_your_own_data.md` instead. (6) Nothing was refitted or
+  fine-tuned on this set.
+- Transcription (two passes by the same transcriber, the agent, over differently ordered and
+  laid-out contact sheets of crops padded as the pipeline pads a detection, small crops
+  upscaled, a large index above each; every string validated with the plate grammar):
+  261 boxes, 260 crops (one box is degenerate). Pass 1 and pass 2 agreed on 255 of 260 crops
+  (98.1%), 31 of them because both passes marked the crop unreadable; on all 224 crops where
+  both passes gave a grammar-valid reading the two readings were identical; of the 5
+  disagreements, 4 were a reading against an unreadable mark and 1 two different partial
+  readings. Accepted
+  after two passes: 193. Sent to the third pass (zoomed crop, a contrast-equalised copy and a
+  wider view): 67 (31 agreed but flagged as doubtful, 5 disagreements, 31 unreadable or
+  outside the grammar); accepted there: 26. Accepted in total: 219 plates in 218 photos (one
+  photo holds two), 202 standard and 17 temporary. Excluded: 42, listed in
+  `data/eval/unresolved.csv` for Mohamed to settle: 27 illegible in the photo (8 motion
+  blur, 6 glare, 6 noise, 4 a digit behind a tow hitch, 2 too small and blurred, 1 an
+  ambiguous letter), 12 outside the grammar (6 two-row moped plates, 5 foreign plates, 1 a
+  special-series letter), 3 with no plate in the box (the degenerate box, a plate smeared by
+  a shift's edge fill, a plate cut off by a rotated photo's edge). Two pairs of labels one
+  character apart were checked on a sheet and are different vehicles. `uv run plate data
+  validate`: 218 photos, 219 plates, 0 errors, 0 warnings.
+- Results (95% bootstrap intervals over the 132 vehicle groups, 1000 resamples; recognisers
+  `crnn-5348143705d4-T0.888664`): from the labelled box (n = 219 plates), CRNN greedy exact
+  match 8% (4 to 13), constrained beam 11% (6 to 16), beam digits 23% (16 to 30), letter 48%
+  (40 to 57), region 34% (26 to 42), character error rate 53% (47 to 58), beam minus greedy +3
+  points (+1 to +5). End to end with the shipped ONNX detector (n = 218 photos): every photo
+  had a detection, the most confident one lay on the labelled plate in 216 of them, 99% (98
+  to 100); greedy 11% (6 to 17), beam 14% (9 to 20). The end-to-end figure is above the
+  labelled-box one, within the intervals; one possible cause is that the detector's boxes
+  differ from the split's (for a rotated copy the split's box is axis-aligned around the
+  tilted plate), which is noted, not tested. The
+  beam's calibration does not carry over: ECE 40% (35 to 44), conformal sets cover 0% (0 to
+  0). The detector on the street photos (257 photos, 260 boxes, one pass, no interval):
+  precision 0.993, recall 0.988, mAP@50 0.995, mAP@50-95 0.792, against 0.729, 0.948, 0.843
+  and 0.602 on synthetic scenes; the street-photo column is rendered with the overlap caveat.
+- Code: `Bootstrap(groups=...)` (cluster bootstrap, ungrouped draws unchanged), the optional
+  `group` column and `card.json` (layout, validator, sets), `sets.data_photos_set` and `plate
+  eval --set data --detect` (results in `results/eval_data_e2e.json`, with a `detection`
+  summary), `plate eval-detector --note` and list-file splits, the renderer's new real-photos
+  block and the `real-set` and `detector-real` blocks, and the console's `RealSetFacts` and
+  `DetectorComparison` (Evaluation shows the set's facts, both tables side by side with
+  their n, the detection summary and the detector beside the synthetic scenes; Models shows
+  the detector's street-photo figures with the caveat, and the gap's real column counts
+  plates). README, model card, data card (a new "The real benchmark" section), CV notes, the
+  data guide (section 4, what changed: calibration stays synthetic until a separate real
+  calibration split is labelled), CHANGELOG and ADR 0013 updated; the Evaluation and Models
+  screenshots re-taken.
+- Commands run and results: `uv run plate eval --set data -r crnn-greedy -r crnn-beam --views
+  0 --note "..."` (22 s) and the same with `--detect` (28 s); `uv run plate eval-detector
+  --data data/eval/detector.yaml --device cpu --note "..."` (34 s); `uv run plate docs render`
+  then `plate docs check`: in sync; `pytest` on the new and changed modules: 9 new tests in
+  `tests/test_real_benchmark.py`, 2 more in `tests/test_eval_detector.py`, the validator and
+  render tests updated, all passing; console: Vitest 122 passed, lint clean, build within the
+  bundle budget; Playwright against the production build and a local service (SQLite and
+  exports in a scratch folder): the Evaluation and Models smoke and axe tests, both themes,
+  desktop and phone, 12 passed; screenshots 8 passed. `just check`: green (ruff, mypy --strict on 87 files, the repository guards, the console's lint, build, 122 unit tests and Storybook; pytest 253 passed and 3 skipped, all opt-in, coverage 94.17% on `plate_reader`; `plate docs check` in sync; `plate data validate` 0 errors and 0 warnings).
+- Stubbed or skipped, and why: the EasyOCR baseline is not in the real results. The GPU was
+  busy with another application (a Blender render) for the whole pass, which slowed EasyOCR's
+  three GPU readers to minutes per crop, and its CPU path (seven variants of a 4x upscale per
+  crop, on photos up to 12 MP) took 25 s to 6 min per crop, about 12 hours for both readings;
+  a low-priority cache warm-up projected tens of hours and was stopped. To finish it with the
+  GPU free: `uv run plate eval --set data -r easyocr -r crnn-greedy -r crnn-beam --views 0
+  --note "street photos of vehicles, held out from every training set as files, with every box
+  checked by eye and every plate transcribed twice and checked against the plate grammar"`,
+  the same with `--detect`, then `uv run plate docs render`; reads already made stay in
+  `.cache/reads`. The README says the real tables show the CRNN alone. The detector figures
+  still have no interval (one Ultralytics pass).
+- Open questions for Mohamed: the 42 plates in `data/eval/unresolved.csv` (each with its
+  three readings and reason); whether the benchmark should keep the rotated and shifted
+  copies or report them apart (they are likely harder than the natural copies; nothing in the
+  results separates them yet); photos the detector has never seen in any form, for an
+  independent detector figure; the real calibration split, which comes next and must be
+  disjoint from this reporting set; whether `data/README.md` should mention the optional
+  `group` column.
+- Next: the EasyOCR baseline on these photos when the GPU is free; a real calibration split.
