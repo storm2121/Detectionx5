@@ -28,6 +28,10 @@ def command(
     out: Annotated[
         Path | None, typer.Option(help="results file (default by the set's kind)")
     ] = None,
+    note: Annotated[
+        str | None,
+        typer.Option(help="what the set is, in words; kept in the results and shown beside them"),
+    ] = None,
 ) -> None:
     """Validate the detector on a labelled set and write its metrics with the set's provenance."""
     from ..eval.detector import evaluate_detector
@@ -51,6 +55,7 @@ def command(
         device=device,
         project=PROJECT_ROOT / ".cache" / "detector-val",
         synthetic=synthetic,
+        note=note,
     )
     name = "eval_detector_synthetic.json" if synthetic else "eval_detector_data.json"
     target = out or PROJECT_ROOT / "results" / name

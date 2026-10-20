@@ -38,10 +38,12 @@ def display_path(path: Path) -> str:
 
 
 def split_images(data: Path, split: str) -> int | None:
-    """Photos in one split of a ``detector.yaml`` whose split entry is a folder.
+    """Photos in one split of a ``detector.yaml``: a folder of images or a list file.
 
     Paths resolve as in the data layout and in ``plate synth scenes``: against ``path``
-    when the file sets it, else against the folder that holds the file.
+    when the file sets it, else against the folder that holds the file. A ``.txt`` entry
+    lists one image per line, as Ultralytics accepts (a set that leaves a photo out of the
+    detector's measurement, say because its only box is degenerate, names the others).
     """
     data = data.resolve()
     config = yaml.safe_load(data.read_text(encoding="utf-8")) or {}
@@ -51,10 +53,13 @@ def split_images(data: Path, split: str) -> int | None:
     root = Path(config["path"]) if isinstance(config.get("path"), str) else data.parent
     if not root.is_absolute():
         root = data.parent / root
-    folder = root / entry
-    if not folder.is_dir():
+    target = root / entry
+    if target.is_file() and target.suffix == ".txt":
+        lines = target.read_text(encoding="utf-8").splitlines()
+        return sum(1 for line in lines if Path(line.strip()).suffix.lower() in IMAGE_SUFFIXES)
+    if not target.is_dir():
         return None
-    return sum(1 for p in folder.rglob("*") if p.suffix.lower() in IMAGE_SUFFIXES)
+    return sum(1 for p in target.rglob("*") if p.suffix.lower() in IMAGE_SUFFIXES)
 
 
 def evaluate_detector(
@@ -68,8 +73,13 @@ def evaluate_detector(
     device: str | None = None,
     project: Path | None = None,
     synthetic: bool = True,
+    note: str | None = None,
 ) -> dict[str, Any]:
-    """One Ultralytics validation pass of ``weights`` on ``split`` of ``data``."""
+    """One Ultralytics validation pass of ``weights`` on ``split`` of ``data``.
+
+    ``note`` says in words what the set is (and, for real photos, anything that limits what
+    the numbers mean); it is kept in the results and rendered beside them.
+    """
     ultralytics = importlib.import_module("ultralytics")
     model = ultralytics.YOLO(str(weights))
     metrics = model.val(
@@ -92,6 +102,7 @@ def evaluate_detector(
         provenance = json.loads(manifest.read_text(encoding="utf-8"))
     plates = metrics.nt_per_class
     with_plates = metrics.nt_per_image
+    described = {"note": note.strip()} if note else {}
     return {
         "schema": SCHEMA,
         "label": SYNTHETIC_LABEL if synthetic else "measured on the supplied set",
@@ -101,6 +112,7 @@ def evaluate_detector(
         "imgsz": imgsz,
         "device": device or "auto",  # "auto": Ultralytics picks the first GPU, else the CPU
         "set": {key: provenance[key] for key in PROVENANCE_KEYS if key in provenance},
+        **described,
         "counts": {
             "images": split_images(data, split),
             "plates": int(plates.sum()) if plates is not None else None,

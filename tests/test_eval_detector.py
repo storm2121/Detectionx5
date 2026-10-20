@@ -142,3 +142,48 @@ def test_cli_labels_synthetic_and_supplied_sets(
 
     missing = runner.invoke(app, ["eval-detector", "--data", str(tmp_path / "none.yaml")])
     assert missing.exit_code != 0
+
+
+# --- the detector on a list of photos ---------------------------------------------------
+def test_a_split_may_be_a_list_of_photos(tmp_path: Path) -> None:
+    (tmp_path / "images").mkdir()
+    (tmp_path / "list.txt").write_text("images/a.jpg\nimages/b.PNG\n\nnotes.md\n", encoding="utf-8")
+    yaml_path = tmp_path / "detector.yaml"
+    yaml_path.write_text("val: list.txt\nnames:\n  0: LP\n", encoding="utf-8")
+    assert split_images(yaml_path, "val") == 2
+
+
+def test_the_detector_measurement_keeps_its_note(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    class Box:
+        mp, mr, map50, map = 0.5, 0.75, 0.625, 0.25
+
+    class Metrics:
+        box = Box()
+        nt_per_class = np.array([2])
+        nt_per_image = np.array([2])
+
+    class YOLO:
+        def __init__(self, weights: str) -> None:
+            pass
+
+        def val(self, **kwargs: Any) -> Metrics:
+            return Metrics()
+
+    module = types.ModuleType("ultralytics")
+    module.YOLO = YOLO  # type: ignore[attr-defined]
+    monkeypatch.setitem(sys.modules, "ultralytics", module)
+    (tmp_path / "images").mkdir()
+    yaml_path = tmp_path / "detector.yaml"
+    yaml_path.write_text("val: images\nnames:\n  0: LP\n", encoding="utf-8")
+    payload = evaluate_detector(yaml_path, Path("best.pt"), synthetic=False, note="  photos  ")
+    assert payload["note"] == "photos"
+    assert payload["label"] == "measured on the supplied set"
+    out = tmp_path / "result.json"
+    result = CliRunner().invoke(
+        app,
+        ["eval-detector", "--data", str(yaml_path), "--out", str(out), "--note", "street photos"],
+    )
+    assert result.exit_code == 0, result.output
+    assert json.loads(out.read_text(encoding="utf-8"))["note"] == "street photos"
