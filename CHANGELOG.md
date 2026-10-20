@@ -139,7 +139,34 @@ All notable changes to this project are recorded here. The format follows
   every page in both themes at 1440 and 390 px in `docs/images`; a bundle check;
   `docs/DESIGN_NOTES.md`.
 
+- Real-data benchmark: a private set of street photos of vehicles, held out from every
+  training set as files, with its boxes checked by eye and its plate text transcribed twice
+  and checked against the grammar (`data/eval`, gitignored; plates nobody can read and plates
+  outside the grammar are listed apart, privately). Results from the labelled boxes
+  (`results/eval_data.json`), end to end with the shipped detector
+  (`results/eval_data_e2e.json`) and for the detector itself
+  (`results/eval_detector_data.json`), rendered in the README, the model card, the data card
+  and the CV notes with what the set is and what it is not (ADR 0013).
+- `plate eval --set data --detect` reads each labelled photo end to end with the shipped
+  ONNX detector, the labelled boxes ignored: the most confident detection is read as the
+  service reads it, a photo without one counts as a read that returned nothing, and the
+  results say how many photos had no detection and how often the detection lay on the
+  labelled plate.
+- A grouped (cluster) bootstrap: `data/eval/labels.csv` takes an optional `group` column and
+  the intervals then resample whole groups, a vehicle with every photo it appears in;
+  `data/eval/card.json` describes a set in counts and words and travels into its results.
+- `plate eval-detector --note`, and detector splits given as a list of photos.
+- Console: the real set's facts, the labelled-box and end-to-end tables side by side, and the
+  detector on the street photos beside the synthetic scenes on the Evaluation page; the
+  detector's street-photo figures on the Models page.
+
 ### Changed
+
+- Real-data benchmark: the earlier web photos are retired from the benchmark; the real-photo
+  results lead with the new set, its photo and plate counts, and its caveats (the photos are
+  augmented copies of fewer camera photos, the detector has seen their scenes, the
+  calibration remains synthetic until a separate real calibration split exists).
+  `plate data validate` counts the evaluation set's photos and plates apart.
 
 - Design pass: the evaluation harness crops labelled photos exactly where the service crops
   them (the detector's float box padded once, never a box rounded first); the real-photo

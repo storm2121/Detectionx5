@@ -1,6 +1,8 @@
 # Insert your own data
 
-Status: v2 (M7; v1 was M0). Every command below exists and runs on synthetic stand-ins today.
+Status: v3 (the real-data benchmark pass; v2 was M7, v1 M0). Every command below exists and
+runs on synthetic stand-ins; a private set of held-out street photos now runs through the
+evaluation part of it (section 4).
 
 The platform runs end to end on synthetic plates. Real photos and labels are optional and
 go into `data/`, which the repository keeps as an empty, documented layout. Nothing under
@@ -20,7 +22,8 @@ data/
 │   ├── train/labels.csv               # crop_path,plate_text,format
 │   └── val/labels.csv
 └── eval/
-    └── labels.csv                     # image_path,plate_text,format,x1,y1,x2,y2
+    ├── labels.csv                     # image_path,plate_text,format,x1,y1,x2,y2[,group]
+    └── card.json                      # optional: counts and words that describe the set
 ```
 
 Recreate the empty skeleton at any time with `uv run plate data init`.
@@ -63,7 +66,24 @@ photos/car_017_rear.jpg,24830-ب-1,standard,,,,
 ```
 
 Leave all four box columns empty when the box is unknown; detector metrics then skip that
-photo while recogniser metrics still use it.
+photo while recogniser metrics still use it. A photo with several plates has one row per
+plate.
+
+An optional eighth column, `group`, names the photos that are not independent of each other:
+several photos of one vehicle, or copies of one photo. Rows that share a group are
+resampled together by the bootstrap, so the intervals reflect how many vehicles there are,
+not how many photos (ADR 0013). Without the column every row stands alone.
+
+An optional `card.json` beside the CSV holds counts and words that describe the set (how many
+photos, what they are, how the text was transcribed, what was left out and why); the harness
+copies it into the results, and the README and the console render the set's description from
+it, so nothing about the set is typed by hand. It must never hold a plate string.
+
+`uv run plate eval --set data` reads every row from its labelled box, cut exactly where the
+service would cut a detection of it, and writes `results/eval_data.json`; `--detect` ignores
+the boxes and reads each photo end to end with the shipped ONNX detector, as the service
+reads it (the most confident detection; a photo without one counts as a read that returned
+nothing), and writes `results/eval_data_e2e.json` with how many photos had no detection.
 
 ## 2. Validate
 
@@ -81,18 +101,41 @@ from the set.
 
 | Step | With synthetic data only (today) | Once real data is in place |
 |---|---|---|
-| Evaluation | `plate eval --set synthetic` and `--set pseudo_real`, labelled synthetic | `plate eval --set data` reads `data/eval/labels.csv` and writes `results/eval_data.json` |
+| Evaluation | `plate eval --set synthetic` and `--set pseudo_real`, labelled synthetic | `plate eval --set data` reads `data/eval/labels.csv` and writes `results/eval_data.json`; `--detect` reads the photos end to end into `results/eval_data_e2e.json` |
 | README | "OCR accuracy is not benchmarked on real data" stays | the statement is replaced by the rendered real-data table once `results/eval_data.json` exists |
 | Recogniser | CRNN trained on synthetic crops | fine-tuned on `data/ocr/train`, validated on `data/ocr/val` |
-| Calibration | temperature fitted on a synthetic split | refitted on `data/ocr/val` |
+| Calibration | temperature fitted on a synthetic split | refitted on a real calibration split, never on the reporting set |
 | Conformal sets | thresholds for one view and per number of fused views, fitted on synthetic splits | refitted on real calibration crops and real multi-photo sets (`plate train calibrate`, `plate train calibrate-fused`) |
-| Detector | the shipped `models/best.pt`, measured on its own validation split and on synthetic street scenes, where its precision is below its recall (noted, not acted on: it is not fine-tuned on synthetic scenes) | measured on `data/detector` with `plate eval-detector --data data/detector.yaml` (written to `results/eval_detector_data.json`), which says whether the synthetic precision gap matters on photographs, and retrained if needed with `plate train detector --data data/detector.yaml` |
+| Detector | the shipped `models/best.pt`, measured on its own validation split and on synthetic street scenes, where its precision is below its recall (noted, not acted on: it is not fine-tuned on synthetic scenes) | measured on labelled photos with `plate eval-detector --data <detector.yaml>` (written to `results/eval_detector_data.json`), which says whether the synthetic precision gap matters on photographs, and retrained if needed with `plate train detector --data data/detector.yaml` |
 | Augmentation sweep | scored on a pseudo-real tuning split | scored on a real validation split; the pseudo-real set becomes a robustness check |
 | Console | Evaluation and Models pages show synthetic and pseudo-real results | the real results appear beside them (the Models page's sim-to-real gap gets its real column) |
 
 Every number in the README keeps its set label (synthetic, pseudo-real or data), its n,
 its bootstrap interval and its model version, so real and synthetic results can never be
 confused.
+
+## 4. What changed now that a real set exists
+
+A private set of street photos of vehicles, held out from every training set as files, is in
+`data/eval` with its boxes and hand-checked, twice-transcribed plate text; the data card
+describes it and the README's Real photos section renders its results. What that changed,
+and what it did not:
+
+- **Evaluation** is real: every recogniser from the labelled boxes (`results/eval_data.json`)
+  and end to end with the shipped detector (`results/eval_data_e2e.json`), with intervals
+  that resample vehicle groups, and the detector on the same photos
+  (`results/eval_detector_data.json`) beside its synthetic scenes. The README's statement
+  that OCR accuracy is not benchmarked on real data is replaced by the rendered results.
+- **The detector's figures on it are not independent**: every camera photo behind the set
+  also has copies in the split the detector was trained on. An independent detector figure
+  needs photos it has never seen in any form, labelled the same way under `data/detector`.
+- **Calibration is still synthetic.** The temperature and every conformal threshold were
+  fitted on synthetic splits, and they stay that way until a real calibration split is
+  labelled. The new set is the reporting set: refitting the calibration on it, or
+  fine-tuning on it, would make every number it reports meaningless. On it, the calibrated
+  confidence is far off and the conformal sets miss the true plate, as the README shows.
+- **Nothing was trained on it**: the CRNN is still trained on synthetic crops only, and the
+  detector is the shipped one.
 
 ## Collect calibration photos before any fine-tuning
 
