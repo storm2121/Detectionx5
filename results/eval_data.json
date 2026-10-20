@@ -3,354 +3,179 @@
   "set": {
     "name": "data",
     "kind": "data",
-    "n": 12,
+    "n": 219,
     "source": "data/eval/labels.csv",
+    "photos": 218,
+    "groups": 132,
+    "card": {
+      "description": "street photos of vehicles, held out from every training set",
+      "photos": 258,
+      "boxes": 261,
+      "camera_photos": 196,
+      "copies": {
+        "contrast changed": 32,
+        "noise added": 51,
+        "shifted": 43,
+        "rotated": 41,
+        "mirrored": 47,
+        "upside down": 44
+      },
+      "restored": "the mirrored and upside-down copies were flipped back exactly, so every plate reads the right way round",
+      "detector_overlap": "every camera photo behind this split also has copies in the split the detector was trained on",
+      "transcription": {
+        "passes": 2,
+        "crops": 260,
+        "agreed": 255,
+        "both_readable": 224,
+        "identical_when_both_readable": 224,
+        "third_pass": 67,
+        "accepted_in_third_pass": 26,
+        "how": "every plate crop was read twice on differently ordered contact sheets, every string was checked against the plate grammar, and every disagreement, invalid or doubtful reading was read a third time at a higher zoom"
+      },
+      "text_labels": 219,
+      "labelled_photos": 218,
+      "vehicles": 133,
+      "groups": 132,
+      "excluded": {
+        "illegible in the photo": 27,
+        "outside the grammar": 12,
+        "with no plate in the box": 3
+      }
+    },
     "skipped_without_box": 0,
-    "note": "small and easy (clean rear shots)"
+    "note": "street photos of vehicles, held out from every training set as files, with every box checked by eye and every plate transcribed twice and checked against the plate grammar"
   },
   "bootstrap": {
     "resamples": 1000,
     "confidence": 0.95,
     "seed": 0,
-    "unit": "image",
-    "method": "percentile"
+    "unit": "group",
+    "method": "percentile",
+    "groups": 132,
+    "grouped_units": "image"
   },
   "recognizers": {
-    "easyocr": {
-      "n": 12,
-      "metrics": {
-        "exact_match": {
-          "value": 0.083333,
-          "ci_low": 0.0,
-          "ci_high": 0.25,
-          "n": 12
-        },
-        "digits_accuracy": {
-          "value": 0.166667,
-          "ci_low": 0.0,
-          "ci_high": 0.416667,
-          "n": 12
-        },
-        "letter_accuracy": {
-          "value": 0.181818,
-          "ci_low": 0.0,
-          "ci_high": 0.417361,
-          "n": 11
-        },
-        "region_accuracy": {
-          "value": 0.181818,
-          "ci_low": 0.0,
-          "ci_high": 0.444444,
-          "n": 11
-        },
-        "format_accuracy": {
-          "value": 0.25,
-          "ci_low": 0.0,
-          "ci_high": 0.5,
-          "n": 12
-        },
-        "read_rate": {
-          "value": 0.25,
-          "ci_low": 0.0,
-          "ci_high": 0.5,
-          "n": 12
-        },
-        "cer": {
-          "value": 0.835294,
-          "ci_low": 0.633305,
-          "ci_high": 1.0,
-          "n": 12
-        },
-        "mean_confidence": {
-          "value": 0.25,
-          "ci_low": 0.0,
-          "ci_high": 0.5,
-          "n": 12
-        },
-        "ece": {
-          "value": 0.166667,
-          "ci_low": 0.0,
-          "ci_high": 0.416667,
-          "n": 12
-        }
-      },
-      "reliability": [
-        {
-          "low": 0.0,
-          "high": 0.1,
-          "n": 9,
-          "accuracy": 0.0,
-          "confidence": 0.0
-        },
-        {
-          "low": 0.1,
-          "high": 0.2,
-          "n": 0,
-          "accuracy": null,
-          "confidence": null
-        },
-        {
-          "low": 0.2,
-          "high": 0.3,
-          "n": 0,
-          "accuracy": null,
-          "confidence": null
-        },
-        {
-          "low": 0.3,
-          "high": 0.4,
-          "n": 0,
-          "accuracy": null,
-          "confidence": null
-        },
-        {
-          "low": 0.4,
-          "high": 0.5,
-          "n": 0,
-          "accuracy": null,
-          "confidence": null
-        },
-        {
-          "low": 0.5,
-          "high": 0.6,
-          "n": 0,
-          "accuracy": null,
-          "confidence": null
-        },
-        {
-          "low": 0.6,
-          "high": 0.7,
-          "n": 0,
-          "accuracy": null,
-          "confidence": null
-        },
-        {
-          "low": 0.7,
-          "high": 0.8,
-          "n": 0,
-          "accuracy": null,
-          "confidence": null
-        },
-        {
-          "low": 0.8,
-          "high": 0.9,
-          "n": 0,
-          "accuracy": null,
-          "confidence": null
-        },
-        {
-          "low": 0.9,
-          "high": 1.0,
-          "n": 3,
-          "accuracy": 0.333333,
-          "confidence": 1.0
-        }
-      ],
-      "letter_confusion": {
-        "rows": [
-          "أ",
-          "ب",
-          "د",
-          "ه",
-          "و",
-          "ط"
-        ],
-        "columns": [
-          "أ",
-          "ب",
-          "د",
-          "ه",
-          "و",
-          "ط",
-          "none"
-        ],
-        "matrix": [
-          [
-            1,
-            0,
-            0,
-            0,
-            0,
-            0,
-            6
-          ],
-          [
-            0,
-            1,
-            1,
-            0,
-            0,
-            0,
-            0
-          ],
-          [
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-            1
-          ],
-          [
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0
-          ],
-          [
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0
-          ],
-          [
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-            1
-          ]
-        ]
-      },
-      "latency_ms": {
-        "p50": 1957.975,
-        "p90": 8404.359,
-        "p99": 81170.127,
-        "mean": 9805.291
-      },
-      "model_version": "easyocr-1.7.2+segmentation",
-      "calibrated": false
-    },
     "crnn-greedy": {
-      "n": 12,
+      "n": 219,
       "metrics": {
         "exact_match": {
-          "value": 0.25,
-          "ci_low": 0.0,
-          "ci_high": 0.5,
-          "n": 12
+          "value": 0.082192,
+          "ci_low": 0.036179,
+          "ci_high": 0.134201,
+          "n": 219
         },
         "digits_accuracy": {
-          "value": 0.333333,
-          "ci_low": 0.083333,
-          "ci_high": 0.583333,
-          "n": 12
+          "value": 0.155251,
+          "ci_low": 0.096913,
+          "ci_high": 0.218018,
+          "n": 219
         },
         "letter_accuracy": {
-          "value": 0.272727,
-          "ci_low": 0.0,
-          "ci_high": 0.545455,
-          "n": 11
+          "value": 0.207921,
+          "ci_low": 0.143547,
+          "ci_high": 0.271795,
+          "n": 202
         },
         "region_accuracy": {
-          "value": 0.363636,
-          "ci_low": 0.1,
-          "ci_high": 0.666667,
-          "n": 11
+          "value": 0.138614,
+          "ci_low": 0.083315,
+          "ci_high": 0.197743,
+          "n": 202
         },
         "format_accuracy": {
-          "value": 0.416667,
-          "ci_low": 0.166667,
-          "ci_high": 0.666667,
-          "n": 12
+          "value": 0.30137,
+          "ci_low": 0.233295,
+          "ci_high": 0.37157,
+          "n": 219
         },
         "read_rate": {
           "value": 1.0,
           "ci_low": 1.0,
           "ci_high": 1.0,
-          "n": 12
+          "n": 219
         },
         "cer": {
-          "value": 0.235294,
-          "ci_low": 0.125,
-          "ci_high": 0.387583,
-          "n": 12
+          "value": 0.535104,
+          "ci_low": 0.479433,
+          "ci_high": 0.588901,
+          "n": 219
         },
         "mean_confidence": {
-          "value": 0.200162,
-          "ci_low": 0.105881,
-          "ci_high": 0.326165,
-          "n": 12
+          "value": 0.094555,
+          "ci_low": 0.072887,
+          "ci_high": 0.118235,
+          "n": 219
         },
         "ece": {
-          "value": 0.29041,
-          "ci_low": 0.129672,
-          "ci_high": 0.553904,
-          "n": 12
+          "value": 0.032157,
+          "ci_low": 0.027107,
+          "ci_high": 0.073719,
+          "n": 219
         }
       },
       "reliability": [
         {
           "low": 0.0,
           "high": 0.1,
-          "n": 4,
-          "accuracy": 0.5,
-          "confidence": 0.048506
+          "n": 155,
+          "accuracy": 0.012903,
+          "confidence": 0.026263
         },
         {
           "low": 0.1,
           "high": 0.2,
-          "n": 5,
-          "accuracy": 0.2,
-          "confidence": 0.152898
+          "n": 28,
+          "accuracy": 0.142857,
+          "confidence": 0.146514
         },
         {
           "low": 0.2,
           "high": 0.3,
-          "n": 1,
-          "accuracy": 0.0,
-          "confidence": 0.221339
+          "n": 21,
+          "accuracy": 0.238095,
+          "confidence": 0.236258
         },
         {
           "low": 0.3,
           "high": 0.4,
-          "n": 0,
-          "accuracy": null,
-          "confidence": null
+          "n": 5,
+          "accuracy": 0.0,
+          "confidence": 0.353289
         },
         {
           "low": 0.4,
           "high": 0.5,
-          "n": 0,
-          "accuracy": null,
-          "confidence": null
+          "n": 5,
+          "accuracy": 0.8,
+          "confidence": 0.457424
         },
         {
           "low": 0.5,
           "high": 0.6,
           "n": 1,
-          "accuracy": 0.0,
-          "confidence": 0.521574
+          "accuracy": 1.0,
+          "confidence": 0.584
         },
         {
           "low": 0.6,
           "high": 0.7,
-          "n": 0,
-          "accuracy": null,
-          "confidence": null
+          "n": 2,
+          "accuracy": 0.5,
+          "confidence": 0.636493
         },
         {
           "low": 0.7,
           "high": 0.8,
-          "n": 1,
-          "accuracy": 0.0,
-          "confidence": 0.700518
+          "n": 0,
+          "accuracy": null,
+          "confidence": null
         },
         {
           "low": 0.8,
           "high": 0.9,
-          "n": 0,
-          "accuracy": null,
-          "confidence": null
+          "n": 2,
+          "accuracy": 0.5,
+          "confidence": 0.83121
         },
         {
           "low": 0.9,
@@ -380,210 +205,210 @@
         ],
         "matrix": [
           [
+            18,
+            0,
+            0,
             1,
             0,
+            3,
+            41
+          ],
+          [
             1,
+            8,
             0,
             0,
             0,
-            5
+            1,
+            30
           ],
           [
             0,
             2,
+            5,
+            1,
+            1,
+            2,
+            19
+          ],
+          [
+            1,
+            0,
+            0,
+            9,
+            0,
+            1,
+            26
+          ],
+          [
+            3,
+            0,
+            0,
+            0,
+            2,
+            0,
+            27
+          ],
+          [
+            0,
+            0,
             0,
             0,
             0,
             0,
             0
-          ],
-          [
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-            1
-          ],
-          [
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0
-          ],
-          [
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0
-          ],
-          [
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-            1
           ]
         ]
       },
       "latency_ms": {
-        "p50": 5.357,
-        "p90": 13.239,
-        "p99": 151.057,
-        "mean": 19.927
+        "p50": 5.525,
+        "p90": 9.054,
+        "p99": 26.072,
+        "mean": 6.672
       },
       "model_version": "crnn-5348143705d4-T0.888664",
       "calibrated": false
     },
     "crnn-beam": {
-      "n": 12,
+      "n": 219,
       "metrics": {
         "exact_match": {
-          "value": 0.333333,
-          "ci_low": 0.083333,
-          "ci_high": 0.583333,
-          "n": 12
+          "value": 0.109589,
+          "ci_low": 0.062493,
+          "ci_high": 0.164256,
+          "n": 219
         },
         "digits_accuracy": {
-          "value": 0.5,
-          "ci_low": 0.25,
-          "ci_high": 0.75,
-          "n": 12
+          "value": 0.228311,
+          "ci_low": 0.164501,
+          "ci_high": 0.301031,
+          "n": 219
         },
         "letter_accuracy": {
-          "value": 0.636364,
-          "ci_low": 0.333333,
-          "ci_high": 0.909091,
-          "n": 11
+          "value": 0.480198,
+          "ci_low": 0.399057,
+          "ci_high": 0.569456,
+          "n": 202
         },
         "region_accuracy": {
-          "value": 0.636364,
-          "ci_low": 0.333333,
-          "ci_high": 0.909091,
-          "n": 11
+          "value": 0.341584,
+          "ci_low": 0.264967,
+          "ci_high": 0.419892,
+          "n": 202
         },
         "format_accuracy": {
-          "value": 0.916667,
-          "ci_low": 0.75,
-          "ci_high": 1.0,
-          "n": 12
+          "value": 0.899543,
+          "ci_low": 0.854359,
+          "ci_high": 0.942308,
+          "n": 219
         },
         "read_rate": {
-          "value": 0.916667,
-          "ci_low": 0.75,
-          "ci_high": 1.0,
-          "n": 12
+          "value": 0.96347,
+          "ci_low": 0.935065,
+          "ci_high": 0.986486,
+          "n": 219
         },
         "cer": {
-          "value": 0.247059,
-          "ci_low": 0.101124,
-          "ci_high": 0.426873,
-          "n": 12
+          "value": 0.525617,
+          "ci_low": 0.472825,
+          "ci_high": 0.576296,
+          "n": 219
         },
         "mean_confidence": {
-          "value": 0.687335,
-          "ci_low": 0.514096,
-          "ci_high": 0.835235,
-          "n": 12
+          "value": 0.50599,
+          "ci_low": 0.467647,
+          "ci_high": 0.546185,
+          "n": 219
         },
         "ece": {
-          "value": 0.468299,
-          "ci_low": 0.252751,
-          "ci_high": 0.679368,
-          "n": 12
+          "value": 0.396401,
+          "ci_low": 0.353386,
+          "ci_high": 0.437892,
+          "n": 219
         },
         "coverage": {
           "value": 0.0,
           "ci_low": 0.0,
           "ci_high": 0.0,
-          "n": 12
+          "n": 219
         },
         "set_size": {
-          "value": 0.0,
+          "value": 0.004566,
           "ci_low": 0.0,
-          "ci_high": 0.0,
-          "n": 12
+          "ci_high": 0.015172,
+          "n": 219
         }
       },
       "reliability": [
         {
           "low": 0.0,
           "high": 0.1,
-          "n": 1,
+          "n": 8,
           "accuracy": 0.0,
           "confidence": 0.0
         },
         {
           "low": 0.1,
           "high": 0.2,
-          "n": 0,
-          "accuracy": null,
-          "confidence": null
+          "n": 7,
+          "accuracy": 0.0,
+          "confidence": 0.169813
         },
         {
           "low": 0.2,
           "high": 0.3,
-          "n": 0,
-          "accuracy": null,
-          "confidence": null
+          "n": 42,
+          "accuracy": 0.0,
+          "confidence": 0.257075
         },
         {
           "low": 0.3,
           "high": 0.4,
-          "n": 1,
-          "accuracy": 1.0,
-          "confidence": 0.314218
+          "n": 28,
+          "accuracy": 0.0,
+          "confidence": 0.349498
         },
         {
           "low": 0.4,
           "high": 0.5,
-          "n": 1,
+          "n": 40,
           "accuracy": 0.0,
-          "confidence": 0.412071
+          "confidence": 0.447835
         },
         {
           "low": 0.5,
           "high": 0.6,
-          "n": 1,
-          "accuracy": 0.0,
-          "confidence": 0.5766
+          "n": 22,
+          "accuracy": 0.045455,
+          "confidence": 0.547166
         },
         {
           "low": 0.6,
           "high": 0.7,
-          "n": 0,
-          "accuracy": null,
-          "confidence": null
+          "n": 17,
+          "accuracy": 0.117647,
+          "confidence": 0.641074
         },
         {
           "low": 0.7,
           "high": 0.8,
-          "n": 2,
-          "accuracy": 0.5,
-          "confidence": 0.774766
+          "n": 12,
+          "accuracy": 0.166667,
+          "confidence": 0.736721
         },
         {
           "low": 0.8,
           "high": 0.9,
-          "n": 3,
-          "accuracy": 0.0,
-          "confidence": 0.844082
+          "n": 18,
+          "accuracy": 0.388889,
+          "confidence": 0.849279
         },
         {
           "low": 0.9,
           "high": 1.0,
-          "n": 3,
-          "accuracy": 0.666667,
-          "confidence": 0.954453
+          "n": 25,
+          "accuracy": 0.48,
+          "confidence": 0.962524
         }
       ],
       "letter_confusion": {
@@ -606,31 +431,49 @@
         ],
         "matrix": [
           [
-            5,
-            0,
-            1,
-            0,
-            1,
-            0,
-            0
-          ],
-          [
-            0,
+            42,
             2,
             0,
-            0,
-            0,
-            0,
-            0
+            4,
+            2,
+            9,
+            4
           ],
           [
+            3,
+            20,
             0,
+            6,
+            1,
+            8,
+            2
+          ],
+          [
+            6,
+            4,
+            9,
+            3,
+            2,
+            4,
+            2
+          ],
+          [
+            6,
+            5,
+            0,
+            14,
+            4,
+            5,
+            3
+          ],
+          [
+            14,
+            1,
             1,
             0,
-            0,
-            0,
-            0,
-            0
+            12,
+            2,
+            2
           ],
           [
             0,
@@ -640,52 +483,26 @@
             0,
             0,
             0
-          ],
-          [
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0
-          ],
-          [
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-            1
           ]
         ]
       },
       "latency_ms": {
-        "p50": 12.533,
-        "p90": 24.645,
-        "p99": 30.906,
-        "mean": 15.097
+        "p50": 11.091,
+        "p90": 15.33,
+        "p99": 22.275,
+        "mean": 11.946
       },
       "model_version": "crnn-5348143705d4-T0.888664",
       "calibrated": true
     }
   },
   "comparisons": {
-    "crnn-greedy - easyocr": {
+    "crnn-beam - crnn-greedy": {
       "exact_match_difference": {
-        "value": 0.166667,
-        "ci_low": 0.0,
-        "ci_high": 0.416667,
-        "n": 12
-      }
-    },
-    "crnn-beam - easyocr": {
-      "exact_match_difference": {
-        "value": 0.25,
-        "ci_low": 0.0,
-        "ci_high": 0.5,
-        "n": 12
+        "value": 0.027397,
+        "ci_low": 0.009131,
+        "ci_high": 0.049779,
+        "n": 219
       }
     }
   },

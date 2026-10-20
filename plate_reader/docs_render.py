@@ -306,16 +306,251 @@ def _ocr_benchmark_status(ctx: RenderContext) -> str:
             "real-world accuracy figure is claimed. `docs/insert_your_own_data.md` explains "
             "where real photos and labels go."
         )
-    n = real.get("set", {}).get("n", "?")
-    line = f"[OCR accuracy is benchmarked on a labelled real set of {n} images](#real-photos)."
+    info = real.get("set", {})
+    card = info.get("card") or {}
+    photos = card.get("photos", info.get("photos", info.get("n", "?")))
+    what = str(card.get("description") or "labelled real photos")
+    line = f"[OCR accuracy is benchmarked on {photos} {what}](#real-photos)"
+    line += f", with {info.get('n', '?')} readable plates labelled."
     best = _best_recognizer(real)
     if best is not None:
         name, metric = best
         line += (
             f" The best recogniser, {RECOGNIZER_PROSE.get(name, name)}, reads "
-            f"{pct_ci(metric)} of them exactly, end to end with the shipped detector."
+            f"{pct_ci(metric)} of those plates exactly from their labelled boxes"
         )
+        e2e = (ctx.result("eval_data_e2e") or {}).get("recognizers", {}).get(name, {})
+        end_to_end = e2e.get("metrics", {}).get("exact_match")
+        if end_to_end is not None:
+            line += f" and {pct_ci(end_to_end)} of the photos end to end with the shipped detector"
+        line += "."
+    if card.get("detector_overlap"):
+        line += f" The detector is not independent of these photos: {card['detector_overlap']}."
+    line += " The confidence and the conformal sets are still calibrated on synthetic plates."
     return line
+
+
+def _and_list(parts: list[str]) -> str:
+    if len(parts) <= 1:
+        return "".join(parts)
+    return ", ".join(parts[:-1]) + " and " + parts[-1]
+
+
+def _real_table(payload: Mapping[str, Any]) -> list[str]:
+    """One row per recogniser: version and every headline metric with its interval."""
+    lines = [
+        "| Recogniser | Version | Exact match | Digits | Letter | Region | Character error rate |",
+        "|---|---|---|---|---|---|---|",
+    ]
+    for name, entry in payload.get("recognizers", {}).items():
+        metrics = entry.get("metrics", {})
+        lines.append(
+            f"| {RECOGNIZER_NAMES.get(name, name)} | `{entry.get('model_version', '?')}` | "
+            f"{pct_ci(metrics.get('exact_match', {}))} | "
+            f"{pct_ci(metrics.get('digits_accuracy', {}))} | "
+            f"{pct_ci(metrics.get('letter_accuracy', {}))} | "
+            f"{pct_ci(metrics.get('region_accuracy', {}))} | "
+            f"{pct_ci(metrics.get('cer', {}))} |"
+        )
+    return lines
+
+
+def _letter_note(payload: Mapping[str, Any], unit: str) -> list[str]:
+    """``unit`` names what letter and region are scored on, with ``{n}`` for the count."""
+    n = int(payload.get("set", {}).get("n", 0))
+    letter_n = None
+    for entry in payload.get("recognizers", {}).values():
+        letter_n = entry.get("metrics", {}).get("letter_accuracy", {}).get("n", letter_n)
+    if letter_n is None or letter_n == n:
+        return []
+    return [
+        "",
+        f"Letter and region are scored on the {unit.format(n=letter_n)}; a temporary plate has "
+        "neither. A lower character error rate is better.",
+    ]
+
+
+def _set_description(real: Mapping[str, Any]) -> list[str]:
+    """The set in words and counts, from the results' note and the set card."""
+    info = real.get("set", {})
+    card = info.get("card") or {}
+    note = str(info.get("note") or card.get("description") or "labelled real photos").strip()
+    source = info.get("source", "data/eval/labels.csv")
+    head = f"Set: data (`{source}`, private and not in the repository): {note}"
+    if card.get("photos") is not None:
+        head += f", n = {card['photos']} photos holding {card.get('boxes', '?')} labelled plates"
+    head += "."
+    copies = card.get("copies") or {}
+    if copies and card.get("camera_photos") is not None:
+        listed = _and_list([f"{count} {what}" for what, count in copies.items()])
+        head += (
+            f" Every photo is an augmented copy of one of {card['camera_photos']} camera photos "
+            f"({listed})"
+        )
+        head += f"; {card['restored']}." if card.get("restored") else "."
+    if card.get("detector_overlap"):
+        overlap = str(card["detector_overlap"])
+        head += (
+            f" {overlap[0].upper()}{overlap[1:]}: the detector has seen these scenes, so the "
+            "end-to-end and detector figures below are not independent of its training data; "
+            "the recogniser has only ever seen synthetic plates."
+        )
+    lines = [head]
+    transcription = card.get("transcription") or {}
+    if transcription:
+        excluded = card.get("excluded") or {}
+        total = sum(int(v) for v in excluded.values())
+        text = (
+            f"The plate text was transcribed by eye, crop by crop: {transcription.get('how', '')}. The two "
+            f"passes agreed on {transcription.get('agreed', '?')} of "
+            f"{transcription.get('crops', '?')} crops, and on all "
+            f"{transcription.get('identical_when_both_readable', '?')} where both gave a reading "
+            f"the grammar accepts; the third pass accepted "
+            f"{transcription.get('accepted_in_third_pass', '?')} of the "
+            f"{transcription.get('third_pass', '?')} crops it saw. "
+            f"{card.get('text_labels', info.get('n', '?'))} plates in "
+            f"{card.get('labelled_photos', info.get('photos', '?'))} photos are labelled "
+            f"({card.get('vehicles', '?')} distinct vehicles)"
+        )
+        if excluded:
+            text += f"; {total} were left out: " + _and_list(
+                [f"{count} {why}" for why, count in excluded.items()]
+            )
+        text += (
+            ". The benchmark therefore measures plates a person can read, and does not count "
+            "the ones left out as failures."
+        )
+        lines += ["", text]
+    return lines
+
+
+def _bootstrap_sentence(payload: Mapping[str, Any]) -> str:
+    boot = payload.get("bootstrap", {})
+    level = round(float(boot.get("confidence", 0.95)) * 100)
+    if boot.get("unit") == "group":
+        return (
+            f"Values with {level}% bootstrap intervals that resample the {boot.get('groups', '?')} "
+            "vehicle groups (a vehicle with every photo it appears in) instead of single photos, "
+            "since copies of one photo and repeat photos of one vehicle are not independent "
+            f"({boot.get('resamples', '?')} resamples)."
+        )
+    return (
+        f"Values with {level}% bootstrap intervals over photos "
+        f"({boot.get('resamples', '?')} resamples)."
+    )
+
+
+def _detection_sentence(e2e: Mapping[str, Any]) -> str:
+    detection = e2e.get("detection") or {}
+    missed = int(detection.get("no_detection", e2e.get("set", {}).get("no_detection", 0)) or 0)
+    off = int(detection.get("off_plate", 0) or 0)
+    if missed:
+        text = (
+            f"{count_words(missed).capitalize()} photos had no detection and in "
+            f"{count_words(off)} more the most confident detection was not on the labelled "
+            "plate; both count as wrong reads."
+        )
+    else:
+        text = (
+            f"Every photo had a detection; in {count_words(off)} the most confident detection "
+            "was not on the labelled plate, which counts as a wrong read."
+        )
+    if "on_plate" in detection:
+        text += (
+            f" The most confident detection lay on the labelled plate in "
+            f"{pct_ci(detection['on_plate'])} of the photos."
+        )
+    return text
+
+
+def _detector_side_by_side(ctx: RenderContext) -> list[str]:
+    """The detector on the street photos beside the synthetic scenes: one pass each."""
+    real = ctx.result("eval_detector_data")
+    synthetic = ctx.result("eval_detector_synthetic")
+    if real is None:
+        return [
+            "The detector on these photos is not measured yet: `uv run plate eval-detector "
+            "--data data/eval/detector.yaml`."
+        ]
+    counts = real.get("counts", {})
+    head = (
+        f"The detector, measured on {real.get('note') or 'the supplied set'}: "
+        f"`models/{real.get('weights', '?')}` at image size {real.get('imgsz', '?')}, one "
+        "Ultralytics validation pass, so no interval."
+    )
+    card = ((ctx.result("eval_data") or {}).get("set", {}).get("card")) or {}
+    if card.get("detector_overlap"):
+        head += (
+            " This column is not an independent measurement of the detector: "
+            f"{card['detector_overlap']}."
+        )
+    real_head = (
+        f"Street photos (n = {counts.get('images', '?')} photos, {counts.get('plates', '?')} "
+        "plates)"
+    )
+    lines = [head, ""]
+    metrics = real.get("metrics", {})
+    if synthetic is None:
+        lines += [f"| Metric | {real_head} |", "|---|---|"]
+        for key, label in DETECTOR_METRICS:
+            lines.append(f"| {label} | {fmt(float(metrics.get(key, 0.0)))} |")
+        return lines
+    s_counts = synthetic.get("counts", {})
+    s_metrics = synthetic.get("metrics", {})
+    lines += [
+        f"| Metric | {real_head} | Synthetic street scenes (n = {s_counts.get('images', '?')} "
+        "scenes) |",
+        "|---|---|---|",
+    ]
+    for key, label in DETECTOR_METRICS:
+        lines.append(
+            f"| {label} | {fmt(float(metrics.get(key, 0.0)))} | "
+            f"{fmt(float(s_metrics.get(key, 0.0)))} |"
+        )
+    lines += [
+        "",
+        f"{SYNTHETIC_LABEL.capitalize()}: the synthetic column comes from procedural street "
+        "scenes.",
+    ]
+    return lines
+
+
+DETECTOR_METRICS: Final = (
+    ("precision", "Precision"),
+    ("recall", "Recall"),
+    ("map50", "mAP@50"),
+    ("map50_95", "mAP@50-95"),
+)
+
+
+@block("real-set")
+def _real_set(ctx: RenderContext) -> str:
+    """The labelled real set in counts and words, for the data card."""
+    real = ctx.result("eval_data")
+    if real is None:
+        return "No labelled real set yet (`docs/insert_your_own_data.md`)."
+    lines = [*_set_description(real), "", _bootstrap_sentence(real)]
+    e2e = ctx.result("eval_data_e2e")
+    if e2e is not None:
+        lines += [
+            "",
+            f"Read end to end, the set is {e2e.get('set', {}).get('n', '?')} photos (every photo "
+            "with at least one labelled plate), the labelled boxes ignored.",
+        ]
+    detector = ctx.result("eval_detector_data")
+    if detector is not None:
+        counts = detector.get("counts", {})
+        lines += [
+            "",
+            f"The detector is measured on {counts.get('images', '?')} photos holding "
+            f"{counts.get('plates', '?')} boxes: {detector.get('note') or 'the supplied set'}.",
+        ]
+    return "\n".join(lines)
+
+
+@block("detector-real")
+def _detector_real(ctx: RenderContext) -> str:
+    return "\n".join(_detector_side_by_side(ctx))
 
 
 @block("real-photos")
@@ -327,81 +562,98 @@ def _real_photos(ctx: RenderContext) -> str:
             "(`docs/insert_your_own_data.md`) and run `uv run plate eval --set data`."
         )
     info = real.get("set", {})
-    boot = real.get("bootstrap", {})
     n = int(info.get("n", 0))
-    level = round(float(boot.get("confidence", 0.95)) * 100)
     note = str(info.get("note") or "").strip()
-    honest = f"{count_words(n).capitalize()} photos give a wide interval"
-    honest += f", and the set is {note}." if note else "."
-    skipped = int(info.get("skipped_without_box", 0) or 0)
-    letter_n = None
-    lines = [
-        f"Set: data (`{info.get('source', 'data/eval/labels.csv')}`, private and not in the "
-        f"repository), n = {n} labelled photos of real cars, each read end to end: the shipped "
-        "detector finds the plate and the photo is cropped exactly as the service crops it"
-        + (f" ({skipped} photos without a detected plate were left out)" if skipped else "")
-        + f". Values with {level}% bootstrap intervals over photos "
-        f"({boot.get('resamples', '?')} resamples). {honest}",
+    lines = _set_description(real)
+    lines += ["", _bootstrap_sentence(real), ""]
+    lines += [
+        f"Read from the labelled box, padded exactly as the service pads a detection (n = {n} "
+        f"plates in {info.get('photos', '?')} photos):",
         "",
-        "| Recogniser | Version | Exact match | Digits | Letter | Region | Character error rate |",
-        "|---|---|---|---|---|---|---|",
+        *_real_table(real),
+        *_letter_note(real, "{n} standard plates"),
     ]
-    for name, entry in real.get("recognizers", {}).items():
-        metrics = entry.get("metrics", {})
-        letter_n = metrics.get("letter_accuracy", {}).get("n", letter_n)
-        lines.append(
-            f"| {RECOGNIZER_NAMES.get(name, name)} | `{entry.get('model_version', '?')}` | "
-            f"{pct_ci(metrics.get('exact_match', {}))} | "
-            f"{pct_ci(metrics.get('digits_accuracy', {}))} | "
-            f"{pct_ci(metrics.get('letter_accuracy', {}))} | "
-            f"{pct_ci(metrics.get('region_accuracy', {}))} | "
-            f"{pct_ci(metrics.get('cer', {}))} |"
-        )
-    if letter_n is not None and letter_n != n:
+    e2e = ctx.result("eval_data_e2e")
+    if e2e is not None:
+        e_info = e2e.get("set", {})
         lines += [
             "",
-            f"Letter and region are scored on the {letter_n} standard plates; a temporary plate "
-            "has neither. A lower character error rate is better.",
+            "Read end to end with the shipped detector, the labelled boxes ignored: the most "
+            "confident detection of each photo is cropped exactly as the service crops it "
+            f"(n = {e_info.get('n', '?')} photos). {_detection_sentence(e2e)}",
+            "",
+            *_real_table(e2e),
+            *_letter_note(e2e, "{n} photos whose plate is a standard one"),
+            "",
+            "Exact match side by side:",
+            "",
+            f"| Recogniser | From the labelled box (n = {n} plates) | End to end (n = "
+            f"{e_info.get('n', '?')} photos) |",
+            "|---|---|---|",
         ]
+        for name, entry in real.get("recognizers", {}).items():
+            box = entry.get("metrics", {}).get("exact_match", {})
+            whole = e2e.get("recognizers", {}).get(name, {}).get("metrics", {})
+            lines.append(
+                f"| {RECOGNIZER_NAMES.get(name, name)} | {pct_ci(box)} | "
+                f"{pct_ci(whole.get('exact_match', {}))} |"
+            )
+    else:
+        lines += [
+            "",
+            "End to end with the detector: not measured yet (`uv run plate eval --set data "
+            "--detect`).",
+        ]
+    lines += ["", *_detector_side_by_side(ctx)]
     beam = real.get("recognizers", {}).get("crnn-beam", {}).get("metrics", {})
+    calibration = (
+        "The calibration remains synthetic. Neither the temperature nor any conformal "
+        "threshold was refitted on these photos, which are the reporting set"
+    )
     if "ece" in beam and "coverage" in beam:
-        lines += [
-            "",
-            "Calibration does not carry over: the constrained beam's confidence, temperature-"
-            f"scaled on synthetic plates, has an expected calibration error of {pct_ci(beam['ece'])} "
-            "on these photos, and its conformal sets, whose thresholds were fitted on synthetic "
-            f"splits, hold the true plate for {pct_ci(beam['coverage'])} of them. Both must be "
-            "refitted on real calibration photos before a confidence or a set is trusted.",
-        ]
+        calibration += (
+            f": the constrained beam's confidence, temperature-scaled on synthetic plates, has "
+            f"an expected calibration error of {pct_ci(beam['ece'])} on these plates, and its "
+            "conformal sets, whose thresholds were fitted on synthetic splits, hold the true "
+            f"plate for {pct_ci(beam['coverage'])} of them"
+        )
+    calibration += (
+        ". A separate real calibration split comes next; until then neither the confidence nor "
+        "a set is to be trusted on real photos."
+    )
+    lines += ["", calibration]
     synthetic = ctx.result("eval_synthetic")
     if synthetic is not None:
         s_n = synthetic.get("set", {}).get("n", "?")
         lines += [
             "",
             "The sim-to-real gap: exact match of the same recognisers on the synthetic test set "
-            f"and on these photos. {SYNTHETIC_LABEL.capitalize()}; the synthetic column is the "
-            "development harness's, shown only to measure the gap.",
+            f"and on the labelled plates. {SYNTHETIC_LABEL.capitalize()}; the synthetic column is "
+            "the development harness's, shown only to measure the gap.",
             "",
-            f"| Recogniser | Synthetic test set (n = {s_n}) | Real photos (n = {n}) | Gap |",
+            f"| Recogniser | Synthetic test set (n = {s_n}) | Real plates (n = {n}) | Gap |",
             "|---|---|---|---|",
         ]
         for name, entry in real.get("recognizers", {}).items():
             r = entry.get("metrics", {}).get("exact_match")
             s_entry = synthetic.get("recognizers", {}).get(name, {})
-            s = s_entry.get("metrics", {}).get("exact_match")
-            if r is None or s is None:
+            s_metric = s_entry.get("metrics", {}).get("exact_match")
+            if r is None or s_metric is None:
                 continue
-            gap = round(100 * (float(s["value"]) - float(r["value"])))
+            gap = round(100 * (float(s_metric["value"]) - float(r["value"])))
             lines.append(
-                f"| {RECOGNIZER_NAMES.get(name, name)} | {pct_ci(s)} | {pct_ci(r)} | "
+                f"| {RECOGNIZER_NAMES.get(name, name)} | {pct_ci(s_metric)} | {pct_ci(r)} | "
                 f"{gap} points lower on real photos |"
             )
     names = " ".join(f"-r {name}" for name in real.get("recognizers", {}))
     quoted = f' --note "{note}"' if note else ""
+    detector_note = str((ctx.result("eval_detector_data") or {}).get("note") or "").strip()
+    detector_quoted = f' --note "{detector_note}"' if detector_note else ""
     lines += [
         "",
         f"Reproduce (with the photos in place): `uv run plate eval --set data {names} "
-        f"--views 0{quoted}`.",
+        f"--views 0{quoted}`, the same with `--detect`, and `uv run plate eval-detector --data "
+        f"data/eval/detector.yaml{detector_quoted}`.",
     ]
     return "\n".join(lines)
 
@@ -719,12 +971,40 @@ def _cv_evidence(ctx: RenderContext) -> str:
     if real is not None:
         n = real.get("set", {}).get("n", "?")
         for name, claim in (
-            ("crnn-beam", f"CRNN (constrained beam), exact match on {n} labelled real photos"),
-            ("easyocr", "EasyOCR baseline, exact match on the same real photos"),
+            (
+                "crnn-beam",
+                f"CRNN (constrained beam), exact match on {n} labelled real plates, from the box",
+            ),
+            ("easyocr", "EasyOCR baseline, exact match on the same real plates"),
         ):
             metric = real.get("recognizers", {}).get(name, {}).get("metrics", {}).get("exact_match")
             if metric is not None:
                 rows.append((claim, fmt_ci(metric), "`results/eval_data.json`"))
+    e2e = ctx.result("eval_data_e2e")
+    if e2e is not None:
+        n_photos = e2e.get("set", {}).get("n", "?")
+        beam = e2e.get("recognizers", {}).get("crnn-beam", {}).get("metrics", {})
+        if "exact_match" in beam:
+            rows.append(
+                (
+                    f"CRNN (constrained beam), exact match end to end on {n_photos} real photos "
+                    "with the shipped detector",
+                    fmt_ci(beam["exact_match"]),
+                    "`results/eval_data_e2e.json`",
+                )
+            )
+    real_detector = ctx.result("eval_detector_data")
+    if real_detector is not None:
+        metrics = real_detector.get("metrics", {})
+        rows.append(
+            (
+                "Detector mAP@50 and mAP@50-95 on the real photos (one pass, no interval; the "
+                "detector has seen these scenes)",
+                f"{fmt(float(metrics.get('map50', 0.0)))} and "
+                f"{fmt(float(metrics.get('map50_95', 0.0)))}",
+                "`results/eval_detector_data.json`",
+            )
+        )
 
     synthetic = ctx.result("eval_synthetic")
     pseudo = ctx.result("eval_pseudo_real")
@@ -855,8 +1135,9 @@ def _cv_evidence(ctx: RenderContext) -> str:
         return f"No results yet. {SYNTHETIC_LABEL.capitalize()}."
     lines = [
         f"**{SYNTHETIC_LABEL.capitalize()}.** Every row is synthetic except those from "
-        "`results/eval_data.json`, which are real photos. Values with 95% bootstrap intervals "
-        "where the source records one.",
+        "`results/eval_data.json`, `results/eval_data_e2e.json` and "
+        "`results/eval_detector_data.json`, which are real photos. Values with 95% bootstrap "
+        "intervals where the source records one.",
         "",
         "| Claim | Value | Source |",
         "|---|---|---|",

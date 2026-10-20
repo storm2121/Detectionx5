@@ -321,12 +321,33 @@ def _estimate(value: float, low: float, high: float, n: int = 12) -> dict[str, A
     return {"value": value, "ci_low": low, "ci_high": high, "n": n}
 
 
-def test_the_real_photos_block_leads_with_intervals_the_note_and_the_gap(tmp_path: Path) -> None:
-    from plate_reader.docs_render import BLOCKS, RenderContext
+CARD = {
+    "description": "street photos of vehicles, held out from every training set",
+    "photos": 20,
+    "boxes": 21,
+    "camera_photos": 15,
+    "copies": {"contrast changed": 12, "mirrored": 8},
+    "restored": "the mirrored copies were flipped back exactly",
+    "detector_overlap": "every camera photo behind this split also has copies in the "
+    "detector's training split",
+    "transcription": {
+        "passes": 2,
+        "crops": 21,
+        "agreed": 20,
+        "both_readable": 18,
+        "identical_when_both_readable": 18,
+        "third_pass": 3,
+        "accepted_in_third_pass": 1,
+        "how": "every crop was read twice",
+    },
+    "text_labels": 12,
+    "labelled_photos": 11,
+    "vehicles": 9,
+    "excluded": {"illegible in the photo": 6, "outside the grammar": 3},
+}
 
-    ctx = RenderContext(root=tmp_path)
-    assert "No labelled real photos yet" in BLOCKS["real-photos"](ctx)
-    assert "not benchmarked on real data" in BLOCKS["ocr-benchmark-status"](ctx)
+
+def _real_payloads(ctx: Any) -> dict[str, Any]:
     metrics = {
         "exact_match": _estimate(0.25, 0.0, 0.5),
         "digits_accuracy": _estimate(0.5, 0.25, 0.75),
@@ -339,28 +360,129 @@ def test_the_real_photos_block_leads_with_intervals_the_note_and_the_gap(tmp_pat
     ctx._json_cache["eval_data"] = {
         "set": {
             "n": 12,
+            "photos": 11,
             "source": "data/eval/labels.csv",
-            "note": "small and easy (clean rear shots)",
+            "note": "street photos of vehicles with every plate transcribed twice",
+            "card": CARD,
         },
-        "bootstrap": {"confidence": 0.95, "resamples": 1000},
+        "bootstrap": {"confidence": 0.95, "resamples": 1000, "unit": "group", "groups": 9},
         "recognizers": {"crnn-beam": {"model_version": "crnn-x", "metrics": metrics}},
+    }
+    e2e_metrics = {**metrics, "exact_match": _estimate(0.2, 0.0, 0.4, 11)}
+    ctx._json_cache["eval_data_e2e"] = {
+        "set": {"n": 11, "photos": 11, "no_detection": 2, "card": CARD},
+        "bootstrap": {"confidence": 0.95, "resamples": 1000, "unit": "group", "groups": 9},
+        "detection": {
+            "photos": 11,
+            "no_detection": 2,
+            "off_plate": 1,
+            "on_plate": _estimate(0.7273, 0.45, 0.91, 11),
+        },
+        "recognizers": {"crnn-beam": {"model_version": "crnn-x", "metrics": e2e_metrics}},
+    }
+    ctx._json_cache["eval_detector_data"] = {
+        "weights": "best.pt",
+        "imgsz": 640,
+        "note": "the held-out street photos, every valid box",
+        "counts": {"images": 19, "plates": 20, "images_with_plates": 19},
+        "metrics": {"precision": 0.9, "recall": 0.85, "map50": 0.875, "map50_95": 0.5},
+    }
+    ctx._json_cache["eval_detector_synthetic"] = {
+        "counts": {"images": 150, "plates": 135, "images_with_plates": 135},
+        "metrics": {"precision": 0.729, "recall": 0.948, "map50": 0.843, "map50_95": 0.602},
     }
     ctx._json_cache["eval_synthetic"] = {
         "set": {"n": 300},
         "recognizers": {"crnn-beam": {"metrics": {"exact_match": _estimate(0.99, 0.98, 1.0, 300)}}},
     }
+    return metrics
+
+
+def test_the_real_photos_block_leads_with_the_set_three_tables_and_the_caveats(
+    tmp_path: Path,
+) -> None:
+    from plate_reader.docs_render import BLOCKS, RenderContext
+
+    ctx = RenderContext(root=tmp_path)
+    assert "No labelled real photos yet" in BLOCKS["real-photos"](ctx)
+    assert "not benchmarked on real data" in BLOCKS["ocr-benchmark-status"](ctx)
+    assert "No labelled real set yet" in BLOCKS["real-set"](ctx)
+    _real_payloads(ctx)
+
     status = BLOCKS["ocr-benchmark-status"](ctx)
     assert status.startswith(
-        "[OCR accuracy is benchmarked on a labelled real set of 12 images](#real-photos)."
+        "[OCR accuracy is benchmarked on 20 street photos of vehicles, held out from every "
+        "training set](#real-photos), with 12 readable plates labelled."
     )
-    assert "25% (0 to 50)" in status
+    assert "reads 25% (0 to 50) of those plates exactly from their labelled boxes" in status
+    assert "and 20% (0 to 40) of the photos end to end with the shipped detector." in status
+    assert "The detector is not independent of these photos" in status
+    assert status.endswith("still calibrated on synthetic plates.")
+
     block = BLOCKS["real-photos"](ctx)
-    assert "| CRNN, constrained beam | `crnn-x` | 25% (0 to 50) | 50% (25 to 75) |" in block
-    assert (
-        "Twelve photos give a wide interval, and the set is small and easy (clean rear shots)."
-        in block
+    # the set first: what it is, its counts, what the photos are copies of, the caveat
+    assert block.startswith(
+        "Set: data (`data/eval/labels.csv`, private and not in the repository): street photos "
+        "of vehicles with every plate transcribed twice, n = 20 photos holding 21 labelled "
+        "plates."
     )
-    assert "scored on the 11 standard plates" in block
-    assert "| CRNN, constrained beam | 99% (98 to 100) | 25% (0 to 50) | 74 points lower" in block
+    assert "one of 15 camera photos (12 contrast changed and 8 mirrored)" in block
+    assert "Every camera photo behind this split also has copies" in block
+    assert "the detector has seen these scenes, so the end-to-end" in block
+    assert "not independent of its training data" in block
+    assert "agreed on 20 of 21 crops, and on all 18 where both" in block
+    assert "6 illegible in the photo and 3 outside the grammar" in block
+    assert "resample the 9 vehicle groups" in block
+    # the three tables
+    assert "(n = 12 plates in 11 photos)" in block
+    assert "| CRNN, constrained beam | `crnn-x` | 25% (0 to 50) | 50% (25 to 75) |" in block
+    assert "Two photos had no detection and in one more" in block
+    assert "lay on the labelled plate in 73% (45 to 91) of the photos" in block
+    assert "| CRNN, constrained beam | 25% (0 to 50) | 20% (0 to 40) |" in block
+    assert "| Precision | 0.900 | 0.729 |" in block
+    assert "Street photos (n = 19 photos, 20 plates)" in block
+    assert "Synthetic street scenes (n = 150 scenes)" in block
     assert "Synthetic results are not real-world accuracy" in block
+    # calibration stays synthetic, and what comes next
+    assert "The calibration remains synthetic." in block
     assert "hold the true plate for 0% (0 to 0)" in block
+    assert "A separate real calibration split comes next" in block
+    assert "| CRNN, constrained beam | 99% (98 to 100) | 25% (0 to 50) | 74 points lower" in block
+    assert "the same with `--detect`" in block
+    assert "plate eval-detector --data data/eval/detector.yaml" in block
+
+    card = BLOCKS["real-set"](ctx)
+    assert "n = 20 photos holding 21 labelled plates" in card
+    assert "The detector is measured on 19 photos holding 20 boxes" in card
+    assert "Read end to end, the set is 11 photos" in card
+    detector = BLOCKS["detector-real"](ctx)
+    assert "| mAP@50 | 0.875 | 0.843 |" in detector
+    assert "not an independent measurement" in detector
+
+    ctx._json_cache["eval_data_e2e"]["detection"]["no_detection"] = 0
+    found_all = BLOCKS["real-photos"](ctx)
+    assert "Every photo had a detection; in one the most confident detection" in found_all
+
+
+def test_the_real_photos_block_without_the_other_two_results(tmp_path: Path) -> None:
+    from plate_reader.docs_render import BLOCKS, RenderContext
+
+    ctx = RenderContext(root=tmp_path)
+    _real_payloads(ctx)
+    for name in ("eval_data_e2e", "eval_detector_data", "eval_detector_synthetic"):
+        ctx._json_cache[name] = None
+    real = ctx._json_cache["eval_data"]
+    real["bootstrap"] = {"confidence": 0.95, "resamples": 1000, "unit": "image"}
+    block = BLOCKS["real-photos"](ctx)
+    assert "End to end with the detector: not measured yet" in block
+    assert "scored on the 11 standard plates" in block
+    assert "The detector on these photos is not measured yet" in block
+    assert "bootstrap intervals over photos" in block
+    status = BLOCKS["ocr-benchmark-status"](ctx)
+    assert "end to end" not in status
+    ctx._json_cache["eval_detector_data"] = {
+        "counts": {"images": 3, "plates": 3},
+        "metrics": {"precision": 1.0, "recall": 1.0, "map50": 1.0, "map50_95": 0.5},
+    }
+    alone = BLOCKS["detector-real"](ctx)
+    assert "| Recall | 1.000 |" in alone

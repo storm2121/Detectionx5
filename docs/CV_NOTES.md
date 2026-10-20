@@ -61,12 +61,13 @@ and synthetic results are not real-world accuracy.
 ## The figures
 
 <!-- BEGIN RENDER cv-evidence -->
-**Synthetic results are not real-world accuracy.** Every row is synthetic except those from `results/eval_data.json`, which are real photos. Values with 95% bootstrap intervals where the source records one.
+**Synthetic results are not real-world accuracy.** Every row is synthetic except those from `results/eval_data.json`, `results/eval_data_e2e.json` and `results/eval_detector_data.json`, which are real photos. Values with 95% bootstrap intervals where the source records one.
 
 | Claim | Value | Source |
 |---|---|---|
-| CRNN (constrained beam), exact match on 12 labelled real photos | 0.333 [0.083, 0.583] | `results/eval_data.json` |
-| EasyOCR baseline, exact match on the same real photos | 0.083 [0.000, 0.250] | `results/eval_data.json` |
+| CRNN (constrained beam), exact match on 219 labelled real plates, from the box | 0.110 [0.062, 0.164] | `results/eval_data.json` |
+| CRNN (constrained beam), exact match end to end on 218 real photos with the shipped detector | 0.142 [0.088, 0.200] | `results/eval_data_e2e.json` |
+| Detector mAP@50 and mAP@50-95 on the real photos (one pass, no interval; the detector has seen these scenes) | 0.995 and 0.792 | `results/eval_detector_data.json` |
 | CRNN (constrained beam), exact match on the synthetic test set | 0.990 [0.980, 1.000] | `results/eval_synthetic.json` |
 | EasyOCR baseline, exact match on the same set | 0.353 [0.297, 0.407] | `results/eval_synthetic.json` |
 | CRNN (constrained beam), expected calibration error | 0.009 [0.002, 0.017] | `results/eval_synthetic.json` |
@@ -84,12 +85,15 @@ and synthetic results are not real-world accuracy.
 
 ## What not to claim
 
-- A precise real-world accuracy: the only real evaluation is a small private set of
-  photos (the real-photo rows above), so its intervals are wide and its photos easy.
+- A precise real-world accuracy: the only real evaluation is one private set of street
+  photos (the real-photo rows above), made of augmented copies of fewer camera photos and
+  several photos of the same vehicles, with the plates nobody can read left out; its
+  intervals resample vehicles and are correspondingly wide.
 - That the calibrated confidence or the conformal sets hold on real photos: both were
   fitted on synthetic splits, and the real-photo evaluation shows they do not carry over.
-- That the detector's real-photo figures are independent: they come from its own
-  validation split. Its only independent figures are on synthetic street scenes.
+- That the detector's real-photo figures are independent: the held-out street photos are
+  copies of scenes in its training split, and so is its own validation split. The end-to-end
+  figures inherit that. Its only independent figures are on synthetic street scenes.
 - That the augmentation sweep improved the shipped model: the full training with its best
   configuration did not meet the adoption rule, so the shipped weights are the original
   ones (the comparison is in the model card).

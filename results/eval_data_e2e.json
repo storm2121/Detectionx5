@@ -1,0 +1,527 @@
+{
+  "schema": "detectionx5.eval/1",
+  "set": {
+    "name": "data",
+    "kind": "data",
+    "n": 218,
+    "source": "data/eval/labels.csv",
+    "photos": 218,
+    "groups": 132,
+    "card": {
+      "description": "street photos of vehicles, held out from every training set",
+      "photos": 258,
+      "boxes": 261,
+      "camera_photos": 196,
+      "copies": {
+        "contrast changed": 32,
+        "noise added": 51,
+        "shifted": 43,
+        "rotated": 41,
+        "mirrored": 47,
+        "upside down": 44
+      },
+      "restored": "the mirrored and upside-down copies were flipped back exactly, so every plate reads the right way round",
+      "detector_overlap": "every camera photo behind this split also has copies in the split the detector was trained on",
+      "transcription": {
+        "passes": 2,
+        "crops": 260,
+        "agreed": 255,
+        "both_readable": 224,
+        "identical_when_both_readable": 224,
+        "third_pass": 67,
+        "accepted_in_third_pass": 26,
+        "how": "every plate crop was read twice on differently ordered contact sheets, every string was checked against the plate grammar, and every disagreement, invalid or doubtful reading was read a third time at a higher zoom"
+      },
+      "text_labels": 219,
+      "labelled_photos": 218,
+      "vehicles": 133,
+      "groups": 132,
+      "excluded": {
+        "illegible in the photo": 27,
+        "outside the grammar": 12,
+        "with no plate in the box": 3
+      }
+    },
+    "plates": 219,
+    "read": "end to end: the most confident detection of each photo, labelled boxes ignored",
+    "no_detection": 0,
+    "note": "street photos of vehicles, held out from every training set as files, with every box checked by eye and every plate transcribed twice and checked against the plate grammar"
+  },
+  "bootstrap": {
+    "resamples": 1000,
+    "confidence": 0.95,
+    "seed": 0,
+    "unit": "group",
+    "method": "percentile",
+    "groups": 132,
+    "grouped_units": "image"
+  },
+  "detection": {
+    "photos": 218,
+    "no_detection": 0,
+    "off_plate": 2,
+    "on_plate": {
+      "value": 0.990826,
+      "ci_low": 0.976517,
+      "ci_high": 1.0,
+      "n": 218
+    },
+    "rule": "the most confident detection overlaps the labelled plate's padded box by at least one half (intersection over union)"
+  },
+  "recognizers": {
+    "crnn-greedy": {
+      "n": 218,
+      "metrics": {
+        "exact_match": {
+          "value": 0.110092,
+          "ci_low": 0.059633,
+          "ci_high": 0.165052,
+          "n": 218
+        },
+        "digits_accuracy": {
+          "value": 0.151376,
+          "ci_low": 0.09292,
+          "ci_high": 0.208738,
+          "n": 218
+        },
+        "letter_accuracy": {
+          "value": 0.21393,
+          "ci_low": 0.152282,
+          "ci_high": 0.279841,
+          "n": 201
+        },
+        "region_accuracy": {
+          "value": 0.149254,
+          "ci_low": 0.094995,
+          "ci_high": 0.209536,
+          "n": 201
+        },
+        "format_accuracy": {
+          "value": 0.284404,
+          "ci_low": 0.219504,
+          "ci_high": 0.357506,
+          "n": 218
+        },
+        "read_rate": {
+          "value": 1.0,
+          "ci_low": 1.0,
+          "ci_high": 1.0,
+          "n": 218
+        },
+        "cer": {
+          "value": 0.524142,
+          "ci_low": 0.468694,
+          "ci_high": 0.575508,
+          "n": 218
+        },
+        "mean_confidence": {
+          "value": 0.088855,
+          "ci_low": 0.07081,
+          "ci_high": 0.107703,
+          "n": 218
+        },
+        "ece": {
+          "value": 0.041269,
+          "ci_low": 0.02433,
+          "ci_high": 0.081432,
+          "n": 218
+        }
+      },
+      "reliability": [
+        {
+          "low": 0.0,
+          "high": 0.1,
+          "n": 148,
+          "accuracy": 0.02027,
+          "confidence": 0.023138
+        },
+        {
+          "low": 0.1,
+          "high": 0.2,
+          "n": 37,
+          "accuracy": 0.216216,
+          "confidence": 0.143443
+        },
+        {
+          "low": 0.2,
+          "high": 0.3,
+          "n": 19,
+          "accuracy": 0.157895,
+          "confidence": 0.250482
+        },
+        {
+          "low": 0.3,
+          "high": 0.4,
+          "n": 5,
+          "accuracy": 0.6,
+          "confidence": 0.328482
+        },
+        {
+          "low": 0.4,
+          "high": 0.5,
+          "n": 7,
+          "accuracy": 0.714286,
+          "confidence": 0.426803
+        },
+        {
+          "low": 0.5,
+          "high": 0.6,
+          "n": 1,
+          "accuracy": 1.0,
+          "confidence": 0.523379
+        },
+        {
+          "low": 0.6,
+          "high": 0.7,
+          "n": 0,
+          "accuracy": null,
+          "confidence": null
+        },
+        {
+          "low": 0.7,
+          "high": 0.8,
+          "n": 1,
+          "accuracy": 1.0,
+          "confidence": 0.726037
+        },
+        {
+          "low": 0.8,
+          "high": 0.9,
+          "n": 0,
+          "accuracy": null,
+          "confidence": null
+        },
+        {
+          "low": 0.9,
+          "high": 1.0,
+          "n": 0,
+          "accuracy": null,
+          "confidence": null
+        }
+      ],
+      "letter_confusion": {
+        "rows": [
+          "أ",
+          "ب",
+          "د",
+          "ه",
+          "و",
+          "ط"
+        ],
+        "columns": [
+          "أ",
+          "ب",
+          "د",
+          "ه",
+          "و",
+          "ط",
+          "none"
+        ],
+        "matrix": [
+          [
+            17,
+            0,
+            1,
+            0,
+            1,
+            1,
+            43
+          ],
+          [
+            1,
+            7,
+            0,
+            0,
+            0,
+            0,
+            32
+          ],
+          [
+            1,
+            1,
+            5,
+            0,
+            0,
+            0,
+            23
+          ],
+          [
+            0,
+            0,
+            0,
+            8,
+            1,
+            1,
+            27
+          ],
+          [
+            3,
+            0,
+            1,
+            0,
+            6,
+            1,
+            20
+          ],
+          [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ]
+        ]
+      },
+      "latency_ms": {
+        "p50": 5.563,
+        "p90": 10.229,
+        "p99": 15.79,
+        "mean": 6.575
+      },
+      "model_version": "crnn-5348143705d4-T0.888664",
+      "calibrated": false
+    },
+    "crnn-beam": {
+      "n": 218,
+      "metrics": {
+        "exact_match": {
+          "value": 0.142202,
+          "ci_low": 0.087961,
+          "ci_high": 0.200022,
+          "n": 218
+        },
+        "digits_accuracy": {
+          "value": 0.252294,
+          "ci_low": 0.188329,
+          "ci_high": 0.321008,
+          "n": 218
+        },
+        "letter_accuracy": {
+          "value": 0.467662,
+          "ci_low": 0.383885,
+          "ci_high": 0.555556,
+          "n": 201
+        },
+        "region_accuracy": {
+          "value": 0.338308,
+          "ci_low": 0.26271,
+          "ci_high": 0.412081,
+          "n": 201
+        },
+        "format_accuracy": {
+          "value": 0.880734,
+          "ci_low": 0.821272,
+          "ci_high": 0.935484,
+          "n": 218
+        },
+        "read_rate": {
+          "value": 0.949541,
+          "ci_low": 0.906393,
+          "ci_high": 0.981986,
+          "n": 218
+        },
+        "cer": {
+          "value": 0.52986,
+          "ci_low": 0.476114,
+          "ci_high": 0.58358,
+          "n": 218
+        },
+        "mean_confidence": {
+          "value": 0.504664,
+          "ci_low": 0.462909,
+          "ci_high": 0.545229,
+          "n": 218
+        },
+        "ece": {
+          "value": 0.362462,
+          "ci_low": 0.311169,
+          "ci_high": 0.413226,
+          "n": 218
+        },
+        "coverage": {
+          "value": 0.0,
+          "ci_low": 0.0,
+          "ci_high": 0.0,
+          "n": 218
+        },
+        "set_size": {
+          "value": 0.004587,
+          "ci_low": 0.0,
+          "ci_high": 0.016463,
+          "n": 218
+        }
+      },
+      "reliability": [
+        {
+          "low": 0.0,
+          "high": 0.1,
+          "n": 11,
+          "accuracy": 0.0,
+          "confidence": 0.0
+        },
+        {
+          "low": 0.1,
+          "high": 0.2,
+          "n": 9,
+          "accuracy": 0.0,
+          "confidence": 0.168109
+        },
+        {
+          "low": 0.2,
+          "high": 0.3,
+          "n": 35,
+          "accuracy": 0.0,
+          "confidence": 0.262577
+        },
+        {
+          "low": 0.3,
+          "high": 0.4,
+          "n": 29,
+          "accuracy": 0.068966,
+          "confidence": 0.3569
+        },
+        {
+          "low": 0.4,
+          "high": 0.5,
+          "n": 30,
+          "accuracy": 0.033333,
+          "confidence": 0.453832
+        },
+        {
+          "low": 0.5,
+          "high": 0.6,
+          "n": 32,
+          "accuracy": 0.15625,
+          "confidence": 0.545353
+        },
+        {
+          "low": 0.6,
+          "high": 0.7,
+          "n": 18,
+          "accuracy": 0.111111,
+          "confidence": 0.642661
+        },
+        {
+          "low": 0.7,
+          "high": 0.8,
+          "n": 21,
+          "accuracy": 0.238095,
+          "confidence": 0.751253
+        },
+        {
+          "low": 0.8,
+          "high": 0.9,
+          "n": 11,
+          "accuracy": 0.363636,
+          "confidence": 0.865214
+        },
+        {
+          "low": 0.9,
+          "high": 1.0,
+          "n": 22,
+          "accuracy": 0.545455,
+          "confidence": 0.956166
+        }
+      ],
+      "letter_confusion": {
+        "rows": [
+          "أ",
+          "ب",
+          "د",
+          "ه",
+          "و",
+          "ط"
+        ],
+        "columns": [
+          "أ",
+          "ب",
+          "د",
+          "ه",
+          "و",
+          "ط",
+          "none"
+        ],
+        "matrix": [
+          [
+            41,
+            2,
+            1,
+            1,
+            2,
+            9,
+            7
+          ],
+          [
+            3,
+            19,
+            0,
+            6,
+            1,
+            9,
+            2
+          ],
+          [
+            9,
+            4,
+            8,
+            0,
+            2,
+            6,
+            1
+          ],
+          [
+            7,
+            5,
+            0,
+            14,
+            3,
+            4,
+            4
+          ],
+          [
+            13,
+            0,
+            1,
+            1,
+            12,
+            3,
+            1
+          ],
+          [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ]
+        ]
+      },
+      "latency_ms": {
+        "p50": 11.193,
+        "p90": 16.61,
+        "p99": 22.741,
+        "mean": 11.979
+      },
+      "model_version": "crnn-5348143705d4-T0.888664",
+      "calibrated": true
+    }
+  },
+  "comparisons": {
+    "crnn-beam - crnn-greedy": {
+      "exact_match_difference": {
+        "value": 0.03211,
+        "ci_low": 0.01196,
+        "ci_high": 0.053662,
+        "n": 218
+      }
+    }
+  },
+  "environment": {
+    "package_version": "2.0.0.dev0",
+    "device": "cuda"
+  }
+}
