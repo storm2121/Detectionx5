@@ -88,7 +88,44 @@ def test_valid_data_passes(layout: DataLayout) -> None:
     assert report.errors == []
     assert report.counts["detector_train_boxes"] == 1
     assert report.counts["ocr_train_crops"] == 1
+    # two plates in one photo: photos and plates are counted apart
+    assert report.counts["eval_images"] == 1
+    assert report.counts["eval_plates"] == 2
+
+
+def test_the_eval_csv_may_name_groups_and_carry_a_card(layout: DataLayout) -> None:
+    _png(layout.eval_labels.parent / "photos" / "p1.png", (200, 100))
+    _png(layout.eval_labels.parent / "photos" / "p2.png", (200, 100))
+    layout.eval_labels.write_text(
+        "image_path,plate_text,format,x1,y1,x2,y2,group\n"
+        "photos/p1.png,72173 WW,temporary,10,10,90,40,g1\n"
+        "photos/p2.png,72173 WW,temporary,10,10,90,40,g1\n",
+        encoding="utf-8",
+    )
+    layout.eval_card.write_text('{"description": "two photos of one car"}', encoding="utf-8")
+    report = validate_data(layout.root)
+    assert report.errors == []
     assert report.counts["eval_images"] == 2
+
+    layout.eval_labels.write_text(
+        "image_path,plate_text,format,x1,y1,x2,y2,group\n"
+        "photos/p1.png,72173 WW,temporary,10,10,90,40,\n",
+        encoding="utf-8",
+    )
+    layout.eval_card.write_text("[1, 2]", encoding="utf-8")
+    messages = " | ".join(i.message for i in validate_data(layout.root).errors)
+    assert "group is empty" in messages
+    assert "must be a JSON object" in messages
+
+    layout.eval_labels.write_text(
+        "image_path,plate_text,format,x1,y1,x2,y2,vehicle\n"
+        "photos/p1.png,72173 WW,temporary,10,10,90,40,a\n",
+        encoding="utf-8",
+    )
+    layout.eval_card.write_text("{not json", encoding="utf-8")
+    messages = " | ".join(i.message for i in validate_data(layout.root).errors)
+    assert "header must be image_path,plate_text,format,x1,y1,x2,y2[,group]" in messages
+    assert "invalid JSON" in messages
 
 
 def test_label_problems_are_errors(layout: DataLayout) -> None:

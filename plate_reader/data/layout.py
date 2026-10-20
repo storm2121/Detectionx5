@@ -12,7 +12,8 @@
     │   ├── train/labels.csv               # crop_path,plate_text,format
     │   └── val/labels.csv
     └── eval/
-        └── labels.csv                     # image_path,plate_text,format,x1,y1,x2,y2
+        ├── labels.csv                     # image_path,plate_text,format,x1,y1,x2,y2[,group]
+        └── card.json                      # optional: counts and words that describe the set
 """
 
 from __future__ import annotations
@@ -25,6 +26,9 @@ SPLITS: Final = ("train", "val")
 IMAGE_SUFFIXES: Final = frozenset({".jpg", ".jpeg", ".png", ".bmp", ".webp"})
 OCR_COLUMNS: Final = ("crop_path", "plate_text", "format")
 EVAL_COLUMNS: Final = ("image_path", "plate_text", "format", "x1", "y1", "x2", "y2")
+#: Optional eighth column of the evaluation CSV: rows that share a group (copies of one
+#: photo, photos of one vehicle) are resampled together by the bootstrap (ADR 0013).
+EVAL_GROUP_COLUMN: Final = "group"
 DETECTOR_CLASS_NAMES: Final = ("LP",)
 
 
@@ -51,6 +55,10 @@ class DataLayout:
     def eval_labels(self) -> Path:
         return self.root / "eval" / "labels.csv"
 
+    @property
+    def eval_card(self) -> Path:
+        return self.root / "eval" / "card.json"
+
     def directories(self) -> list[Path]:
         """Every folder of the layout, for creating an empty skeleton."""
         dirs = [self.root / "eval"]
@@ -63,6 +71,7 @@ class DataLayout:
 __all__ = [
     "DETECTOR_CLASS_NAMES",
     "EVAL_COLUMNS",
+    "EVAL_GROUP_COLUMN",
     "IMAGE_SUFFIXES",
     "OCR_COLUMNS",
     "SPLITS",

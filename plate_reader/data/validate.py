@@ -8,6 +8,7 @@ the set. An empty layout is valid: that is the normal state of the repository.
 from __future__ import annotations
 
 import csv
+import json
 from collections import Counter
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -22,6 +23,7 @@ from ..normalize import parse_plate
 from .layout import (
     DETECTOR_CLASS_NAMES,
     EVAL_COLUMNS,
+    EVAL_GROUP_COLUMN,
     IMAGE_SUFFIXES,
     OCR_COLUMNS,
     SPLITS,
@@ -110,13 +112,17 @@ def _check_plate(report: ValidationReport, where: str, text: str, fmt: str) -> N
 
 
 def _read_csv(
-    report: ValidationReport, path: Path, columns: tuple[str, ...]
+    report: ValidationReport,
+    path: Path,
+    columns: tuple[str, ...],
+    optional: tuple[str, ...] = (),
 ) -> list[dict[str, str]]:
     with path.open(encoding="utf-8-sig", newline="") as handle:
         reader = csv.DictReader(handle)
         header = tuple(reader.fieldnames or ())
-        if header != columns:
-            report.error(path, f"header must be {','.join(columns)} (found {','.join(header)})")
+        if header not in (columns, columns + optional):
+            expected = ",".join(columns) + "".join(f"[,{c}]" for c in optional)
+            report.error(path, f"header must be {expected} (found {','.join(header)})")
             return []
         return [dict(row) for row in reader]
 
@@ -206,8 +212,14 @@ def _validate_ocr(report: ValidationReport, layout: DataLayout) -> None:
 
 
 def validate_eval_csv(report: ValidationReport, path: Path) -> None:
-    """Check one ``image_path,plate_text,format,x1,y1,x2,y2`` file."""
-    for number, row in enumerate(_read_csv(report, path, EVAL_COLUMNS), start=2):
+    """Check one ``image_path,plate_text,format,x1,y1,x2,y2[,group]`` file.
+
+    A photo may carry several plates, one row each; ``eval_images`` counts photos and
+    ``eval_plates`` rows.
+    """
+    photos: set[str] = set()
+    rows = _read_csv(report, path, EVAL_COLUMNS, (EVAL_GROUP_COLUMN,))
+    for number, row in enumerate(rows, start=2):
         where = f"{report._rel(path)}:{number}"
         image_path = path.parent / row["image_path"]
         size = _image_size(image_path) if image_path.is_file() else None
@@ -229,13 +241,26 @@ def validate_eval_csv(report: ValidationReport, path: Path) -> None:
                     report.error(where, "bounding box must satisfy 0 <= x1 < x2 and 0 <= y1 < y2")
                 elif size is not None and (x2 > size[0] or y2 > size[1]):
                     report.error(where, "bounding box exceeds the image")
-        report.counts["eval_images"] += 1
+        if EVAL_GROUP_COLUMN in row and not (row[EVAL_GROUP_COLUMN] or "").strip():
+            report.error(where, "group is empty; name one for every row or drop the column")
+        photos.add(row["image_path"])
+        report.counts["eval_plates"] += 1
+    report.counts["eval_images"] = len(photos)
 
 
 def _validate_eval(report: ValidationReport, layout: DataLayout) -> None:
     report.counts["eval_images"] = 0
+    report.counts["eval_plates"] = 0
     if layout.eval_labels.exists():
         validate_eval_csv(report, layout.eval_labels)
+    if layout.eval_card.exists():
+        try:
+            card = json.loads(layout.eval_card.read_text(encoding="utf-8"))
+        except ValueError as exc:
+            report.error(layout.eval_card, f"invalid JSON: {exc}")
+        else:
+            if not isinstance(card, dict):
+                report.error(layout.eval_card, "the set card must be a JSON object")
 
 
 def validate_data(root: Path) -> ValidationReport:
