@@ -499,7 +499,8 @@ of git: a pre-commit check refuses images, videos and large CSVs under `data/`.
   meant to give.
 - Only the six letters `أ ب د ه و ط` are accepted; other series are rejected by design.
 - The original EasyOCR reader stays as the baseline and for the legacy entry points; it is
-  much weaker than the CRNN on every synthetic set.
+  much weaker than the CRNN on every synthetic set. It has not been run on the street photos
+  yet, so the real-photo tables show the CRNN alone, without its baseline beside it.
 
 ## The original reader
 
