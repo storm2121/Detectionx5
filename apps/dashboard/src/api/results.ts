@@ -44,6 +44,32 @@ export interface RecognizerResult {
   calibrated: boolean
 }
 
+/** What a labelled real set is, in counts and words (data/eval/card.json; ADR 0013). */
+export interface SetCard {
+  description?: string
+  photos?: number
+  boxes?: number
+  camera_photos?: number
+  copies?: Record<string, number>
+  restored?: string
+  detector_overlap?: string
+  transcription?: {
+    passes?: number
+    crops?: number
+    agreed?: number
+    both_readable?: number
+    identical_when_both_readable?: number
+    third_pass?: number
+    accepted_in_third_pass?: number
+    how?: string
+  }
+  text_labels?: number
+  labelled_photos?: number
+  vehicles?: number
+  groups?: number
+  excluded?: Record<string, number>
+}
+
 export interface SetInfo {
   name: string
   kind: string
@@ -53,6 +79,13 @@ export interface SetInfo {
   source?: string
   k?: number
   n_sets?: number
+  /** labelled real sets: photos behind the n items, groups the bootstrap resamples */
+  photos?: number
+  groups?: number
+  plates?: number
+  no_detection?: number
+  note?: string
+  card?: SetCard
 }
 
 export interface BootstrapInfo {
@@ -61,6 +94,18 @@ export interface BootstrapInfo {
   seed: number
   unit: string
   method: string
+  /** a grouped bootstrap: how many groups it resamples, and what the grouped units are */
+  groups?: number
+  grouped_units?: string
+}
+
+/** A set read end to end: where the most confident detection fell. */
+export interface DetectionSummary {
+  photos: number
+  no_detection: number
+  off_plate: number
+  on_plate: Estimate
+  rule: string
 }
 
 export interface FusionCell {
@@ -87,6 +132,7 @@ export interface EvalResult {
   recognizers: Record<string, RecognizerResult>
   comparisons: Record<string, Record<string, Estimate>>
   fusion?: FusionSection
+  detection?: DetectionSummary
   environment: { package_version: string; device: string }
 }
 
@@ -184,6 +230,8 @@ export interface DetectorEvalResult {
   counts?: { images: number | null; plates: number | null; images_with_plates: number | null }
   metrics: { precision: number; recall: number; map50: number; map50_95: number }
   interval: string
+  /** what the set is, in words, for a supplied (real) set */
+  note?: string
 }
 
 /** Metrics where lower is better; the tables say so next to the name. */

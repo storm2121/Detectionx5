@@ -2,11 +2,18 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
-import type { CalibrationResult, EvalResult, FusedCalibrationResult } from '@/api/results'
+import type {
+  CalibrationResult,
+  DetectorEvalResult,
+  EvalResult,
+  FusedCalibrationResult,
+} from '@/api/results'
 import CalibrationCurve from '@/components/CalibrationCurve.vue'
 import ConfusionMatrix from '@/components/ConfusionMatrix.vue'
 import CoverageTable from '@/components/CoverageTable.vue'
+import DetectorComparison from '@/components/DetectorComparison.vue'
 import MetricTable from '@/components/MetricTable.vue'
+import RealSetFacts from '@/components/RealSetFacts.vue'
 import SyntheticNote from '@/components/SyntheticNote.vue'
 import NoticeBlock from '@/components/ui/NoticeBlock.vue'
 import SegmentedControl from '@/components/ui/SegmentedControl.vue'
@@ -48,6 +55,9 @@ const REAL_METRICS = [
 const indexLoaded = ref(false)
 const available = ref<string[]>([])
 const real = ref<EvalResult | null>(null)
+const endToEnd = ref<EvalResult | null>(null)
+const detectorReal = ref<DetectorEvalResult | null>(null)
+const detectorSynthetic = ref<DetectorEvalResult | null>(null)
 const realFocus = ref<string>('crnn-beam')
 const chosen = ref<string>(typeof route.query.set === 'string' ? route.query.set : 'eval_synthetic')
 const evaluation = ref<EvalResult | null>(null)
@@ -75,13 +85,15 @@ const comparisons = (payload: EvalResult | null) =>
   })
 
 const realFocused = computed(() => real.value?.recognizers[realFocus.value] ?? null)
-const realSentence = computed(() => {
-  const set = real.value?.set
-  if (!set) return ''
-  const note = (set as { note?: string }).note
-  const words = countWords(set.n)
-  const head = `${words.charAt(0).toUpperCase()}${words.slice(1)} photos give a wide interval`
-  return note ? `${head}, and the set is ${note}.` : `${head}.`
+const detectionSentence = computed(() => {
+  const detection = endToEnd.value?.detection
+  if (!detection) return ''
+  const missed = countWords(detection.no_detection)
+  const head =
+    `${missed.charAt(0).toUpperCase()}${missed.slice(1)} photos had no detection and in ` +
+    `${countWords(detection.off_plate)} more the most confident detection was not on the ` +
+    'labelled plate; both count as wrong reads.'
+  return `${head} The most confident detection lay on the labelled plate in ${estimate(detection.on_plate, false, 0)} of the photos.`
 })
 const focused = computed(() => evaluation.value?.recognizers[focus.value] ?? null)
 const error = computed(() => results.errors[chosen.value] ?? results.errors.index ?? null)
@@ -126,8 +138,14 @@ watch(chosen, (name) => {
 onMounted(async () => {
   const index = await results.loadIndex()
   indexLoaded.value = true
-  if (index.some((entry) => entry.name === 'eval_data')) {
-    real.value = await results.load<EvalResult>('eval_data')
+  const has = (name: string) => index.some((entry) => entry.name === name)
+  if (has('eval_data')) real.value = await results.load<EvalResult>('eval_data')
+  if (has('eval_data_e2e')) endToEnd.value = await results.load<EvalResult>('eval_data_e2e')
+  if (has('eval_detector_data')) {
+    detectorReal.value = await results.load<DetectorEvalResult>('eval_detector_data')
+  }
+  if (has('eval_detector_synthetic')) {
+    detectorSynthetic.value = await results.load<DetectorEvalResult>('eval_detector_synthetic')
   }
   available.value = index
     .map((entry) => entry.name)
@@ -161,25 +179,56 @@ onMounted(async () => {
       </div>
       <SkeletonBlock v-if="!indexLoaded" kind="table" label="Loading the real-photo results" />
       <template v-else-if="real">
-        <p class="dx-measure dx-secondary">
-          {{ real.set.n }} labelled photos of real cars, each read end to end: the shipped detector
-          finds the plate and the photo is cropped exactly as the service crops it.
-          {{ realSentence }}
-        </p>
-        <MetricTable
-          :columns="columns(real)"
-          :metrics="REAL_METRICS"
-          :column-label="recognizerLabel"
-          :digits="0"
-          :caption="`Real photos, n = ${real.set.n}; letter and region on the standard plates only.`"
-        />
+        <RealSetFacts :real="real" />
+        <div class="dx-columns real-tables">
+          <div class="dx-stack" data-testid="real-labelled">
+            <h3>From the labelled box</h3>
+            <p class="dx-footnote dx-secondary">
+              {{ real.set.n }} plates in {{ real.set.photos ?? real.set.n }} photos, each cut where
+              the service would cut a detection of it.
+            </p>
+            <MetricTable
+              :columns="columns(real)"
+              :metrics="REAL_METRICS"
+              :column-label="recognizerLabel"
+              :digits="0"
+              :caption="`From the labelled box, n = ${real.set.n} plates; letter and region on the standard plates only.`"
+            />
+          </div>
+          <div v-if="endToEnd" class="dx-stack" data-testid="real-end-to-end">
+            <h3>End to end with the detector</h3>
+            <p class="dx-footnote dx-secondary" data-testid="detection-summary">
+              {{ endToEnd.set.n }} photos, the labelled boxes ignored: each photo's most confident
+              detection is read as the service reads it. {{ detectionSentence }}
+            </p>
+            <MetricTable
+              :columns="columns(endToEnd)"
+              :metrics="REAL_METRICS"
+              :column-label="recognizerLabel"
+              :digits="0"
+              :caption="`End to end, n = ${endToEnd.set.n} photos; letter and region on the photos with a standard plate.`"
+            />
+          </div>
+        </div>
         <ul v-if="comparisons(real).length" class="comparisons dx-footnote">
           <li v-for="item in comparisons(real)" :key="item.pair">
-            {{ item.pair.split(' - ').map(recognizerLabel).join(' minus ') }}, exact match:
+            {{ item.pair.split(' - ').map(recognizerLabel).join(' minus ') }}, exact match from the
+            labelled box:
             {{ points(item.difference.value, item.difference.ci_low, item.difference.ci_high) }},
-            paired over the same photos
+            paired over the same plates
           </li>
         </ul>
+        <div v-if="detectorReal" class="dx-stack">
+          <h3>The detector on these photos</h3>
+          <p v-if="detectorReal.note" class="dx-footnote dx-secondary dx-measure">
+            {{ `${detectorReal.note.charAt(0).toUpperCase()}${detectorReal.note.slice(1)}.` }}
+          </p>
+          <DetectorComparison
+            :real="detectorReal"
+            :synthetic="detectorSynthetic"
+            :overlap="real.set.card?.detector_overlap"
+          />
+        </div>
         <div class="charts-head">
           <h3>Calibration and confusions on the real photos</h3>
           <SelectField
@@ -201,9 +250,11 @@ onMounted(async () => {
             caption="Letters on the real photos: rows are the true letter, columns the letter read."
           />
         </div>
-        <p class="dx-footnote dx-secondary dx-measure">
-          The confidence and the conformal sets were calibrated on synthetic plates; on real photos
-          neither holds, which is what these numbers show and why real calibration photos come next.
+        <p class="dx-footnote dx-secondary dx-measure" data-testid="calibration-note">
+          The calibration remains synthetic: the temperature and the conformal thresholds were
+          fitted on synthetic plates and were not refitted on these photos, which are the reporting
+          set. On real plates neither holds, which is what these numbers show; a separate real
+          calibration split comes next.
         </p>
       </template>
       <p v-else class="dx-secondary dx-measure">
@@ -389,6 +440,14 @@ onMounted(async () => {
   align-items: center;
   justify-content: space-between;
   gap: var(--dx-space-2) var(--dx-space-4);
+}
+
+.real-tables h3 {
+  margin: 0;
+}
+
+.real-tables p {
+  margin: 0;
 }
 
 .comparisons {

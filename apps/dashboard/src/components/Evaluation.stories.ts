@@ -2,6 +2,7 @@ import type { Meta, StoryObj } from '@storybook/vue3'
 
 import type {
   CalibrationResult,
+  DetectorEvalResult,
   EvalResult,
   FusedCalibrationResult,
   TrainingResult,
@@ -11,6 +12,9 @@ import { recognizerLabel } from '@/lib/labels'
 import calibration from '@results/calibration_crnn.json'
 import fused from '@results/calibration_fused.json'
 import real from '@results/eval_data.json'
+import endToEnd from '@results/eval_data_e2e.json'
+import detectorReal from '@results/eval_detector_data.json'
+import detectorSynthetic from '@results/eval_detector_synthetic.json'
 import pseudo from '@results/eval_pseudo_real.json'
 import synthetic from '@results/eval_synthetic.json'
 import sweep from '@results/sweep.json'
@@ -19,18 +23,24 @@ import training from '@results/train_crnn.json'
 import CalibrationCurve from './CalibrationCurve.vue'
 import ConfusionMatrix from './ConfusionMatrix.vue'
 import CoverageTable from './CoverageTable.vue'
+import DetectorComparison from './DetectorComparison.vue'
 import MathBlock from './MathBlock.vue'
 import MetricTable from './MetricTable.vue'
+import RealSetFacts from './RealSetFacts.vue'
 import SimToRealGap from './SimToRealGap.vue'
 import SweepTable, { type SweepResult } from './SweepTable.vue'
 import SyntheticNote from './SyntheticNote.vue'
 import TrainingCurve from './TrainingCurve.vue'
 
-// The committed results files. eval_data.json holds the labelled real photos (metrics only);
-// every other file is synthetic, and synthetic results are not real-world accuracy.
+// The committed results files. eval_data.json, eval_data_e2e.json and eval_detector_data.json
+// hold the labelled real photos (metrics and counts only); every other file is synthetic, and
+// synthetic results are not real-world accuracy.
 const SYNTHETIC = synthetic as unknown as EvalResult
 const PSEUDO = pseudo as unknown as EvalResult
 const REAL = real as unknown as EvalResult
+const END_TO_END = endToEnd as unknown as EvalResult
+const DETECTOR_REAL = detectorReal as unknown as DetectorEvalResult
+const DETECTOR_SYNTHETIC = detectorSynthetic as unknown as DetectorEvalResult
 const CALIBRATION = calibration as unknown as CalibrationResult
 const FUSED = fused as unknown as FusedCalibrationResult
 const TRAINING = training as unknown as TrainingResult
@@ -46,7 +56,35 @@ export const RealPhotosTable: Story = {
   render: () => ({
     components: { MetricTable },
     setup: () => ({ columns: columns(REAL), recognizerLabel }),
-    template: `<MetricTable :columns="columns" :metrics="['exact_match', 'digits_accuracy', 'letter_accuracy', 'region_accuracy', 'cer', 'ece', 'coverage']" :column-label="recognizerLabel" :digits="0" caption="Real photos, n = ${REAL.set.n}" />`,
+    template: `<MetricTable :columns="columns" :metrics="['exact_match', 'digits_accuracy', 'letter_accuracy', 'region_accuracy', 'cer', 'ece', 'coverage']" :column-label="recognizerLabel" :digits="0" caption="From the labelled box, n = ${REAL.set.n} plates" />`,
+  }),
+}
+
+export const RealPhotosEndToEnd: Story = {
+  render: () => ({
+    components: { MetricTable },
+    setup: () => ({ columns: columns(END_TO_END), recognizerLabel }),
+    template: `<MetricTable :columns="columns" :metrics="['exact_match', 'digits_accuracy', 'letter_accuracy', 'region_accuracy', 'read_rate', 'cer']" :column-label="recognizerLabel" :digits="0" caption="End to end, n = ${END_TO_END.set.n} photos" />`,
+  }),
+}
+
+export const RealSet: Story = {
+  render: () => ({
+    components: { RealSetFacts },
+    setup: () => ({ real: REAL }),
+    template: '<RealSetFacts :real="real" />',
+  }),
+}
+
+export const DetectorOnRealPhotos: Story = {
+  render: () => ({
+    components: { DetectorComparison },
+    setup: () => ({
+      real: DETECTOR_REAL,
+      synthetic: DETECTOR_SYNTHETIC,
+      overlap: REAL.set.card?.detector_overlap,
+    }),
+    template: '<DetectorComparison :real="real" :synthetic="synthetic" :overlap="overlap" />',
   }),
 }
 

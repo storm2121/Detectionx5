@@ -22,6 +22,7 @@ const pseudoReal = ref<EvalResult | null>(null)
 const real = ref<EvalResult | null>(null)
 const sweep = ref<SweepResult | null>(null)
 const detectorEval = ref<DetectorEvalResult | null>(null)
+const detectorReal = ref<DetectorEvalResult | null>(null)
 const loaded = ref(false)
 
 const models = computed(() => service.models)
@@ -54,6 +55,9 @@ onMounted(async () => {
   if (has('sweep')) sweep.value = await results.load<SweepResult>('sweep')
   if (has('eval_detector_synthetic')) {
     detectorEval.value = await results.load<DetectorEvalResult>('eval_detector_synthetic')
+  }
+  if (has('eval_detector_data')) {
+    detectorReal.value = await results.load<DetectorEvalResult>('eval_detector_data')
   }
   loaded.value = true
 })
@@ -160,6 +164,24 @@ onMounted(async () => {
                 >, ONNX Runtime, YOLOv10n with its NMS-free one-to-one head
               </td>
             </tr>
+            <template v-if="detectorReal">
+              <tr>
+                <th scope="row">On the held-out street photos</th>
+                <td data-testid="detector-eval-real">
+                  mAP@50 {{ fixed(detectorReal.metrics.map50, 3) }}, mAP@50-95
+                  {{ fixed(detectorReal.metrics.map50_95, 3) }}, precision
+                  {{ fixed(detectorReal.metrics.precision, 3) }}, recall
+                  {{ fixed(detectorReal.metrics.recall, 3) }} on
+                  {{ integer(detectorReal.counts?.images) }} photos holding
+                  {{ integer(detectorReal.counts?.plates) }} plates; one Ultralytics pass, so no
+                  interval.
+                  <template v-if="real?.set.card?.detector_overlap">
+                    Not an independent measurement:
+                    {{ real.set.card.detector_overlap }}.
+                  </template>
+                </td>
+              </tr>
+            </template>
             <template v-if="detectorEval">
               <tr>
                 <th scope="row">On synthetic street scenes</th>

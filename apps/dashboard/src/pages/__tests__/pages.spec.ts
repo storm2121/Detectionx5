@@ -7,6 +7,8 @@ import { setFetch } from '@/api/client'
 import calibration from '@results/calibration_crnn.json'
 import fused from '@results/calibration_fused.json'
 import real from '@results/eval_data.json'
+import endToEnd from '@results/eval_data_e2e.json'
+import detectorReal from '@results/eval_detector_data.json'
 import detectorEval from '@results/eval_detector_synthetic.json'
 import evaluation from '@results/eval_synthetic.json'
 import training from '@results/train_crnn.json'
@@ -58,7 +60,9 @@ const common = [
       'calibration_fused',
       'train_crnn',
       'eval_detector_synthetic',
+      'eval_detector_data',
       'eval_data',
+      'eval_data_e2e',
     ].map((name) => ({
       name,
       schema: null,
@@ -71,6 +75,8 @@ const common = [
   { path: '/api/results/train_crnn', body: training },
   { path: '/api/results/eval_detector_synthetic', body: detectorEval },
   { path: '/api/results/eval_data', body: real },
+  { path: '/api/results/eval_data_e2e', body: endToEnd },
+  { path: '/api/results/eval_detector_data', body: detectorReal },
 ]
 
 afterEach(() => setFetch(null))
@@ -157,10 +163,29 @@ describe('the console', () => {
     expect(wrapper.find('[data-testid="fusion-comparison"]').exists()).toBe(true)
     expect(wrapper.findAll('[data-testid="coverage-table"]')).toHaveLength(2)
     expect(wrapper.text()).toContain('Synthetic results are not real-world accuracy.')
-    // the real photos come first, with their n and the honest sentence about them
+    // the real photos come first: what the set is, from the box and end to end side by side
     const section = wrapper.get('[data-testid="real-photos"]')
-    expect(section.text()).toContain(`${real.set.n} labelled photos of real cars`)
-    expect(section.text()).toContain('photos give a wide interval')
+    const card = real.set.card
+    expect(section.text()).toContain(`${card.photos} photos holding ${card.boxes} labelled plates`)
+    expect(section.text()).toContain(`one of ${card.camera_photos} camera photos`)
+    expect(section.get('[data-testid="detector-overlap"]').text()).toContain(
+      'The detector has seen these scenes.',
+    )
+    expect(section.text()).toContain(`resample the ${real.bootstrap.groups} vehicle groups`)
+    expect(section.get('[data-testid="real-labelled"]').text()).toContain(
+      `${real.set.n} plates in ${real.set.photos} photos`,
+    )
+    const whole = section.get('[data-testid="real-end-to-end"]').text()
+    expect(whole).toContain(`${endToEnd.set.n} photos, the labelled boxes ignored`)
+    expect(section.get('[data-testid="detection-summary"]').text()).toContain('had no detection')
+    const detector = section.get('[data-testid="detector-comparison"]').text()
+    expect(detector).toContain(`Street photos (n = ${detectorReal.counts.images} photos`)
+    expect(detector).toContain(`Synthetic street scenes (n = ${detectorEval.counts.images} scenes)`)
+    expect(detector).toContain('Synthetic results are not real-world accuracy.')
+    expect(section.get('[data-testid="calibration-note"]').text()).toContain(
+      'The calibration remains synthetic',
+    )
+    expect(section.text()).toContain('a separate real calibration split comes next')
     const first = wrapper.findAll('h2').map((h) => h.text())
     expect(first.indexOf('Real photos')).toBeLessThan(
       first.indexOf('Development and synthetic harness'),
@@ -174,12 +199,16 @@ describe('the console', () => {
     expect(wrapper.get('[data-testid="model-version"]').text()).toBe('crnn-test')
     expect(wrapper.find('[data-testid="registry-table"]').text()).toContain('Active')
     const gap = wrapper.get('[data-testid="sim-to-real"]').text()
-    expect(gap).toContain(`Real photos (n = ${real.set.n})`)
+    expect(gap).toContain(`Real plates (n = ${real.set.n})`)
     expect(gap).toContain('points lower on real photos')
     expect(wrapper.find('[data-testid="training-curve"]').exists()).toBe(true)
     const detector = wrapper.get('[data-testid="detector-eval"]').text()
     expect(detector).toContain(detectorEval.metrics.map50.toFixed(3))
     expect(detector).toContain('mAP@50-95')
+    const onPhotos = wrapper.get('[data-testid="detector-eval-real"]').text()
+    expect(onPhotos).toContain(detectorReal.metrics.map50.toFixed(3))
+    expect(onPhotos).toContain(`${detectorReal.counts.images} photos holding`)
+    expect(onPhotos).toContain('Not an independent measurement')
     expect(wrapper.get('[data-testid="detector-card"]').text()).toContain(
       'Synthetic results are not real-world accuracy.',
     )

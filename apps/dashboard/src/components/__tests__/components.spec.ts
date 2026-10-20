@@ -296,7 +296,7 @@ describe('results views', () => {
       attachTo: document.body,
     })
     expect(wrapper.text()).toContain(`Synthetic test set (n = ${EVAL.set.n})`)
-    expect(wrapper.text()).toContain(`Real photos (n = ${REAL.set.n})`)
+    expect(wrapper.text()).toContain(`Real plates (n = ${REAL.set.n})`)
     expect(wrapper.text()).toContain('points lower on real photos')
     expect(wrapper.findAll('g.bar')).toHaveLength(Object.keys(REAL.recognizers).length * 2)
     wrapper.unmount()

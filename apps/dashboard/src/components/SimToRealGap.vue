@@ -147,15 +147,15 @@ watch(rows, () => draw(true))
     <div class="dx-scroll-x" role="region" aria-label="Sim-to-real gap" tabindex="0">
       <table class="dx-table">
         <caption>
-          Exact match of each recogniser on the synthetic test set and on the labelled real photos,
-          with 95% bootstrap intervals.
+          Exact match of each recogniser on the synthetic test set and on the labelled plates of the
+          real photos, read from their labelled boxes, with 95% bootstrap intervals.
         </caption>
         <thead>
           <tr>
             <th scope="col">Recogniser</th>
             <th scope="col">Synthetic test set (n = {{ nSynthetic }})</th>
             <th scope="col">
-              Real photos<template v-if="nReal"> (n = {{ nReal }})</template>
+              Real plates<template v-if="nReal"> (n = {{ nReal }})</template>
             </th>
             <th v-if="pseudoReal" scope="col">Pseudo-real set (n = {{ pseudoReal.set.n }})</th>
             <th scope="col">Gap</th>
@@ -219,7 +219,7 @@ watch(rows, () => draw(true))
             {{ nSynthetic }}
           </li>
           <li v-if="nReal">
-            <span class="key real" aria-hidden="true" />Real photos, n = {{ nReal }}
+            <span class="key real" aria-hidden="true" />Real plates, n = {{ nReal }}
           </li>
           <li><span class="key whisker" aria-hidden="true" />95% interval</li>
         </ul>
