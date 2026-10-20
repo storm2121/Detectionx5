@@ -88,11 +88,21 @@ def command(
         str | None,
         typer.Option(help="what the set is, in words; kept in the results and shown beside them"),
     ] = None,
+    detect: Annotated[
+        bool,
+        typer.Option(
+            "--detect",
+            help="with --set data: ignore the labelled boxes and read each photo end to end "
+            "with the shipped ONNX detector (results/eval_data_e2e.json)",
+        ),
+    ] = False,
 ) -> None:
     from ..eval import harness, recognizers, report, sets
     from ..eval.cache import ReadCache
     from ..settings import PROJECT_ROOT, get_settings
 
+    if detect and (set_name != SetName.data or crops is not None):
+        raise typer.BadParameter("--detect reads labelled photos: use it with --set data")
     settings = get_settings()
     names = recognizer or ["easyocr"]
     use_gpu = device == Device.cuda or (device == Device.auto and recognizers.cuda_available())
@@ -111,9 +121,16 @@ def command(
         eval_set = sets.pseudo_real_set(n)
         result_name = "eval_pseudo_real"
     elif set_name == SetName.data:
-        detect = _detector_for_photos(settings)
-        eval_set = sets.data_set(data_dir or settings.data_dir, detect=detect)
-        result_name = "eval_data" if eval_set.kind == "data" else f"eval_data_{eval_set.kind}"
+        detector = _detector_for_photos(settings)
+        if detect:
+            if detector is None:
+                raise typer.BadParameter("--detect needs the ONNX detector (plate export detector)")
+            eval_set = sets.data_photos_set(data_dir or settings.data_dir, detector)
+            base = "eval_data_e2e"
+        else:
+            eval_set = sets.data_set(data_dir or settings.data_dir, detect=detector)
+            base = "eval_data"
+        result_name = base if eval_set.kind == "data" else f"{base}_{eval_set.kind}"
         if not eval_set.items:
             typer.echo("no labelled photos under data/eval (the placeholder is empty)", err=True)
             raise typer.Exit(1)

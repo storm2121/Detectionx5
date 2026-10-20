@@ -4,6 +4,10 @@ Results are written to ``results/eval_<set>.json`` without timestamps or machine
 re-running an unchanged evaluation reproduces the file and the README (which renders from
 it) does not drift. Every payload carries its set kind, n, the bootstrap description and
 each recogniser's version, and synthetic payloads carry the synthetic label.
+
+A photo read end to end where the detector found nothing has no crop; it is scored as a read
+that returned nothing (no plate, no confidence, an empty set when the recogniser makes
+sets), never dropped, so a missed plate costs what it costs the service.
 """
 
 from __future__ import annotations
@@ -54,6 +58,12 @@ def _progress_printer(total: int, label: str) -> Callable[[int], None]:
     return report
 
 
+def nothing_read(recognizer: Recognizer) -> ViewRead:
+    """The read of a photo without a crop: no plate, and an empty set if sets are made."""
+    makes_sets = getattr(recognizer, "conformal_threshold", None) is not None
+    return ViewRead(prediction_set=() if makes_sets else None, latency_ms=float("nan"))
+
+
 def read_all(
     items: Sequence[Any],
     recognizers: Sequence[Recognizer],
@@ -65,6 +75,12 @@ def read_all(
     warmed: set[str] = set()
     report = _progress_printer(len(items), label)
     for done, item in enumerate(items, start=1):
+        if item.image.size == 0:
+            for recognizer in recognizers:
+                reads[recognizer.name].append(nothing_read(recognizer))
+            if not quiet:
+                report(done)
+            continue
         for recognizer in recognizers:
             cacheable = cache is not None and bool(getattr(recognizer, "cacheable", False))
             key = (
@@ -186,6 +202,23 @@ def set_header(eval_set: EvalSet) -> dict[str, Any]:
     return {"name": eval_set.name, "kind": eval_set.kind, "n": len(eval_set.items), **eval_set.info}
 
 
+def detection_summary(eval_set: EvalSet, bootstrap: Bootstrap) -> dict[str, Any] | None:
+    """For a set read end to end: how often the read crop lies on a labelled plate."""
+    flags = [item.meta.get("on_plate") for item in eval_set.items]
+    if not flags or any(flag is None for flag in flags):
+        return None
+    on_plate = np.asarray(flags, dtype=np.float64)
+    missed = sum(1 for item in eval_set.items if item.image.size == 0)
+    return {
+        "photos": len(flags),
+        "no_detection": missed,
+        "off_plate": int(len(flags) - missed - on_plate.sum()),
+        "on_plate": bootstrap.mean(on_plate).as_dict(),
+        "rule": "the most confident detection overlaps the labelled plate's padded box by at "
+        "least one half (intersection over union)",
+    }
+
+
 def build_payload(
     eval_set: EvalSet,
     recognizers: Sequence[Recognizer],
@@ -199,12 +232,16 @@ def build_payload(
     quiet: bool = False,
     cache: ReadCache | None = None,
 ) -> dict[str, Any]:
-    bootstrap = Bootstrap(len(eval_set.items), resamples, confidence, seed)
+    groups = [item.group for item in eval_set.items] if eval_set.grouped else None
+    bootstrap = Bootstrap(len(eval_set.items), resamples, confidence, seed, groups=groups)
     payload: dict[str, Any] = {"schema": SCHEMA}
     if eval_set.kind != "data":
         payload["label"] = SYNTHETIC_LABEL
     payload["set"] = set_header(eval_set)
     payload["bootstrap"] = bootstrap.describe("image")
+    detection = detection_summary(eval_set, bootstrap)
+    if detection is not None:
+        payload["detection"] = detection
     # When the evaluated set is the multi-view set itself, read it once for both tables.
     shared = (
         read_all(eval_set.items, recognizers, eval_set.name, quiet, cache)
@@ -248,8 +285,10 @@ __all__ = [
     "DEFAULT_KS",
     "SCHEMA",
     "build_payload",
+    "detection_summary",
     "evaluate_fusion",
     "evaluate_recognizers",
+    "nothing_read",
     "read_all",
     "set_header",
     "write_payload",
