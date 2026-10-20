@@ -266,8 +266,11 @@ Set coverage is the share of truths inside the conformal set at the level fixed 
 ## Limitations
 
 - Trained and calibrated on synthetic plates only, and measured on real photos only
-  through a small private set, whose intervals are wide. The pseudo-real set is still
-  synthetic; it only shows how quickly accuracy falls under harder conditions.
+  through one private set of held-out street photos: augmented copies of fewer camera
+  photos, several of the same vehicles, with the plates nobody can read left out, so its
+  intervals resample vehicles and stay wide. The calibration remains synthetic until a
+  separate real calibration split is labelled. The pseudo-real set is still synthetic; it
+  only shows how quickly accuracy falls under harder conditions.
 - The conformal guarantee assumes the calibration and test images are exchangeable. Real
   photos are not exchangeable with synthetic ones, so the stated coverage does not carry
   over to real data until the thresholds are refitted on real labelled crops.
